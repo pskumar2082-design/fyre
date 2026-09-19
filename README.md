@@ -98,3 +98,5 @@ paywalled on the sites checked.
   URL is safe to put directly on the page.
 - `revalidate = 30` on the home page means new content shows up within 30
   seconds without needing a full redeploy.
+
+<!-- redeploy trigger: verifying env vars -->
