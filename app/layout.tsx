@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
+import MobileNav from '@/components/MobileNav';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -12,7 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="font-body">
-        <header className="sticky top-0 z-50 bg-gradient-to-b from-bg via-bg/95 to-bg/0 pb-6">
+        <header className="sticky top-0 z-50 bg-gradient-to-b from-bg via-bg/95 to-bg/0 pb-6 relative">
           <div className="max-w-6xl mx-auto flex items-center justify-between px-5 pt-3.5">
             <Link href="/" className="flex items-center gap-2">
               <Image src="/logo.png" alt="fyre" width={88} height={36} priority className="h-9 w-auto" />
@@ -24,16 +25,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/#reviews" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Reviews</Link>
               <Link href="/#upcoming" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Upcoming</Link>
             </nav>
-            <Link
-              href="/search"
-              className="flex items-center gap-1.5 text-xs font-semibold text-white bg-gradient-to-r from-brandPurple via-gold to-brandPink rounded-full px-3.5 py-2 hover:opacity-90 transition"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              Search
-            </Link>
+            <div className="flex items-center gap-2">
+              <MobileNav />
+              <Link
+                href="/search"
+                className="flex items-center gap-1.5 text-xs font-semibold text-white bg-gradient-to-r from-brandPurple via-gold to-brandPink rounded-full px-3.5 py-2 hover:opacity-90 transition"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Search
+              </Link>
+            </div>
           </div>
         </header>
 
