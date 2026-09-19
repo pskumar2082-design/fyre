@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import BreakdownTable, { type BreakdownRow } from '@/components/BreakdownTable';
+import VersionSelector, { type VersionRow } from '@/components/VersionSelector';
 
 export const revalidate = 0;
 
@@ -193,15 +194,7 @@ export default async function MovieDetailPage({
             <span className="w-1.5 h-1.5 rounded-full bg-gold" />
             <h2 className="hdisplay text-xl">Version-wise Collections</h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {versionRows.map((v: any) => (
-              <div key={v.id} className="bg-surface border border-border rounded-2xl p-4">
-                <div className="text-textFaint text-[10px] uppercase tracking-wide mb-1">{v.language}</div>
-                <div className="hdisplay text-lg text-goldBright">{v.net_collection ?? '—'}</div>
-                {v.verdict && <div className="text-xs text-textDim mt-1">{v.verdict}</div>}
-              </div>
-            ))}
-          </div>
+          <VersionSelector versions={versionRows as VersionRow[]} />
         </div>
       )}
 
