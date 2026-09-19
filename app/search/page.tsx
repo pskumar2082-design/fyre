@@ -84,7 +84,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       {results.liveBoxOffice.length > 0 && (
         <ResultSection title="Box office">
           {results.liveBoxOffice.map((m) => (
-            <ResultRow key={m.id} href="/#boxoffice" title={m.title} meta={`₹${Number(m.amt).toFixed(1)} Cr`} />
+            <ResultRow key={m.id} href="/box-office" title={m.title} meta={`₹${Number(m.amt).toFixed(1)} Cr`} />
           ))}
         </ResultSection>
       )}
@@ -100,7 +100,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       {results.upcoming.length > 0 && (
         <ResultSection title="Upcoming">
           {results.upcoming.map((u) => (
-            <ResultRow key={u.id} href="/#upcoming" title={u.title} meta={u.release_date} />
+            <ResultRow key={u.id} href="/upcoming" title={u.title} meta={u.release_date} />
           ))}
         </ResultSection>
       )}

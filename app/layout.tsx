@@ -20,10 +20,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span className="hidden sm:inline text-textFaint text-xs">All about cinema</span>
             </Link>
             <nav className="hidden md:flex gap-2 text-sm">
-              <Link href="/#news" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Movie news</Link>
-              <Link href="/#boxoffice" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Box office</Link>
-              <Link href="/#reviews" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Reviews</Link>
-              <Link href="/#upcoming" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Upcoming</Link>
+              <Link href="/news" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Movie news</Link>
+              <Link href="/now-showing" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Now showing</Link>
+              <Link href="/box-office" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Box office</Link>
+              <Link href="/reviews" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Reviews</Link>
+              <Link href="/upcoming" className="bg-surface border border-border rounded-full px-4 py-1.5 text-textDim hover:text-goldBright hover:border-gold transition">Upcoming</Link>
             </nav>
             <div className="flex items-center gap-2">
               <MobileNav />

@@ -143,7 +143,7 @@ const SECTIONS: SectionConfig[] = [
         key: 'source_url',
         label: 'Box office source (optional)',
         kind: 'text',
-        placeholder: 'Sacnilk day-wise article URL — enables the Sync now button below'
+        placeholder: 'Sacnilk day-wise article URL — enables the Refresh button below'
       },
       { key: 'release_date', label: 'Release date', kind: 'date' },
       { key: 'language', label: 'Language', kind: 'text', placeholder: 'Language (e.g. Hindi, Telugu)' },
@@ -515,11 +515,13 @@ function Dashboard({ section }: { section: SectionConfig }) {
     }
   }
 
-  // Checks Sacnilk's public box-office listing for movies we don't have
-  // yet and adds them (see lib/discoverMovies.ts) — the same discovery
-  // step the daily cron runs, available here so you don't have to wait
-  // for the schedule. Reuses the same admin-authorized route as "Sync
-  // now", just without a movie_id, which is what turns discovery on.
+  // Runs the exact same full pipeline the daily cron already runs on its
+  // own every day (see vercel.json + app/api/sync-boxoffice/route.ts):
+  // finds new movies, syncs day-wise collections, and syncs each movie's
+  // profile page — for EVERY tracked movie in one go. This button exists
+  // so you can trigger that immediately instead of waiting for the
+  // schedule; you should never need to click "Sync now" on individual
+  // rows below unless you're troubleshooting one specific movie.
   async function handleDiscover() {
     setDiscovering(true);
     setSyncMessage('');
@@ -679,16 +681,22 @@ function Dashboard({ section }: { section: SectionConfig }) {
       </form>
 
       {(section.key === 'now_showing' || section.key === 'upcoming') && (
-        <div className="flex items-center gap-3 mb-3">
-          <button
-            type="button"
-            onClick={handleDiscover}
-            disabled={discovering}
-            className="text-xs font-semibold text-goldBright border border-gold/30 rounded-full px-3 py-1.5 hover:border-gold transition disabled:opacity-50"
-          >
-            {discovering ? 'Checking Sacnilk…' : 'Find new movies'}
-          </button>
-          {syncMessage && <p className="text-xs text-textDim">{syncMessage}</p>}
+        <div className="mb-3">
+          <p className="text-xs text-textFaint mb-2">
+            This runs automatically every day — new movies, day-wise collections and profile data all sync
+            on their own. Use this button only to trigger that right now instead of waiting for the schedule.
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleDiscover}
+              disabled={discovering}
+              className="text-xs font-semibold text-goldBright border border-gold/30 rounded-full px-3 py-1.5 hover:border-gold transition disabled:opacity-50"
+            >
+              {discovering ? 'Syncing everything…' : 'Sync everything now'}
+            </button>
+            {syncMessage && <p className="text-xs text-textDim">{syncMessage}</p>}
+          </div>
         </div>
       )}
 
@@ -712,7 +720,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
                   disabled={syncingId === item.id}
                   className="text-goldBright disabled:opacity-50"
                 >
-                  {syncingId === item.id ? 'Syncing…' : 'Sync now'}
+                  {syncingId === item.id ? 'Refreshing…' : 'Refresh'}
                 </button>
               )}
               <button onClick={() => startEdit(item)} className="text-goldBright">

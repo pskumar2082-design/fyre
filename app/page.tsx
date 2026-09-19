@@ -1,35 +1,33 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
+import MovieCard from '@/components/MovieCard';
+import { isInTheaters, titleWithYear } from '@/lib/movieStatus';
 
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
 
 async function getData() {
-  const [{ data: news }, { data: reviews }, { data: liveBoxOffice }, { data: nowShowing }, { data: upcoming }] =
+  const [{ data: news }, { data: reviews }, { data: liveBoxOffice }, { data: nowShowingRaw }, { data: upcoming }] =
     await Promise.all([
       supabase.from('news').select('*').order('created_at', { ascending: false }).limit(12),
       supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(9),
       supabase.from('live_box_office').select('*').order('created_at', { ascending: false }).limit(10),
-      supabase.from('now_showing').select('*').order('created_at', { ascending: false }).limit(10),
+      // Fetched unlimited (well past what any "in theaters" set will ever
+      // hold) and filtered below to movies still within their theatrical
+      // window -- a plain .limit() here could easily cut off before we'd
+      // even gotten to the still-running ones once the table has a few
+      // months of history in it.
+      supabase.from('now_showing').select('*').order('release_date', { ascending: false }).limit(200),
       supabase.from('upcoming').select('*').order('release_date', { ascending: true }).limit(8)
     ]);
+  const nowShowing = (nowShowingRaw ?? []).filter((m: any) => isInTheaters(m.release_date)).slice(0, 10);
   return {
     news: news ?? [],
     reviews: reviews ?? [],
     liveBoxOffice: liveBoxOffice ?? [],
-    nowShowing: nowShowing ?? [],
+    nowShowing,
     upcoming: upcoming ?? []
   };
-}
-
-// Movies can share a title (a dubbed re-release, a same-named remake, or
-// just two different films) -- appending the release year wherever a
-// now_showing title is displayed keeps those apart at a glance without
-// needing to open the movie.
-function titleWithYear(title: string, releaseDate: string | null | undefined) {
-  if (!releaseDate) return title;
-  const year = new Date(releaseDate).getFullYear();
-  return Number.isNaN(year) ? title : `${title} (${year})`;
 }
 
 export default async function HomePage() {
@@ -121,38 +119,34 @@ export default async function HomePage() {
       <div className="max-w-6xl mx-auto px-5">
         {/* NOW SHOWING (tap a poster to open its full box-office breakdown page) */}
         <section id="boxoffice" className="mt-6">
-          <div className="flex items-center gap-2 mb-5">
-            <span className="w-1.5 h-1.5 rounded-full bg-gold" />
-            <h2 className="hdisplay text-2xl">Now showing</h2>
+          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+              <h2 className="hdisplay text-2xl">Now showing</h2>
+            </div>
+            <div className="flex items-center gap-4 text-xs font-semibold">
+              <Link href="/now-showing" className="text-goldBright hover:underline">See all in theaters →</Link>
+              <Link href="/box-office" className="text-textDim hover:text-goldBright transition">Full box office archive →</Link>
+            </div>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-3">
             {nowShowing.length === 0 && (
               <p className="text-textFaint text-sm">No entries yet — add some from the admin panel.</p>
             )}
             {nowShowing.map((m: any, i: number) => (
-              <Link key={m.id} href={`/now-showing/${m.id}`} className="flex-none w-40 group">
-                <div className="w-40 h-56 rounded-2xl bg-surface2 border border-border relative overflow-hidden flex items-end p-2.5 group-hover:border-gold transition">
-                  {m.image_url && <Image src={m.image_url} alt="" fill className="object-cover object-top transition duration-300 group-hover:scale-105" />}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
-                  <span className="absolute top-2.5 left-2.5 text-[11px] font-bold bg-bg/80 backdrop-blur text-textDim px-2 py-1 rounded-lg">
-                    #{i + 1}
-                  </span>
-                  {m.status && (
-                    <span className="relative text-xs font-bold bg-gold text-white px-2 py-1 rounded-lg">{m.status}</span>
-                  )}
-                </div>
-                <div className="text-sm font-medium mt-2.5 truncate">{titleWithYear(m.title, m.release_date)}</div>
-                {m.amt && <div className="text-xs text-goldBright font-semibold mt-0.5">{m.amt}</div>}
-              </Link>
+              <MovieCard key={m.id} movie={m} rank={i + 1} />
             ))}
           </div>
         </section>
 
         {/* NEWS */}
         <section id="news" className="mt-16">
-          <div className="flex items-center gap-2 mb-5">
-            <span className="w-1.5 h-1.5 rounded-full bg-gold" />
-            <h2 className="hdisplay text-2xl">Latest from the industry</h2>
+          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+              <h2 className="hdisplay text-2xl">Latest from the industry</h2>
+            </div>
+            <Link href="/news" className="text-goldBright text-xs font-semibold hover:underline">See all →</Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {news.length === 0 && <p className="text-textFaint text-sm">No stories yet.</p>}
@@ -179,9 +173,12 @@ export default async function HomePage() {
 
         {/* REVIEWS */}
         <section id="reviews" className="mt-16">
-          <div className="flex items-center gap-2 mb-5">
-            <span className="w-1.5 h-1.5 rounded-full bg-gold" />
-            <h2 className="hdisplay text-2xl">Fresh reviews</h2>
+          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+              <h2 className="hdisplay text-2xl">Fresh reviews</h2>
+            </div>
+            <Link href="/reviews" className="text-goldBright text-xs font-semibold hover:underline">See all →</Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {reviews.length === 0 && <p className="text-textFaint text-sm">No reviews yet.</p>}
@@ -206,9 +203,12 @@ export default async function HomePage() {
 
         {/* UPCOMING */}
         <section id="upcoming" className="mt-16 pb-16">
-          <div className="flex items-center gap-2 mb-5">
-            <span className="w-1.5 h-1.5 rounded-full bg-gold" />
-            <h2 className="hdisplay text-2xl">Upcoming releases</h2>
+          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+              <h2 className="hdisplay text-2xl">Upcoming releases</h2>
+            </div>
+            <Link href="/upcoming" className="text-goldBright text-xs font-semibold hover:underline">See all →</Link>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-3">
             {upcoming.length === 0 && <p className="text-textFaint text-sm">No upcoming releases yet.</p>}

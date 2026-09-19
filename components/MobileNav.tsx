@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 const LINKS = [
-  { href: '/#news', label: 'Movie news' },
-  { href: '/#boxoffice', label: 'Box office' },
-  { href: '/#reviews', label: 'Reviews' },
-  { href: '/#upcoming', label: 'Upcoming' }
+  { href: '/news', label: 'Movie news' },
+  { href: '/now-showing', label: 'Now showing' },
+  { href: '/box-office', label: 'Box office' },
+  { href: '/reviews', label: 'Reviews' },
+  { href: '/upcoming', label: 'Upcoming' }
 ];
 
 export default function MobileNav() {

@@ -74,7 +74,7 @@ export default async function MovieDetailPage({
   return (
     <div className="max-w-6xl mx-auto px-5 py-8">
       <div className="flex items-center justify-between gap-3">
-        <Link href="/#boxoffice" className="text-goldBright text-sm font-semibold">
+        <Link href="/now-showing" className="text-goldBright text-sm font-semibold">
           ← Back to Now showing
         </Link>
         <Link
