@@ -355,6 +355,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
   // for the now_showing section's "Sync now" button (see /api/admin-sync-boxoffice)
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState('');
+  const [discovering, setDiscovering] = useState(false);
 
   const referenceFields = section.fields.filter((f): f is Extract<Field, { kind: 'reference' }> => f.kind === 'reference');
 
@@ -511,6 +512,39 @@ function Dashboard({ section }: { section: SectionConfig }) {
     }
   }
 
+  // Checks Sacnilk's public box-office listing for movies we don't have
+  // yet and adds them (see lib/discoverMovies.ts) — the same discovery
+  // step the daily cron runs, available here so you don't have to wait
+  // for the schedule. Reuses the same admin-authorized route as "Sync
+  // now", just without a movie_id, which is what turns discovery on.
+  async function handleDiscover() {
+    setDiscovering(true);
+    setSyncMessage('');
+    try {
+      const { data } = await supabase.auth.getSession();
+      const res = await fetch('/api/admin-sync-boxoffice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
+        body: JSON.stringify({})
+      });
+      const result = await res.json();
+      if (result.error) {
+        setSyncMessage(`Discovery failed: ${result.error}`);
+      } else if (result.discovered?.length) {
+        setSyncMessage(`Added ${result.discovered.length} new movie${result.discovered.length === 1 ? '' : 's'}: ${result.discovered.join(', ')}`);
+      } else if (result.discoveryErrors?.length) {
+        setSyncMessage(`Discovery failed: ${result.discoveryErrors[0].message}`);
+      } else {
+        setSyncMessage('No new movies found.');
+      }
+      loadItems();
+    } catch (err: any) {
+      setSyncMessage(`Discovery failed: ${err?.message ?? err}`);
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
   return (
     <div>
       <p className="text-textFaint text-xs mb-6">
@@ -630,7 +664,19 @@ function Dashboard({ section }: { section: SectionConfig }) {
         )}
       </form>
 
-      {section.key === 'now_showing' && syncMessage && <p className="text-xs text-textDim mb-3">{syncMessage}</p>}
+      {section.key === 'now_showing' && (
+        <div className="flex items-center gap-3 mb-3">
+          <button
+            type="button"
+            onClick={handleDiscover}
+            disabled={discovering}
+            className="text-xs font-semibold text-goldBright border border-gold/30 rounded-full px-3 py-1.5 hover:border-gold transition disabled:opacity-50"
+          >
+            {discovering ? 'Checking Sacnilk…' : 'Find new movies'}
+          </button>
+          {syncMessage && <p className="text-xs text-textDim">{syncMessage}</p>}
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         {items.length === 0 && <p className="text-textFaint text-sm">Nothing here yet.</p>}

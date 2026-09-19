@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { syncBoxOffice } from '@/lib/syncBoxOffice';
+import { discoverMovies } from '@/lib/discoverMovies';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -26,6 +27,11 @@ export async function GET(req: NextRequest) {
   }
 
   const movieId = req.nextUrl.searchParams.get('movie_id') ?? undefined;
+
+  // Only look for brand-new movies on a regular full run, not when this
+  // was called to re-sync one specific movie.
+  const discovery = movieId ? { added: [] as string[], errors: [] as { title: string; message: string }[] } : await discoverMovies();
+
   const result = await syncBoxOffice(movieId);
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, discovered: discovery.added, discoveryErrors: discovery.errors });
 }
