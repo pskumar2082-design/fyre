@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { syncBoxOffice } from '@/lib/syncBoxOffice';
+import { syncMovieProfiles } from '@/lib/syncMovieProfiles';
 import { discoverMovies } from '@/lib/discoverMovies';
 import { discoverUpcoming } from '@/lib/discoverUpcoming';
 
@@ -37,11 +38,14 @@ export async function POST(req: NextRequest) {
     : await discoverUpcoming();
 
   const result = await syncBoxOffice(movieId);
+  const profileResult = await syncMovieProfiles(movieId);
   return NextResponse.json({
     ...result,
     discovered: discovery.added,
     discoveryErrors: discovery.errors,
     discoveredUpcoming: upcomingDiscovery.added,
-    upcomingDiscoveryErrors: upcomingDiscovery.errors
+    upcomingDiscoveryErrors: upcomingDiscovery.errors,
+    profilesSynced: profileResult.synced,
+    profileErrors: profileResult.errors
   });
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { syncBoxOffice } from '@/lib/syncBoxOffice';
+import { syncMovieProfiles } from '@/lib/syncMovieProfiles';
 import { discoverMovies } from '@/lib/discoverMovies';
 import { discoverUpcoming } from '@/lib/discoverUpcoming';
 
@@ -10,7 +11,11 @@ export const maxDuration = 60;
 // public article, and updates:
 //   - daily_collections (full day-by-day history, upserted per day number)
 //   - now_showing.lifetime_gross / lifetime_shows / lifetime_occupancy / amt
-//     (best-effort — see lib/sacnilkParser.ts for exactly what's parsed)
+//     (best-effort -- see lib/sacnilkParser.ts for exactly what's parsed)
+// Then, for every now_showing row that has a `sacnilk_slug`, reads that
+// movie's own profile page and updates the richer synopsis/Key
+// Details/Release Information/Total Collections Summary/version-wise
+// fields (see lib/syncMovieProfiles.ts).
 //
 // This is the endpoint Vercel Cron calls on a schedule (see vercel.json).
 // It only accepts requests carrying CRON_SECRET, which Vercel adds
@@ -39,11 +44,14 @@ export async function GET(req: NextRequest) {
     : await discoverUpcoming();
 
   const result = await syncBoxOffice(movieId);
+  const profileResult = await syncMovieProfiles(movieId);
   return NextResponse.json({
     ...result,
     discovered: discovery.added,
     discoveryErrors: discovery.errors,
     discoveredUpcoming: upcomingDiscovery.added,
-    upcomingDiscoveryErrors: upcomingDiscovery.errors
+    upcomingDiscoveryErrors: upcomingDiscovery.errors,
+    profilesSynced: profileResult.synced,
+    profileErrors: profileResult.errors
   });
 }

@@ -39,6 +39,15 @@ export default async function MovieDetailPage({
     .order('day_date', { ascending: false });
   const breakdown: BreakdownRow[] = breakdownRows ?? [];
 
+  // Per-language box office totals from the movie's own Sacnilk profile
+  // page (see lib/syncMovieProfiles.ts) -- only present for movies Sacnilk
+  // tracks separately by language, e.g. a pan-India release.
+  const { data: versionRows } = await supabase
+    .from('movie_versions')
+    .select('*')
+    .eq('movie_id', movie.id)
+    .order('language', { ascending: true });
+
   // Auto-synced day-wise history from /api/sync-boxoffice (see
   // supabase/migration_scraper.sql) — only meaningful once a movie has
   // actually released, so only fetched/shown on the Tracked side.
@@ -107,6 +116,31 @@ export default async function MovieDetailPage({
         </div>
       </div>
 
+      {movie.description && (
+        <p className="mt-6 text-textDim text-sm leading-relaxed max-w-3xl">{movie.description}</p>
+      )}
+
+      {(movie.runtime || movie.cbfc_rating || movie.profile_languages || releaseDateLabel || movie.ott_release_status) && (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+          <div className="bg-surface border border-border rounded-2xl p-5">
+            <div className="text-xs font-semibold text-textFaint uppercase tracking-wide mb-3">Key Details</div>
+            <dl className="text-sm space-y-2">
+              <InfoRow label="Genre" value={movie.genre} />
+              <InfoRow label="Runtime" value={movie.runtime} />
+              <InfoRow label="CBFC Rating" value={movie.cbfc_rating} />
+              <InfoRow label="Languages" value={movie.profile_languages} />
+            </dl>
+          </div>
+          <div className="bg-surface border border-border rounded-2xl p-5">
+            <div className="text-xs font-semibold text-textFaint uppercase tracking-wide mb-3">Release Information</div>
+            <dl className="text-sm space-y-2">
+              <InfoRow label="Theatrical Release" value={releaseDateLabel} />
+              <InfoRow label="OTT Release" value={movie.ott_release_status} />
+            </dl>
+          </div>
+        </div>
+      )}
+
       {review && (
         <div className="mt-8 bg-surface border border-border rounded-2xl p-5 max-w-xl">
           <div className="flex items-center gap-2 mb-2">
@@ -117,6 +151,52 @@ export default async function MovieDetailPage({
           <Link href={`/reviews/${review.id}`} className="text-goldBright text-xs font-semibold">
             Read full review →
           </Link>
+        </div>
+      )}
+
+      {(movie.total_worldwide || movie.total_india_gross) && (
+        <div className="mt-10">
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+              <h2 className="hdisplay text-xl">Total Collections Summary</h2>
+            </div>
+            {movie.profile_synced_at && (
+              <span className="text-[11px] text-textFaint">
+                Auto-synced from a public source · last updated {new Date(movie.profile_synced_at).toLocaleString()}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard label="India Gross" value={movie.total_india_gross} />
+            <StatCard label="Worldwide" value={movie.total_worldwide} accent="text-goldBright" highlight />
+            <StatCard label="Overseas" value={movie.total_overseas} />
+            <StatCard label="India Net" value={movie.total_india_net} />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+            <StatCard label="India Share" value={movie.india_share_pct != null ? `${movie.india_share_pct}%` : null} />
+            <StatCard label="Total Worldwide" value={movie.total_worldwide} />
+            <StatCard label="Overseas Share" value={movie.overseas_share_pct != null ? `${movie.overseas_share_pct}%` : null} />
+            <StatCard label="Box Office Verdict" value={movie.box_office_verdict} accent="text-goldBright" />
+          </div>
+        </div>
+      )}
+
+      {versionRows && versionRows.length > 0 && (
+        <div className="mt-10">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+            <h2 className="hdisplay text-xl">Version-wise Collections</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {versionRows.map((v: any) => (
+              <div key={v.id} className="bg-surface border border-border rounded-2xl p-4">
+                <div className="text-textFaint text-[10px] uppercase tracking-wide mb-1">{v.language}</div>
+                <div className="hdisplay text-lg text-goldBright">{v.net_collection ?? '—'}</div>
+                {v.verdict && <div className="text-xs text-textDim mt-1">{v.verdict}</div>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -174,6 +254,16 @@ export default async function MovieDetailPage({
         </div>
         <BreakdownTable rows={breakdown} />
       </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string | number | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="text-textFaint">{label}</dt>
+      <dd className="text-text text-right">{value}</dd>
     </div>
   );
 }
