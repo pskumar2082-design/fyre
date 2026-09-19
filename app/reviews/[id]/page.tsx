@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
+export const revalidate = 30; // re-fetch from Supabase at most every 30s
+
 export default async function ReviewDetailPage({ params }: { params: { id: string } }) {
   const { data: r } = await supabase.from('reviews').select('*').eq('id', params.id).single();
   if (!r) return notFound();
