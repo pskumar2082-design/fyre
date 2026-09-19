@@ -28,7 +28,7 @@ export default async function BoxOfficePage() {
 
       <div className="flex flex-col gap-2.5">
         {movies.map((m: any, i: number) => {
-          const active = isInTheaters(m.release_date);
+          const active = isInTheaters(m);
           return (
             <Link
               key={m.id}

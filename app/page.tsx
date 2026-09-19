@@ -20,7 +20,7 @@ async function getData() {
       supabase.from('now_showing').select('*').order('release_date', { ascending: false }).limit(200),
       supabase.from('upcoming').select('*').order('release_date', { ascending: true }).limit(8)
     ]);
-  const nowShowing = (nowShowingRaw ?? []).filter((m: any) => isInTheaters(m.release_date)).slice(0, 10);
+  const nowShowing = (nowShowingRaw ?? []).filter((m: any) => isInTheaters(m)).slice(0, 10);
   return {
     news: news ?? [],
     reviews: reviews ?? [],

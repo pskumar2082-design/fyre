@@ -11,7 +11,7 @@ export default async function NowShowingPage() {
   // before reaching the still-running movies once the table has months of
   // history sitting in it.
   const { data } = await supabase.from('now_showing').select('*').order('release_date', { ascending: false }).limit(500);
-  const movies = (data ?? []).filter((m: any) => isInTheaters(m.release_date));
+  const movies = (data ?? []).filter((m: any) => isInTheaters(m));
 
   return (
     <div className="max-w-6xl mx-auto px-5 py-8">

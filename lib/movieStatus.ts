@@ -6,16 +6,33 @@
 // Office archive (see app/box-office/page.tsx) -- nothing is deleted or
 // hidden, just no longer presented as "currently in theaters".
 //
+// That fixed window is only the default, though -- a genuine long-running
+// hit shouldn't vanish from Now Showing just because a clock ran out while
+// it's still actually playing. So past 6 weeks, a movie stays in Now
+// Showing if Sacnilk is still publishing *new* daily numbers for it
+// (last_day_date, synced onto now_showing by lib/syncBoxOffice.ts) within
+// the last couple of weeks -- once that stops advancing, the run really
+// has ended and it settles into being archive-only.
+//
 // No release_date means we can't tell either way, so it defaults to
 // still-active rather than silently disappearing from Now Showing.
 export const THEATRICAL_RUN_DAYS = 42;
+export const RECENT_DATA_DAYS = 14;
 
-export function isInTheaters(releaseDate: string | null | undefined): boolean {
-  if (!releaseDate) return true;
-  const released = new Date(releaseDate).getTime();
-  if (Number.isNaN(released)) return true;
-  const ageDays = (Date.now() - released) / 86400000;
-  return ageDays <= THEATRICAL_RUN_DAYS;
+function daysSince(dateStr: string): number | null {
+  const t = new Date(dateStr).getTime();
+  if (Number.isNaN(t)) return null;
+  return (Date.now() - t) / 86400000;
+}
+
+export function isInTheaters(movie: { release_date?: string | null; last_day_date?: string | null }): boolean {
+  const releaseAge = movie.release_date ? daysSince(movie.release_date) : null;
+  if (releaseAge == null || releaseAge <= THEATRICAL_RUN_DAYS) return true;
+
+  const dataAge = movie.last_day_date ? daysSince(movie.last_day_date) : null;
+  if (dataAge != null && dataAge <= RECENT_DATA_DAYS) return true;
+
+  return false;
 }
 
 // Movies can share a title (a dubbed re-release, a same-named remake, or

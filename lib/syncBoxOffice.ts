@@ -69,6 +69,13 @@ export async function syncBoxOffice(movieId?: string) {
       if (latestDay?.occPct != null) {
         update.lifetime_occupancy = latestDay.occPct;
       }
+      // The most recent day Sacnilk has actually published numbers for --
+      // lib/movieStatus.ts uses this to keep a movie in Now Showing past
+      // the usual ~6-week window as long as fresh daily numbers are still
+      // coming in, instead of dropping it on a fixed clock alone.
+      if (latestDay?.dayDate) {
+        update.last_day_date = latestDay.dayDate;
+      }
 
       const { error: updateError } = await supabaseAdmin.from('now_showing').update(update).eq('id', movie.id);
       if (updateError) throw new Error(`now_showing update: ${updateError.message}`);
