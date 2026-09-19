@@ -530,12 +530,23 @@ function Dashboard({ section }: { section: SectionConfig }) {
       const result = await res.json();
       if (result.error) {
         setSyncMessage(`Discovery failed: ${result.error}`);
-      } else if (result.discovered?.length) {
-        setSyncMessage(`Added ${result.discovered.length} new movie${result.discovered.length === 1 ? '' : 's'}: ${result.discovered.join(', ')}`);
-      } else if (result.discoveryErrors?.length) {
-        setSyncMessage(`Discovery failed: ${result.discoveryErrors[0].message}`);
       } else {
-        setSyncMessage('No new movies found.');
+        const parts: string[] = [];
+        if (result.discovered?.length) {
+          parts.push(`${result.discovered.length} now showing (${result.discovered.join(', ')})`);
+        }
+        if (result.discoveredUpcoming?.length) {
+          parts.push(`${result.discoveredUpcoming.length} upcoming (${result.discoveredUpcoming.join(', ')})`);
+        }
+        if (parts.length) {
+          setSyncMessage(`Added: ${parts.join(' · ')}`);
+        } else if (result.discoveryErrors?.length) {
+          setSyncMessage(`Discovery failed: ${result.discoveryErrors[0].message}`);
+        } else if (result.upcomingDiscoveryErrors?.length) {
+          setSyncMessage(`Discovery failed: ${result.upcomingDiscoveryErrors[0].message}`);
+        } else {
+          setSyncMessage('No new movies found.');
+        }
       }
       loadItems();
     } catch (err: any) {
@@ -664,7 +675,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
         )}
       </form>
 
-      {section.key === 'now_showing' && (
+      {(section.key === 'now_showing' || section.key === 'upcoming') && (
         <div className="flex items-center gap-3 mb-3">
           <button
             type="button"

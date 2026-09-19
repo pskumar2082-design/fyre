@@ -133,6 +133,9 @@ export async function discoverMovies() {
       const { error: insertError } = await supabaseAdmin.from('now_showing').insert(row);
       if (insertError) throw new Error(insertError.message);
 
+      // It's graduated from upcoming (if it was there) to an actual release.
+      await supabaseAdmin.from('upcoming').delete().eq('sacnilk_slug', movie.slug);
+
       added.push(movie.title);
     } catch (err: any) {
       errors.push({ title: movie.title, message: err?.message ?? String(err) });

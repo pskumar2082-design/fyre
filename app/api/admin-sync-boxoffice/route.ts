@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { syncBoxOffice } from '@/lib/syncBoxOffice';
 import { discoverMovies } from '@/lib/discoverMovies';
+import { discoverUpcoming } from '@/lib/discoverUpcoming';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -28,8 +29,19 @@ export async function POST(req: NextRequest) {
 
   // Only look for brand-new movies when re-syncing everything, not when
   // the admin asked to refresh one specific movie.
-  const discovery = movieId ? { added: [] as string[], errors: [] as { title: string; message: string }[] } : await discoverMovies();
+  const discovery = movieId
+    ? { added: [] as string[], errors: [] as { title: string; message: string }[] }
+    : await discoverMovies();
+  const upcomingDiscovery = movieId
+    ? { added: [] as string[], errors: [] as { title: string; message: string }[] }
+    : await discoverUpcoming();
 
   const result = await syncBoxOffice(movieId);
-  return NextResponse.json({ ...result, discovered: discovery.added, discoveryErrors: discovery.errors });
+  return NextResponse.json({
+    ...result,
+    discovered: discovery.added,
+    discoveryErrors: discovery.errors,
+    discoveredUpcoming: upcomingDiscovery.added,
+    upcomingDiscoveryErrors: upcomingDiscovery.errors
+  });
 }
