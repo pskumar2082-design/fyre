@@ -44,6 +44,10 @@ export async function syncMovieProfiles(movieId?: string) {
 
       const update: Record<string, any> = { profile_synced_at: new Date().toISOString() };
       if (profile.description) update.description = profile.description;
+      // The profile page's own poster is more reliable than whatever the
+      // box-office listing card had (sometimes a low-res thumbnail, or
+      // missing entirely), so it takes priority once synced.
+      if (profile.posterUrl) update.image_url = profile.posterUrl;
       if (profile.genre) update.genre = profile.genre;
       if (profile.runtime) update.runtime = profile.runtime;
       if (profile.cbfcRating) update.cbfc_rating = profile.cbfcRating;

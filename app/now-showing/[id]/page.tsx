@@ -66,6 +66,11 @@ export default async function MovieDetailPage({
     : null;
   const metaLine = [releaseDateLabel && `Release: ${releaseDateLabel}`, movie.language, movie.genre].filter(Boolean).join(' · ');
 
+  // Same-titled movies (a dubbed re-release, a same-named remake) are easy
+  // to mix up, so the release year rides along with the title here too.
+  const releaseYear = movie.release_date ? new Date(movie.release_date).getFullYear() : null;
+  const titleWithYear = releaseYear && !Number.isNaN(releaseYear) ? `${movie.title} (${releaseYear})` : movie.title;
+
   return (
     <div className="max-w-6xl mx-auto px-5 py-8">
       <div className="flex items-center justify-between gap-3">
@@ -92,7 +97,7 @@ export default async function MovieDetailPage({
         </div>
 
         <div className="flex-1 min-w-0">
-          <h1 className="hdisplay text-3xl md:text-4xl">{movie.title}</h1>
+          <h1 className="hdisplay text-3xl md:text-4xl">{titleWithYear}</h1>
           {metaLine && <div className="text-textFaint text-sm mt-2">{metaLine}</div>}
           <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-goldBright bg-goldDim/15 border border-gold/30 rounded-full px-3 py-1 mt-3 capitalize">
             {kind} data

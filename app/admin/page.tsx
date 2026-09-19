@@ -173,7 +173,10 @@ const SECTIONS: SectionConfig[] = [
         step: '0.1'
       }
     ],
-    primary: (m) => m.title,
+    // Same-titled movies (a dubbed re-release, a same-named remake) are
+    // easy to mix up in this list, so the release year rides along with
+    // the title here too.
+    primary: (m) => (m.release_date ? `${m.title} (${new Date(m.release_date).getFullYear()})` : m.title),
     secondary: (m) => `${m.status ?? ''} · ${m.amt ?? ''}`
   },
   {

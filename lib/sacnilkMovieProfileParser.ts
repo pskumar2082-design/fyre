@@ -28,6 +28,7 @@ export type MovieVersion = {
 
 export type ParsedMovieProfile = {
   description: string | null;
+  posterUrl: string | null;
   genre: string | null;
   runtime: string | null;
   cbfcRating: string | null;
@@ -145,6 +146,12 @@ export function parseMovieProfile(html: string): ParsedMovieProfile {
     description = clean(clone.text()) || null;
   }
 
+  // The movie's own poster, served from Sacnilk's per-movie image CDN path
+  // (distinct from any thumbnail a listing page might have had) -- more
+  // reliable than the box-office listing's small card image.
+  const posterEl = $('img[src*="cdn.sacnilk.com/image/movie/"]').first();
+  const posterUrl = posterEl.length ? posterEl.attr('src') || null : null;
+
   const keyDetailsHeader = $('h4').filter((_: number, el: any) => $(el).text().includes('Key Details')).first();
   const keyDetails = keyDetailsHeader.length ? parseInfoList($, keyDetailsHeader.parent()) : {};
 
@@ -186,6 +193,7 @@ export function parseMovieProfile(html: string): ParsedMovieProfile {
 
   return {
     description,
+    posterUrl,
     genre: keyDetails['Genre'] || null,
     runtime: keyDetails['Runtime'] || null,
     cbfcRating: keyDetails['CBFC Rating'] || null,

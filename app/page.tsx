@@ -22,6 +22,16 @@ async function getData() {
   };
 }
 
+// Movies can share a title (a dubbed re-release, a same-named remake, or
+// just two different films) -- appending the release year wherever a
+// now_showing title is displayed keeps those apart at a glance without
+// needing to open the movie.
+function titleWithYear(title: string, releaseDate: string | null | undefined) {
+  if (!releaseDate) return title;
+  const year = new Date(releaseDate).getFullYear();
+  return Number.isNaN(year) ? title : `${title} (${year})`;
+}
+
 export default async function HomePage() {
   const { news, reviews, liveBoxOffice, nowShowing, upcoming } = await getData();
   const featured = nowShowing[0];
@@ -94,7 +104,7 @@ export default async function HomePage() {
                 </span>
               </div>
               <div className="p-4">
-                <div className="hdisplay text-xl">{featured.title}</div>
+                <div className="hdisplay text-xl">{titleWithYear(featured.title, featured.release_date)}</div>
                 <div className="text-textFaint text-xs mt-1">
                   {[featured.release_date, featured.language].filter(Boolean).join(' · ')}
                 </div>
@@ -131,7 +141,7 @@ export default async function HomePage() {
                     <span className="relative text-xs font-bold bg-gold text-white px-2 py-1 rounded-lg">{m.status}</span>
                   )}
                 </div>
-                <div className="text-sm font-medium mt-2.5 truncate">{m.title}</div>
+                <div className="text-sm font-medium mt-2.5 truncate">{titleWithYear(m.title, m.release_date)}</div>
                 {m.amt && <div className="text-xs text-goldBright font-semibold mt-0.5">{m.amt}</div>}
               </Link>
             ))}
