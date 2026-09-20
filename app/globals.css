@@ -16,7 +16,10 @@ body {
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.05;
-  color: #343C6A;
+  /* No color here on purpose: body already sets #343C6A as the inherited
+     default, and leaving color off this class lets a per-use text-* utility
+     (e.g. text-white on the gradient featured card) win instead of losing
+     to this same-specificity class rule later in the stylesheet. */
 }
 
 /* Two-stop accent gradient text -- blue -> teal -- for the accent half of

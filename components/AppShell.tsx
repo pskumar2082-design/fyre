@@ -1,30 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import {
+  Flame,
   Home,
   Newspaper,
   Film,
   TrendingUp,
   Star,
   CalendarRange,
-  ShieldCheck,
   Search,
-  Settings,
-  Bell,
-  User,
   Menu,
   X
 } from 'lucide-react';
 
 // BankDash-style app shell: a fixed 250px white sidebar with icon nav +
-// active accent bar, a 100px white header with a page title / search pill /
-// icon buttons / avatar, and a #F5F7FA content well -- replacing fyre's old
-// horizontal pill-nav top bar. Wraps every route via app/layout.tsx, so the
-// public site and the admin panel share one shell.
+// active accent bar, a 100px white header with a page title / search pill,
+// and a #F5F7FA content well -- replacing fyre's old horizontal pill-nav
+// top bar. Wraps every public route via app/layout.tsx. /admin is reachable
+// directly by URL but intentionally left off the public nav -- it's not a
+// section a visitor should be browsing to.
 
 const NAV = [
   { href: '/', label: 'Home', icon: Home, exact: true },
@@ -32,8 +29,7 @@ const NAV = [
   { href: '/now-showing', label: 'Now showing', icon: Film },
   { href: '/box-office', label: 'Box office', icon: TrendingUp },
   { href: '/reviews', label: 'Reviews', icon: Star },
-  { href: '/upcoming', label: 'Upcoming', icon: CalendarRange },
-  { href: '/admin', label: 'Admin', icon: ShieldCheck }
+  { href: '/upcoming', label: 'Upcoming', icon: CalendarRange }
 ];
 
 function isActive(pathname: string, item: (typeof NAV)[number]) {
@@ -68,8 +64,9 @@ function SidebarLinks({ pathname, onNavigate }: { pathname: string; onNavigate?:
 
 function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2.5 px-8 h-[100px] flex-none">
-      <Image src="/logo.png" alt="fyre" width={88} height={36} priority className="h-8 w-auto" />
+    <Link href="/" className="flex items-center gap-2 px-8 h-[100px] flex-none flex-shrink-0">
+      <Flame size={26} className="text-gold flex-none" fill="currentColor" />
+      <span className="hdisplay text-2xl text-gold">fyre</span>
     </Link>
   );
 }
@@ -101,7 +98,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           />
           <aside className="absolute left-0 top-0 h-full w-[250px] bg-surface flex flex-col shadow-card">
             <div className="flex items-center justify-between px-6 h-[100px] flex-none border-b border-border">
-              <Image src="/logo.png" alt="fyre" width={88} height={36} className="h-8 w-auto" />
+              <span className="flex items-center gap-2">
+                <Flame size={24} className="text-gold flex-none" fill="currentColor" />
+                <span className="hdisplay text-xl text-gold">fyre</span>
+              </span>
               <button
                 type="button"
                 aria-label="Close menu"
@@ -131,7 +131,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <h1 className="hdisplay text-xl md:text-[28px] truncate">{current?.label ?? 'fyre'}</h1>
           </div>
 
-          <div className="flex items-center gap-3 md:gap-5 flex-none">
+          <div className="flex items-center gap-3 flex-none">
             <form action="/search" className="hidden lg:block">
               <div className="flex items-center gap-2 bg-bg rounded-full h-[50px] w-[255px] px-5">
                 <Search size={17} className="text-textFaint flex-none" />
@@ -150,23 +150,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Search size={18} />
             </Link>
-            <Link
-              href="/admin"
-              aria-label="Settings"
-              className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-bg text-textDim hover:text-gold transition"
-            >
-              <Settings size={18} />
-            </Link>
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-bg text-textDim hover:text-coral transition"
-            >
-              <Bell size={18} />
-            </button>
-            <div className="w-[46px] h-[46px] rounded-full bg-tintBlue text-gold flex items-center justify-center flex-none">
-              <User size={20} />
-            </div>
           </div>
         </header>
 

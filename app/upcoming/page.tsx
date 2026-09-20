@@ -21,8 +21,14 @@ export default async function UpcomingPage() {
             return (
               <Card key={u.id} className="p-5">
                 <IconBadge icon={CalendarRange} tint="yellow" size={44} />
-                <div className="hdisplay text-3xl gtext mt-3">{days}</div>
-                <div className="text-xs text-textFaint mb-2">days to go</div>
+                {days > 0 ? (
+                  <>
+                    <div className="hdisplay text-3xl gtext mt-3">{days}</div>
+                    <div className="text-xs text-textFaint mb-2">days to go</div>
+                  </>
+                ) : (
+                  <div className="hdisplay text-lg gtext mt-3 mb-2">Releasing today</div>
+                )}
                 <div className="text-sm font-medium">{u.title}</div>
                 <div className="text-xs text-textFaint">{u.release_date}</div>
               </Card>

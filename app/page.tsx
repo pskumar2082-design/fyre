@@ -58,7 +58,7 @@ export default async function HomePage() {
           icon={CalendarRange}
           tint="yellow"
           label={nearestUpcoming ? nearestUpcoming.title : 'No upcoming releases'}
-          value={nearestDays != null ? `${nearestDays}d to go` : '—'}
+          value={nearestDays == null ? '—' : nearestDays === 0 ? 'Releasing today' : `${nearestDays}d to go`}
         />
         <StatCard
           icon={Star}
@@ -189,8 +189,14 @@ export default async function HomePage() {
               const days = Math.max(0, Math.ceil((new Date(u.release_date).getTime() - Date.now()) / 86400000));
               return (
                 <Card key={u.id} className="flex-none w-44 p-4">
-                  <div className="hdisplay text-3xl gtext">{days}</div>
-                  <div className="text-xs text-textFaint mb-2">days to go</div>
+                  {days > 0 ? (
+                    <>
+                      <div className="hdisplay text-3xl gtext">{days}</div>
+                      <div className="text-xs text-textFaint mb-2">days to go</div>
+                    </>
+                  ) : (
+                    <div className="hdisplay text-lg gtext mb-2">Releasing today</div>
+                  )}
                   <div className="text-sm font-medium">{u.title}</div>
                   <div className="text-xs text-textFaint">{u.release_date}</div>
                 </Card>
