@@ -470,7 +470,13 @@ const MAX_MOVIES_PER_RUN = 20;
 // returns, however good its own try/catch is. Duplicated as a literal
 // (not imported) because it's a route-file export, not a value this
 // module can read at runtime -- keep the two in sync by hand.
-const HARD_MAX_DURATION_MS = 60000;
+//
+// 280000, not 60000: corrected 2026-09-20 after a real production
+// FUNCTION_INVOCATION_TIMEOUT at the old 60s value. Verified against
+// Vercel's current docs that Hobby plan functions with fluid compute
+// support up to 300s max duration for free -- 60s was a stale assumption,
+// not a real platform limit. 280000 mirrors the routes' maxDuration = 280.
+const HARD_MAX_DURATION_MS = 280000;
 
 // A single render's real worst case: the navigation itself can take up to
 // NAVIGATION_TIMEOUT_MS, and if it succeeds, waiting for real data can

@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { syncMovieMint } from '@/lib/syncMovieMint';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+// 280s, not 60s: verified against Vercel's current docs (fetched
+// 2026-09-20, docs last updated 2026-08-24) -- Hobby plan functions with
+// fluid compute (the account default) now support up to 300s max
+// duration, for free, not the 60s previously assumed here. Real MovieMint
+// renders were observed taking up to ~25-30s each (see
+// moviemintBrowserRenderer.ts), so the old 60s ceiling left almost no
+// room for more than one render per invocation and caused a real
+// production FUNCTION_INVOCATION_TIMEOUT. 280s keeps a 20s margin under
+// Vercel's actual 300s hard cap. lib/syncMovieMint.ts's
+// HARD_MAX_DURATION_MS must be kept equal to this value.
+export const maxDuration = 280;
 // Chromium/puppeteer-core (see lib/moviemintBrowserRenderer.ts) is a native
 // binary and cannot run under the Edge runtime -- Node.js is required.
 export const runtime = 'nodejs';

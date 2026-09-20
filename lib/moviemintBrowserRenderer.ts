@@ -43,12 +43,16 @@ export const NAVIGATION_TIMEOUT_MS = 15000; // strict: fail fast rather than han
 // DASHBOARD NN%") before the real box-office numbers mount -- on that
 // measurement, real data appeared ~4.8s after navigation start. That's
 // comfortably under a short timeout in a normal browser, but this renders
-// inside a Vercel serverless function with far less CPU than a desktop
-// browser, and the very first production run of this renderer timed out
-// at the previous 12000ms value (status: 'render_required' with no
-// interactive-challenge markers present -- i.e. genuinely still loading,
-// not blocked). Raised with real margin rather than guessed.
-export const DATA_WAIT_TIMEOUT_MS = 25000;
+// inside a Vercel serverless function, and the first production run at
+// 12000ms timed out. Raised to 25000ms; the second production run STILL
+// timed out at exactly 25000ms, but the diagnostic snippet captured
+// moments later already showed real data ("GROSS ... TICKETS ... SHOWS")
+// -- a near-miss, not a fundamentally broken render. 30000ms gives real
+// margin past that observed near-miss. Also no longer needs to be this
+// tight: HARD_MAX_DURATION_MS in syncMovieMint.ts is 280000ms (Vercel
+// Hobby's real max duration, not the 60000ms previously assumed), so
+// there's no pressure to keep this artificially short.
+export const DATA_WAIT_TIMEOUT_MS = 30000;
 
 // A realistic desktop UA -- distinct from the plain-HTTP tier's
 // self-identifying bot UA, because this IS a real browser rendering the
