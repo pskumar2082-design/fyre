@@ -60,7 +60,12 @@ const BROWSER_USER_AGENT =
 
 export type BrowserRenderResult =
   | { status: 'ok'; html: string }
-  | { status: 'render_timeout' }
+  // `snippet`: the first ~300 chars of document.body.innerText at the
+  // moment we gave up -- e.g. still "FINALIZING DASHBOARD 42%" (genuinely
+  // just slow), an empty/near-empty body (JS never ran or errored), or
+  // something else entirely. Without this, a timeout is a dead end to
+  // diagnose from server logs alone.
+  | { status: 'render_timeout'; snippet: string }
   | { status: 'blocked'; reason: string }
   | { status: 'unavailable'; reason: string }; // Chromium couldn't launch/run in this environment
 
@@ -152,7 +157,10 @@ export async function renderMovieMintPage(url: string): Promise<BrowserRenderRes
       return { status: 'blocked', reason: 'interactive challenge detected on rendered page' };
     }
     if (!DATA_MARKERS.some((m) => html.includes(m))) {
-      return { status: 'render_timeout' };
+      const snippet = await page
+        .evaluate(() => (document.body ? document.body.innerText.slice(0, 300) : '(no body)'))
+        .catch((err) => `(could not read body text: ${err?.message ?? err})`);
+      return { status: 'render_timeout', snippet };
     }
     return { status: 'ok', html };
   } catch (err: any) {

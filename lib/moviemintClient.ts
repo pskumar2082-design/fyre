@@ -72,7 +72,7 @@ const LOADING_SHELL_MARKERS = ['CONNECTING TO SERVER', 'FINALIZING DASHBOARD'];
 
 export type MovieMintFetchResult =
   | { status: 'ok'; html: string; via: 'http' | 'local-render' | 'render-endpoint' }
-  | { status: 'render_required'; path: string }
+  | { status: 'render_required'; path: string; snippet: string }
   | { status: 'blocked'; path: string; reason: string }
   | { status: 'error'; path: string; message: string };
 
@@ -185,7 +185,7 @@ export async function fetchMovieMintPage(path: string): Promise<MovieMintFetchRe
   // service hitting the same URL wouldn't fix either, so that's reported
   // as render_required directly instead of spending another request.
   if (rendered.status === 'render_timeout') {
-    return { status: 'render_required', path };
+    return { status: 'render_required', path, snippet: rendered.snippet };
   }
 
   // --- Tier 3: optional external render endpoint (fallback only) ------

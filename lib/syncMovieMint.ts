@@ -406,7 +406,7 @@ function describeFetchFailure(page: Exclude<MovieMintFetchResult, { status: 'ok'
     case 'error':
       return `error: ${page.message}`;
     case 'render_required':
-      return 'render_required: page loaded but did not show recognizable data within the render wait window';
+      return `render_required: page loaded but did not show recognizable data within the render wait window -- body text at timeout: ${JSON.stringify(page.snippet)}`;
     default: {
       const _exhaustive: never = page;
       return `unknown status: ${JSON.stringify(_exhaustive)}`;
