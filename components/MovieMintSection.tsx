@@ -1,3 +1,4 @@
+import { Card } from '@/components/ui';
 import BreakdownTable, { type BreakdownRow } from '@/components/BreakdownTable';
 
 // ---------------------------------------------------------------------------
@@ -55,7 +56,7 @@ export default function MovieMintSection({
           href="https://moviemintbo.com/"
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-goldBright border border-gold/30 rounded-full px-3 py-1 hover:border-gold transition"
+          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gold border border-gold/30 rounded-full px-3 py-1 hover:border-gold transition"
         >
           Source: MovieMint →
         </a>
@@ -106,10 +107,10 @@ export default function MovieMintSection({
           <p className="text-[11px] text-textFaint mb-2">
             A limited, named set of multiplex chains MovieMint tracks directly — not all theatres screening this movie.
           </p>
-          <div className="overflow-x-auto bg-surface border border-border rounded-2xl">
+          <Card className="overflow-x-auto">
             <table className="w-full text-sm border-collapse min-w-[420px]">
               <thead>
-                <tr className="text-textFaint text-xs uppercase border-b border-border bg-bgAlt/50">
+                <tr className="text-textFaint text-xs uppercase border-b border-border bg-bgAlt/60">
                   <th className="text-left py-3 px-4">Chain</th>
                   <th className="text-right py-3 px-4">Gross</th>
                   <th className="text-right py-3 px-4">Shows</th>
@@ -117,17 +118,17 @@ export default function MovieMintSection({
               </thead>
               <tbody>
                 {multiplexRows.map((r, i) => (
-                  <tr key={i} className="border-b border-border last:border-0">
-                    <td className="py-2.5 px-4">{r.chain}</td>
-                    <td className="text-right py-2.5 px-4 text-goldBright font-semibold">
+                  <tr key={i} className="border-b border-[#F2F4F7] last:border-0">
+                    <td className="py-2.5 px-4 font-medium">{r.chain}</td>
+                    <td className="text-right py-2.5 px-4 text-gold font-semibold">
                       {r.gross != null ? `₹${Number(r.gross).toFixed(2)} Cr` : '—'}
                     </td>
-                    <td className="text-right py-2.5 px-4">{r.shows ?? '—'}</td>
+                    <td className="text-right py-2.5 px-4 text-textDim">{r.shows ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </Card>
         </div>
       )}
     </div>
@@ -144,9 +145,9 @@ function StatCard({
   highlight?: boolean;
 }) {
   return (
-    <div className={`rounded-2xl p-4 border ${highlight ? 'bg-goldDim/15 border-gold/30' : 'bg-surface border-border'}`}>
-      <div className="text-textFaint text-[10px] uppercase tracking-wide mb-1">{label}</div>
-      <div className={`hdisplay text-xl ${highlight ? 'text-goldBright' : 'text-text'}`}>{value ?? '—'}</div>
-    </div>
+    <Card className={`p-4 ${highlight ? 'bg-tintBlue' : ''}`}>
+      <div className={`text-[10px] uppercase tracking-wide mb-1 ${highlight ? 'text-gold/70' : 'text-textFaint'}`}>{label}</div>
+      <div className={`hdisplay text-xl ${highlight ? 'text-gold' : 'text-text'}`}>{value ?? '—'}</div>
+    </Card>
   );
 }

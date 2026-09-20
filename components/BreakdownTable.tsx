@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Card, Pill } from '@/components/ui';
 
 export type BreakdownRow = {
   id: string;
@@ -38,26 +39,24 @@ export default function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex gap-2">
           {TYPES.map((t) => (
-            <button
+            <Pill
               key={t}
-              type="button"
+              variant={t === type ? 'primary' : 'default'}
               onClick={() => {
                 setType(t);
                 setDate(null);
               }}
-              className={`text-xs font-semibold rounded-full px-3.5 py-1.5 border transition capitalize ${
-                t === type ? 'bg-gold text-white border-gold' : 'text-textDim border-border hover:border-goldDim'
-              }`}
+              className="capitalize"
             >
               {t} wise
-            </button>
+            </Pill>
           ))}
         </div>
         {dates.length > 0 && (
           <select
             value={activeDate ?? ''}
             onChange={(e) => setDate(e.target.value)}
-            className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs"
+            className="bg-bg border-none rounded-lg px-3 py-2 text-xs text-text"
           >
             {dates.map((d) => (
               <option key={d} value={d}>
@@ -71,10 +70,10 @@ export default function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
       {visible.length === 0 ? (
         <p className="text-textFaint text-sm">No {type}-wise entries for this date.</p>
       ) : (
-        <div className="overflow-x-auto bg-surface border border-border rounded-2xl">
+        <Card className="overflow-x-auto">
           <table className="w-full text-sm border-collapse min-w-[640px]">
             <thead>
-              <tr className="text-textFaint text-xs uppercase border-b border-border bg-bgAlt/50">
+              <tr className="text-textFaint text-xs uppercase border-b border-border bg-bgAlt/60">
                 <th className="text-left py-3 px-4">{type}</th>
                 <th className="text-right py-3 px-4">Gross</th>
                 <th className="text-right py-3 px-4">Shows</th>
@@ -86,19 +85,19 @@ export default function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
             </thead>
             <tbody>
               {visible.map((r) => (
-                <tr key={r.id} className="border-b border-border last:border-0">
-                  <td className="py-2.5 px-4">{r.label}</td>
-                  <td className="text-right py-2.5 px-4 text-goldBright font-semibold">₹{Number(r.gross).toFixed(2)} Cr</td>
-                  <td className="text-right py-2.5 px-4">{r.shows ?? '—'}</td>
-                  <td className="text-right py-2.5 px-4">{r.tickets_sold ?? '—'}</td>
-                  <td className="text-right py-2.5 px-4">{r.ff ?? '—'}</td>
-                  <td className="text-right py-2.5 px-4">{r.sold_out ?? '—'}</td>
-                  <td className="text-right py-2.5 px-4">{r.occ_pct != null ? `${r.occ_pct}%` : '—'}</td>
+                <tr key={r.id} className="border-b border-[#F2F4F7] last:border-0">
+                  <td className="py-2.5 px-4 font-medium">{r.label}</td>
+                  <td className="text-right py-2.5 px-4 text-gold font-semibold">₹{Number(r.gross).toFixed(2)} Cr</td>
+                  <td className="text-right py-2.5 px-4 text-textDim">{r.shows ?? '—'}</td>
+                  <td className="text-right py-2.5 px-4 text-textDim">{r.tickets_sold ?? '—'}</td>
+                  <td className="text-right py-2.5 px-4 text-textDim">{r.ff ?? '—'}</td>
+                  <td className="text-right py-2.5 px-4 text-textDim">{r.sold_out ?? '—'}</td>
+                  <td className="text-right py-2.5 px-4 text-textDim">{r.occ_pct != null ? `${r.occ_pct}%` : '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Card } from '@/components/ui';
 
 export type VersionRow = {
   id: string;
@@ -25,7 +26,7 @@ export default function VersionSelector({ versions }: { versions: VersionRow[] }
         <select
           value={current.language}
           onChange={(e) => setActive(e.target.value)}
-          className="bg-surface border border-border rounded-lg px-3.5 py-1.5 text-xs font-semibold text-textDim capitalize"
+          className="bg-bg border-none rounded-lg px-3.5 py-2 text-xs font-semibold text-textDim capitalize"
         >
           {versions.map((v) => (
             <option key={v.id} value={v.language}>
@@ -36,15 +37,15 @@ export default function VersionSelector({ versions }: { versions: VersionRow[] }
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="rounded-2xl p-4 border bg-goldDim/15 border-gold/30">
-          <div className="text-textFaint text-[10px] uppercase tracking-wide mb-1">Net Collection</div>
-          <div className="hdisplay text-xl text-goldBright">{current.net_collection ?? '—'}</div>
-        </div>
+        <Card className="p-4 bg-tintBlue">
+          <div className="text-gold/70 text-[10px] uppercase tracking-wide mb-1">Net Collection</div>
+          <div className="hdisplay text-xl text-gold">{current.net_collection ?? '—'}</div>
+        </Card>
         {current.verdict && (
-          <div className="rounded-2xl p-4 border bg-surface border-border">
+          <Card className="p-4">
             <div className="text-textFaint text-[10px] uppercase tracking-wide mb-1">Verdict</div>
             <div className="hdisplay text-xl text-text">{current.verdict}</div>
-          </div>
+          </Card>
         )}
       </div>
     </div>

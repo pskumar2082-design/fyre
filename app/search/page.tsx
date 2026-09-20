@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { Search as SearchIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { Card, SectionHeading } from '@/components/ui';
 
 export const revalidate = 0; // always fetch fresh results
 
@@ -45,21 +47,24 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
     results.upcoming.length;
 
   return (
-    <div className="max-w-3xl mx-auto px-5 py-8">
-      <h1 className="hdisplay gtext text-2xl mb-5">Search</h1>
+    <div className="px-5 md:px-10 py-8 max-w-2xl">
+      <SectionHeading title="Search" />
 
-      <form action="/search" className="flex gap-2 mb-8">
-        <input
-          type="text"
-          name="q"
-          defaultValue={q}
-          placeholder="Search movies, news, reviews…"
-          autoFocus
-          className="flex-1 bg-surface border border-border rounded-full px-5 py-2.5 text-sm focus:outline-none focus:border-goldDim"
-        />
-        <button type="submit" className="bg-gold text-white font-semibold rounded-full px-5 py-2.5 text-sm">
-          Search
-        </button>
+      <form action="/search" className="mb-8">
+        <div className="flex items-center gap-2 bg-bg rounded-full h-[50px] px-5">
+          <SearchIcon size={17} className="text-textFaint flex-none" />
+          <input
+            type="text"
+            name="q"
+            defaultValue={q}
+            placeholder="Search movies, news, reviews…"
+            autoFocus
+            className="flex-1 bg-transparent outline-none text-sm text-text placeholder:text-textFaint"
+          />
+          <button type="submit" className="bg-gold text-white font-semibold rounded-full px-5 py-2 text-sm flex-none">
+            Search
+          </button>
+        </div>
       </form>
 
       {!q.trim() && <p className="text-textFaint text-sm">Type something above to search across fyre.</p>}
@@ -111,17 +116,19 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
 function ResultSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-8">
-      <h2 className="hdisplay text-xl mb-3">{title}</h2>
-      <div className="flex flex-col gap-2">{children}</div>
+      <h2 className="hdisplay text-lg mb-3">{title}</h2>
+      <div className="flex flex-col gap-2.5">{children}</div>
     </div>
   );
 }
 
 function ResultRow({ href, title, meta }: { href: string; title: string; meta?: string }) {
   return (
-    <Link href={href} className="block bg-surface border border-border rounded-2xl px-4 py-3 hover:border-goldDim transition">
-      <div className="text-sm font-medium">{title}</div>
-      {meta && <div className="text-xs text-textFaint mt-1">{meta}</div>}
+    <Link href={href} className="block">
+      <Card className="px-4 py-3 hover:-translate-y-0.5 transition">
+        <div className="text-sm font-medium">{title}</div>
+        {meta && <div className="text-xs text-textFaint mt-1">{meta}</div>}
+      </Card>
     </Link>
   );
 }

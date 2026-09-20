@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Card } from '@/components/ui';
 
 type Review = { id: string; rating: string; excerpt: string } | null;
 type BoxOffice = { sub: string; amt: number } | null;
@@ -35,8 +36,8 @@ export default function NowShowing({ movies }: { movies: NowShowingMovie[] }) {
             className="flex-none w-36 text-left"
           >
             <div
-              className={`w-36 h-52 rounded-lg bg-surface2 border relative overflow-hidden flex items-end p-2 transition ${
-                m.id === selectedId ? 'border-gold' : 'border-border'
+              className={`w-36 h-52 rounded-lg bg-surface2 relative overflow-hidden flex items-end p-2 transition ${
+                m.id === selectedId ? 'ring-2 ring-gold' : 'shadow-card'
               }`}
             >
               {m.image_url && <Image src={m.image_url} alt="" fill className="object-cover object-top" />}
@@ -53,13 +54,13 @@ export default function NowShowing({ movies }: { movies: NowShowingMovie[] }) {
       </div>
 
       {selected && (
-        <div className="mt-5 bg-surface border border-border rounded-xl p-5 max-w-md">
+        <Card className="mt-5 p-5 max-w-md">
           <div className="flex justify-between items-start gap-3 mb-3">
             <h3 className="hdisplay text-xl">{selected.title}</h3>
             <button
               type="button"
               onClick={() => setSelectedId(null)}
-              className="text-textFaint text-xs border border-border rounded-full px-2 py-1"
+              className="text-textFaint text-xs bg-bg rounded-full px-2.5 py-1"
             >
               Close
             </button>
@@ -68,12 +69,12 @@ export default function NowShowing({ movies }: { movies: NowShowingMovie[] }) {
           <div className="text-sm mb-3">
             <span className="text-textFaint">Collections: </span>
             {selected.boxOffice ? (
-              <span className="text-goldBright font-semibold">
+              <span className="text-gold font-semibold">
                 ₹{Number(selected.boxOffice.amt).toFixed(1)} Cr{' '}
                 <span className="text-textFaint font-normal">· {selected.boxOffice.sub}</span>
               </span>
             ) : selected.amt ? (
-              <span className="text-goldBright font-semibold">{selected.amt}</span>
+              <span className="text-gold font-semibold">{selected.amt}</span>
             ) : (
               <span className="text-textFaint">Not tracked yet</span>
             )}
@@ -86,10 +87,10 @@ export default function NowShowing({ movies }: { movies: NowShowingMovie[] }) {
                   <span className="bg-gold text-white text-xs font-bold px-2 py-1 rounded">
                     {selected.review.rating} / 5
                   </span>
-                  <span className="text-goldBright text-xs">★★★★★</span>
+                  <span className="text-[#F6A609] text-xs">★★★★★</span>
                 </div>
                 <p className="text-sm text-textDim mb-2">{selected.review.excerpt}</p>
-                <Link href={`/reviews/${selected.review.id}`} className="text-goldBright text-xs font-semibold">
+                <Link href={`/reviews/${selected.review.id}`} className="text-gold text-xs font-semibold">
                   Read full review →
                 </Link>
               </>
@@ -97,7 +98,7 @@ export default function NowShowing({ movies }: { movies: NowShowingMovie[] }) {
               <p className="text-textFaint text-sm">No review yet.</p>
             )}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

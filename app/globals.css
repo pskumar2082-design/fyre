@@ -4,45 +4,47 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Near-black canvas with a faint data-grid and a couple of soft, restrained
-   color glows — moviemintbo.com's flat, minimal backdrop, in our own
-   purple/pink instead of their green. */
+/* BankDash's flat, light dashboard canvas -- plain #F5F7FA, no grid, no
+   glow. Cards (bg-surface = white) sit on top of this everywhere. */
 body {
-  background-color: #07040F;
-  color: #F5F3FF;
-  background-image:
-    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(168, 85, 247, 0.16) 0%, rgba(7, 4, 15, 0) 60%),
-    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(244, 114, 182, 0.10) 0%, rgba(7, 4, 15, 0) 60%),
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: auto, auto, 44px 44px, 44px 44px;
-  background-position: top center, top right, center, center;
+  background-color: #F5F7FA;
+  color: #343C6A;
 }
 
 .hdisplay {
   font-family: 'Inter', sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   line-height: 1.05;
+  color: #343C6A;
 }
 
-/* Multi-stop gradient text — violet -> pink -> orange — for the accent
-   half of headlines. */
+/* Two-stop accent gradient text -- blue -> teal -- for the accent half of
+   headlines, kept inside BankDash's own palette. */
 .gtext {
-  background: linear-gradient(90deg, #6366F1 0%, #A855F7 38%, #E879F9 68%, #FB923C 100%);
+  background: linear-gradient(90deg, #1814F3 0%, #2D60FF 55%, #16DBCC 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-/* Soft blurred color blobs used behind hero/section headers for extra
-   depth. Size/position/color are set per-use via Tailwind utility classes
-   (w-, h-, bg-, top-, left-, etc.) alongside this. */
+/* Soft blurred color blobs, kept for any section that still wants a touch
+   of depth behind a header -- much lower-opacity by default now that the
+   canvas is light. Size/position/color set per-use via Tailwind utilities. */
 .glow-spot {
   position: absolute;
   border-radius: 9999px;
   filter: blur(90px);
   pointer-events: none;
   z-index: 0;
+  opacity: 0.5;
 }
 
+/* BankDash's gradient "bank card" surface -- used for the primary/secondary
+   card-style widgets (see components/ui/GradientCard.tsx). */
+.card-gradient-primary {
+  background: linear-gradient(115deg, #4C49ED 2.6%, #0A06F4 101.2%);
+}
+.card-gradient-secondary {
+  background: linear-gradient(115deg, #2D60FF 2.6%, #539BFF 101.2%);
+}

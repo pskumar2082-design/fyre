@@ -3,6 +3,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
+import { Card } from '@/components/ui';
 
 // ---------------------------------------------------------------------------
 // Section config: this is "the News admin pattern" generalized so the same
@@ -300,7 +301,7 @@ function AdminShell() {
   const active = SECTIONS.find((s) => s.key === activeKey)!;
 
   return (
-    <div className="max-w-3xl mx-auto px-5 py-8">
+    <div className="px-5 md:px-10 py-8 max-w-4xl">
       <div className="flex justify-between items-center mb-6">
         <h1 className="hdisplay gtext text-2xl">fyre admin</h1>
         <button
@@ -311,15 +312,15 @@ function AdminShell() {
         </button>
       </div>
 
-      <div className="flex gap-2 flex-wrap mb-6 border-b border-border pb-4">
+      <div className="flex gap-6 flex-wrap mb-6 border-b border-border overflow-x-auto">
         {SECTIONS.map((s) => (
           <button
             key={s.key}
             onClick={() => setActiveKey(s.key)}
-            className={`text-xs font-semibold rounded-full px-3 py-1.5 border transition ${
+            className={`text-sm font-medium pb-3 border-b-[3px] -mb-px transition whitespace-nowrap ${
               s.key === activeKey
-                ? 'bg-gold text-white border-gold'
-                : 'text-textFaint border-border hover:border-goldDim'
+                ? 'text-gold border-gold'
+                : 'text-textFaint border-transparent hover:text-gold'
             }`}
           >
             {s.label}
@@ -641,7 +642,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
   }
 
   return (
-    <div>
+    <Card className="p-6">
       <p className="text-textFaint text-xs mb-6">
         Manages the <code>{section.table}</code> table in <code>supabase/schema.sql</code>.
       </p>
@@ -655,7 +656,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
                 key={field.key}
                 value={form[field.key]}
                 onChange={(e) => setField(field.key, e.target.value)}
-                className="bg-bgAlt border border-border rounded-lg px-3 py-2 text-sm"
+                className="bg-bg rounded-lg px-4 py-3 text-sm"
               >
                 <option value="">{field.required ? `Select ${field.label.toLowerCase()} *` : `Select ${field.label.toLowerCase()}`}</option>
                 {opts.map((o) => (
@@ -672,7 +673,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
                 <select
                   value={form[field.key]}
                   onChange={(e) => setField(field.key, e.target.value)}
-                  className="bg-bgAlt border border-border rounded-lg px-3 py-2 text-sm flex-1 min-w-[130px]"
+                  className="bg-bg rounded-lg px-4 py-3 text-sm flex-1 min-w-[130px]"
                 >
                   {field.options.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -691,7 +692,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
                 onChange={(e) => setField(field.key, e.target.value)}
                 placeholder={field.required ? `${field.placeholder} *` : field.placeholder}
                 rows={field.rows}
-                className="bg-bgAlt border border-border rounded-lg px-3 py-2 text-sm"
+                className="bg-bg rounded-lg px-4 py-3 text-sm"
               />
             );
           }
@@ -704,7 +705,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
                 value={form[field.key]}
                 onChange={(e) => setField(field.key, e.target.value)}
                 placeholder={field.required ? `${field.placeholder} *` : field.placeholder}
-                className="bg-bgAlt border border-border rounded-lg px-3 py-2 text-sm"
+                className="bg-bg rounded-lg px-4 py-3 text-sm"
               />
             );
           }
@@ -715,7 +716,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
                 type="date"
                 value={form[field.key]}
                 onChange={(e) => setField(field.key, e.target.value)}
-                className="bg-bgAlt border border-border rounded-lg px-3 py-2 text-sm"
+                className="bg-bg rounded-lg px-4 py-3 text-sm"
               />
             );
           }
@@ -726,7 +727,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
               value={form[field.key]}
               onChange={(e) => setField(field.key, e.target.value)}
               placeholder={field.required ? `${field.placeholder} *` : field.placeholder}
-              className="bg-bgAlt border border-border rounded-lg px-3 py-2 text-sm"
+              className="bg-bg rounded-lg px-4 py-3 text-sm"
             />
           );
         })}
@@ -748,7 +749,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
         )}
         <div className="flex justify-between items-center">
           {error && <span className="text-red text-xs">{error}</span>}
-          <button type="submit" className="bg-gold text-white font-semibold rounded-lg px-4 py-2 text-sm ml-auto">
+          <button type="submit" className="bg-gold text-white font-semibold rounded-lg px-6 py-2.5 text-sm ml-auto">
             {editingId ? `Update ${section.label.toLowerCase()}` : `Add ${section.label.toLowerCase()}`}
           </button>
         </div>
@@ -808,7 +809,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
       <div className="flex flex-col gap-3">
         {items.length === 0 && <p className="text-textFaint text-sm">Nothing here yet.</p>}
         {items.map((item) => (
-          <div key={item.id} className="bg-surface border border-border rounded-lg p-4 flex justify-between items-start gap-4">
+          <div key={item.id} className="bg-bg rounded-xl p-4 flex justify-between items-start gap-4">
             <div>
               <div className="font-medium">{section.primary(item)}</div>
               <div className="text-xs text-textFaint mt-1">{section.secondary(item)}</div>
@@ -852,6 +853,6 @@ function Dashboard({ section }: { section: SectionConfig }) {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
