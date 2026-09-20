@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import BreakdownTable, { type BreakdownRow } from '@/components/BreakdownTable';
 import VersionSelector, { type VersionRow } from '@/components/VersionSelector';
+import MovieMintSection from '@/components/MovieMintSection';
 
 export const revalidate = 0;
 
@@ -48,6 +49,44 @@ export default async function MovieDetailPage({
     .select('*')
     .eq('movie_id', movie.id)
     .order('language', { ascending: true });
+
+  // MovieMint is a second, independent box-office source (see
+  // lib/syncMovieMint.ts) -- only queried once this movie has actually
+  // been matched to a MovieMint listing, and always kept separate from
+  // Sacnilk's data: none of these three queries touch now_showing's own
+  // lifetime_*/advance_* columns or any source='sacnilk'/'manual' row.
+  let moviemintSnapshots: any[] = [];
+  let moviemintBreakdownRows: any[] = [];
+  let moviemintMultiplexRows: any[] = [];
+  if (movie.moviemint_slug) {
+    const [{ data: snapshotRows }, { data: breakdownRows2 }, { data: multiplexRowsRaw }] = await Promise.all([
+      supabase
+        .from('source_snapshots')
+        .select('*')
+        .eq('movie_id', movie.id)
+        .eq('source', 'moviemint')
+        .order('fetched_at', { ascending: false })
+        .limit(10),
+      supabase.from('box_office_breakdown').select('*').eq('movie_id', movie.id).eq('source', 'moviemint').order('day_date', { ascending: false }),
+      supabase.from('multiplex_breakdown').select('*').eq('movie_id', movie.id).order('report_date', { ascending: false })
+    ]);
+
+    // One row per kind: most recent snapshot only (snapshotRows is already
+    // ordered newest-first).
+    const seenKinds = new Set<string>();
+    moviemintSnapshots = (snapshotRows ?? []).filter((s: any) => {
+      if (seenKinds.has(s.kind)) return false;
+      seenKinds.add(s.kind);
+      return true;
+    });
+
+    moviemintBreakdownRows = (breakdownRows2 ?? []).map((r: any) => ({ ...r, ff: r.raw_ff }));
+
+    const latestReportDate = multiplexRowsRaw?.[0]?.report_date ?? null;
+    moviemintMultiplexRows = latestReportDate
+      ? (multiplexRowsRaw ?? []).filter((r: any) => r.report_date === latestReportDate)
+      : [];
+  }
 
   // Auto-synced day-wise history from /api/sync-boxoffice (see
   // supabase/migration_scraper.sql) — only meaningful once a movie has
@@ -197,6 +236,12 @@ export default async function MovieDetailPage({
           <VersionSelector versions={versionRows as VersionRow[]} />
         </div>
       )}
+
+      <MovieMintSection
+        snapshots={moviemintSnapshots}
+        breakdownRows={moviemintBreakdownRows}
+        multiplexRows={moviemintMultiplexRows}
+      />
 
       {kind === 'tracked' && dailyRows && dailyRows.length > 0 && (
         <div className="mt-10">
