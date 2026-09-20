@@ -41,18 +41,25 @@ export const NAVIGATION_TIMEOUT_MS = 15000; // strict: fail fast rather than han
 // Measured directly against the live site (2026-09-20, via a real browser):
 // moviemintbo.com runs its own branded loading animation ("FINALIZING
 // DASHBOARD NN%") before the real box-office numbers mount -- on that
-// measurement, real data appeared ~4.8s after navigation start. That's
-// comfortably under a short timeout in a normal browser, but this renders
-// inside a Vercel serverless function, and the first production run at
-// 12000ms timed out. Raised to 25000ms; the second production run STILL
-// timed out at exactly 25000ms, but the diagnostic snippet captured
-// moments later already showed real data ("GROSS ... TICKETS ... SHOWS")
-// -- a near-miss, not a fundamentally broken render. 30000ms gives real
-// margin past that observed near-miss. Also no longer needs to be this
-// tight: HARD_MAX_DURATION_MS in syncMovieMint.ts is 280000ms (Vercel
-// Hobby's real max duration, not the 60000ms previously assumed), so
-// there's no pressure to keep this artificially short.
-export const DATA_WAIT_TIMEOUT_MS = 30000;
+// measurement, real data appeared ~4.8s after navigation start.
+//
+// That figure does NOT hold on Vercel. Two production runs in a row --
+// at 12000ms, then at 25000ms -- both timed out, and both times the
+// diagnostic snippet captured moments later already showed real data
+// ("GROSS ... TICKETS ... SHOWS"): consistent near-misses, not a broken
+// render. A third run at 30000ms ALSO timed out the same way. Rather than
+// keep nudging this up by small increments and re-missing, jumping to a
+// decisively larger margin -- the real per-render budget is no longer
+// tight (HARD_MAX_DURATION_MS in syncMovieMint.ts is 280000ms, Vercel
+// Hobby's real max duration, not the 60000ms originally assumed here), so
+// there's no cost to being generous. One plausible reason production
+// specifically (not a normal browser) runs this much slower: Cloudflare's
+// own non-interactive "challenge-platform" verification call (visible in
+// this renderer's network activity, distinct from any interactive
+// CAPTCHA -- see moviemintChallengeMarkers.ts) may simply take longer to
+// clear from Vercel's datacenter IP ranges than from an ordinary
+// residential browser IP.
+export const DATA_WAIT_TIMEOUT_MS = 60000;
 
 // A realistic desktop UA -- distinct from the plain-HTTP tier's
 // self-identifying bot UA, because this IS a real browser rendering the
