@@ -35,7 +35,20 @@ import { DATA_MARKERS, INTERACTIVE_CHALLENGE_MARKERS } from '@/lib/moviemintChal
 // ---------------------------------------------------------------------------
 
 const NAVIGATION_TIMEOUT_MS = 15000; // strict: fail fast rather than hang a sync run
-const DATA_WAIT_TIMEOUT_MS = 12000; // how long to wait for the page's own JS to populate real data
+
+// How long to wait for the page's own JS to populate real data.
+//
+// Measured directly against the live site (2026-09-20, via a real browser):
+// moviemintbo.com runs its own branded loading animation ("FINALIZING
+// DASHBOARD NN%") before the real box-office numbers mount -- on that
+// measurement, real data appeared ~4.8s after navigation start. That's
+// comfortably under a short timeout in a normal browser, but this renders
+// inside a Vercel serverless function with far less CPU than a desktop
+// browser, and the very first production run of this renderer timed out
+// at the previous 12000ms value (status: 'render_required' with no
+// interactive-challenge markers present -- i.e. genuinely still loading,
+// not blocked). Raised with real margin rather than guessed.
+const DATA_WAIT_TIMEOUT_MS = 25000;
 
 // A realistic desktop UA -- distinct from the plain-HTTP tier's
 // self-identifying bot UA, because this IS a real browser rendering the

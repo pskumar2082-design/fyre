@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { fetchMovieMintPage } from '@/lib/moviemintClient';
+import { fetchMovieMintPage, type MovieMintFetchResult } from '@/lib/moviemintClient';
 import { closeSharedBrowser } from '@/lib/moviemintBrowserRenderer';
 import {
   htmlToLines,
@@ -360,19 +360,8 @@ async function syncOneMovieKind(
   summary: SyncMovieMintSummary
 ) {
   const page = await fetchMovieMintPage(`/movie/${slug}?kind=${kind}`);
-  if (page.status === 'blocked') {
-    summary.errors.push({ context: `movie/${slug}?kind=${kind}`, message: `blocked: ${page.reason}` });
-    return;
-  }
-  if (page.status === 'render_required') {
-    summary.errors.push({
-      context: `movie/${slug}?kind=${kind}`,
-      message: 'render_required: MOVIEMINT_RENDER_ENDPOINT not configured, page needs JS rendering'
-    });
-    return;
-  }
-  if (page.status === 'error') {
-    summary.errors.push({ context: `movie/${slug}?kind=${kind}`, message: page.message });
+  if (page.status !== 'ok') {
+    summary.errors.push({ context: `movie/${slug}?kind=${kind}`, message: describeFetchFailure(page) });
     return;
   }
 
@@ -404,10 +393,31 @@ async function syncOneMovieKind(
   if (!summary.moviesUpdated.includes(meta.title)) summary.moviesUpdated.push(meta.title);
 }
 
+// A non-'ok' MovieMintFetchResult's shape differs by status ('blocked' has
+// `reason`, 'error' has `message`, 'render_required' has neither -- it
+// just means the page loaded but never showed real data within
+// DATA_WAIT_TIMEOUT_MS, see moviemintBrowserRenderer.ts). Centralized here
+// so every call site reports something readable instead of
+// "render_required: undefined".
+function describeFetchFailure(page: Exclude<MovieMintFetchResult, { status: 'ok' }>): string {
+  switch (page.status) {
+    case 'blocked':
+      return `blocked: ${page.reason}`;
+    case 'error':
+      return `error: ${page.message}`;
+    case 'render_required':
+      return 'render_required: page loaded but did not show recognizable data within the render wait window';
+    default: {
+      const _exhaustive: never = page;
+      return `unknown status: ${JSON.stringify(_exhaustive)}`;
+    }
+  }
+}
+
 async function syncMultiplexReport(nowShowingRows: NowShowingRow[], summary: SyncMovieMintSummary) {
   const page = await fetchMovieMintPage('/multiplex-report');
   if (page.status !== 'ok') {
-    summary.errors.push({ context: 'multiplex-report', message: `${page.status}: ${'reason' in page ? page.reason : (page as any).message}` });
+    summary.errors.push({ context: 'multiplex-report', message: describeFetchFailure(page) });
     return;
   }
 
@@ -494,7 +504,7 @@ export async function syncMovieMint(slug?: string): Promise<SyncMovieMintSummary
       for (const path of ['/advance', '/tracked'] as const) {
         const page = await fetchMovieMintPage(path);
         if (page.status !== 'ok') {
-          summary.errors.push({ context: path, message: `${page.status}: ${'reason' in page ? page.reason : (page as any).message}` });
+          summary.errors.push({ context: path, message: describeFetchFailure(page) });
           continue;
         }
         for (const entry of parseListingSlugs(page.html)) {
@@ -528,6 +538,20 @@ export async function syncMovieMint(slug?: string): Promise<SyncMovieMintSummary
       } catch (err: any) {
         summary.errors.push({ context: `movie/${s}?kind=advance`, message: err?.message ?? String(err) });
       }
+
+      // Re-check between a single movie's two renders, not just between
+      // movies. A slow render can now take up to ~NAVIGATION_TIMEOUT_MS +
+      // DATA_WAIT_TIMEOUT_MS (see moviemintBrowserRenderer.ts) on its own,
+      // and the route's hard maxDuration is 60s -- without this, the
+      // 'advance' render alone could already leave too little time for
+      // 'tracked' plus a clean response, and the function would be killed
+      // mid-request instead of returning a truncated-but-valid summary.
+      if (Date.now() - startedAt > SYNC_TIME_BUDGET_MS) {
+        const doneCount = slugsToProcess.indexOf(s) + 1;
+        summary.truncated = { reason: 'time_budget', slugsRemaining: slugsToProcess.length - doneCount };
+        break;
+      }
+
       try {
         await syncOneMovieKind(nowShowingRows, s, 'tracked', summary);
       } catch (err: any) {
