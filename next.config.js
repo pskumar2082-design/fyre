@@ -36,6 +36,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'cdn.sacnilk.com',
         pathname: '/image/**'
+      },
+      {
+        // Posters MovieMint itself sources from TMDB (see
+        // lib/moviemintParser.ts's poster extraction / lib/syncMovieMint.ts),
+        // e.g. https://image.tmdb.org/t/p/w780/9k5F5Lk2bUP7ODifk1KP5Vw8yGm.jpg
+        protocol: 'https',
+        hostname: 'image.tmdb.org',
+        pathname: '/t/p/**'
       }
     ]
   }

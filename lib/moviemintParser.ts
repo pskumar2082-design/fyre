@@ -211,6 +211,42 @@ function valueAfterLabel(lines: string[], labelPattern: RegExp): string | null {
   return null;
 }
 
+// MovieMint sources posters from TMDB and serves them either as a direct
+// image.tmdb.org URL or wrapped in Next.js's own image proxy
+// (/_next/image?url=<encoded-tmdb-url>&w=...&q=...). This looks at every
+// <img> in the rendered page and returns the first TMDB poster it finds,
+// unwrapping the proxy when needed. Operates on raw HTML (not htmlToLines'
+// text-only output), since the URL lives in an attribute, not text.
+export function parsePosterUrl(html: string): string | null {
+  const $ = cheerio.load(html);
+  let found: string | null = null;
+
+  $('img').each((_, el) => {
+    if (found) return;
+    const src = $(el).attr('src');
+    if (!src) return;
+
+    if (src.includes('image.tmdb.org')) {
+      found = src.startsWith('http') ? src : `https://moviemintbo.com${src}`;
+      return;
+    }
+
+    if (src.includes('/_next/image') && src.includes('url=')) {
+      try {
+        const u = new URL(src, 'https://moviemintbo.com');
+        const inner = u.searchParams.get('url');
+        if (inner && inner.includes('image.tmdb.org')) {
+          found = decodeURIComponent(inner);
+        }
+      } catch {
+        // Malformed src -- skip, keep looking at other <img> tags.
+      }
+    }
+  });
+
+  return found;
+}
+
 export function parseAdvanceStats(lines: string[]): ParsedAdvanceStats {
   const dayLabelText = lines.find((l) => /^Advance data:/i.test(l)) ?? null;
   const freshnessText = lines.find((l) => /^Updated\b/i.test(l)) ?? null;

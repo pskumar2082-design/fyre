@@ -140,12 +140,6 @@ const SECTIONS: SectionConfig[] = [
       { key: 'title', label: 'Movie title', kind: 'text', required: true, placeholder: 'Movie title' },
       { key: 'status', label: 'Status badge', kind: 'text', placeholder: 'Status badge (e.g. Hit, Blockbuster)' },
       { key: 'amt', label: 'Collection text', kind: 'text', placeholder: 'Collection text shown under title (e.g. ₹120 Cr)' },
-      {
-        key: 'source_url',
-        label: 'Box office source (optional)',
-        kind: 'text',
-        placeholder: 'Sacnilk day-wise article URL — enables the Refresh button below'
-      },
       { key: 'release_date', label: 'Release date', kind: 'date' },
       { key: 'language', label: 'Language', kind: 'text', placeholder: 'Language (e.g. Hindi, Telugu)' },
       { key: 'genre', label: 'Genre', kind: 'text', placeholder: 'Genre (e.g. Family, Action)' },
@@ -356,13 +350,10 @@ function Dashboard({ section }: { section: SectionConfig }) {
   const [error, setError] = useState('');
   // options for any 'reference' fields (e.g. Movie picker), keyed by field.key
   const [refOptions, setRefOptions] = useState<Record<string, { id: string; label: string }[]>>({});
-  // for the now_showing section's "Sync now" button (see /api/admin-sync-boxoffice)
-  const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [syncMessage, setSyncMessage] = useState('');
-  const [discovering, setDiscovering] = useState(false);
-  // Same idea, for the separate MovieMint source (see lib/syncMovieMint.ts /
-  // app/api/admin-sync-moviemint) -- kept as its own state so a MovieMint
-  // sync's progress/result never gets mixed up with Sacnilk's in the UI.
+  // For the now_showing section's MovieMint sync controls (see
+  // lib/syncMovieMint.ts / app/api/admin-sync-moviemint). Sacnilk is
+  // discontinued (2026-09) -- MovieMint is fyre's sole box-office source,
+  // so this is the only sync state the admin panel tracks any more.
   const [moviemintRefreshingId, setMoviemintRefreshingId] = useState<string | null>(null);
   const [moviemintSyncMessage, setMoviemintSyncMessage] = useState('');
   const [moviemintSyncing, setMoviemintSyncing] = useState(false);
@@ -490,89 +481,10 @@ function Dashboard({ section }: { section: SectionConfig }) {
     loadItems();
   }
 
-  // Pulls day-wise numbers for this one movie from its `source_url` (see
-  // lib/sacnilkParser.ts + supabase/migration_scraper.sql) and writes them
-  // into daily_collections + this movie's lifetime_* fields. Authorized by
-  // this admin session, not a shared secret — see app/api/admin-sync-boxoffice.
-  async function handleSync(id: string) {
-    setSyncingId(id);
-    setSyncMessage('');
-    try {
-      const { data } = await supabase.auth.getSession();
-      const res = await fetch('/api/admin-sync-boxoffice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
-        body: JSON.stringify({ movie_id: id })
-      });
-      const result = await res.json();
-      if (result.error) {
-        setSyncMessage(`Sync failed: ${result.error}`);
-      } else if (result.errors?.length) {
-        setSyncMessage(`Sync failed: ${result.errors[0].message}`);
-      } else if (result.synced?.length) {
-        setSyncMessage(`Synced ${result.synced[0]} — reloading…`);
-      } else {
-        setSyncMessage('Nothing synced — check the source URL.');
-      }
-      loadItems();
-    } catch (err: any) {
-      setSyncMessage(`Sync failed: ${err?.message ?? err}`);
-    } finally {
-      setSyncingId(null);
-    }
-  }
-
-  // Runs the exact same full pipeline the daily cron already runs on its
-  // own every day (see vercel.json + app/api/sync-boxoffice/route.ts):
-  // finds new movies, syncs day-wise collections, and syncs each movie's
-  // profile page — for EVERY tracked movie in one go. This button exists
-  // so you can trigger that immediately instead of waiting for the
-  // schedule; you should never need to click "Sync now" on individual
-  // rows below unless you're troubleshooting one specific movie.
-  async function handleDiscover() {
-    setDiscovering(true);
-    setSyncMessage('');
-    try {
-      const { data } = await supabase.auth.getSession();
-      const res = await fetch('/api/admin-sync-boxoffice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
-        body: JSON.stringify({})
-      });
-      const result = await res.json();
-      if (result.error) {
-        setSyncMessage(`Discovery failed: ${result.error}`);
-      } else {
-        const parts: string[] = [];
-        if (result.discovered?.length) {
-          parts.push(`${result.discovered.length} now showing (${result.discovered.join(', ')})`);
-        }
-        if (result.discoveredUpcoming?.length) {
-          parts.push(`${result.discoveredUpcoming.length} upcoming (${result.discoveredUpcoming.join(', ')})`);
-        }
-        if (parts.length) {
-          setSyncMessage(`Added: ${parts.join(' · ')}`);
-        } else if (result.discoveryErrors?.length) {
-          setSyncMessage(`Discovery failed: ${result.discoveryErrors[0].message}`);
-        } else if (result.upcomingDiscoveryErrors?.length) {
-          setSyncMessage(`Discovery failed: ${result.upcomingDiscoveryErrors[0].message}`);
-        } else {
-          setSyncMessage('No new movies found.');
-        }
-      }
-      loadItems();
-    } catch (err: any) {
-      setSyncMessage(`Discovery failed: ${err?.message ?? err}`);
-    } finally {
-      setDiscovering(false);
-    }
-  }
-
-  // MovieMint is a second, independent box-office source (see
-  // lib/syncMovieMint.ts) -- it writes its own source_snapshots /
-  // box_office_breakdown(source='moviemint') rows and never touches
-  // Sacnilk's data or this movie's lifetime_*/advance_* fields, so this
-  // button and the one above are safe to run independently of each other.
+  // MovieMint is fyre's sole box-office source (Sacnilk discontinued,
+  // 2026-09 -- see lib/syncMovieMint.ts). This discovers movies MovieMint
+  // tracks that fyre doesn't have yet and syncs numbers -- including
+  // lifetime_*/advance_* -- for every movie it already knows.
   async function handleMovieMintDiscover() {
     setMoviemintSyncing(true);
     setMoviemintSyncMessage('');
@@ -760,37 +672,16 @@ function Dashboard({ section }: { section: SectionConfig }) {
         )}
       </form>
 
-      {(section.key === 'now_showing' || section.key === 'upcoming') && (
-        <div className="mb-3">
-          <div className="text-[10px] font-semibold text-textFaint uppercase tracking-wide mb-1">Sacnilk sync</div>
-          <p className="text-xs text-textFaint mb-2">
-            This runs automatically every day — new movies, day-wise collections and profile data all sync
-            on their own. Use this button only to trigger that right now instead of waiting for the schedule.
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleDiscover}
-              disabled={discovering}
-              className="text-xs font-semibold text-goldBright border border-gold/30 rounded-full px-3 py-1.5 hover:border-gold transition disabled:opacity-50"
-            >
-              {discovering ? 'Syncing everything…' : 'Sync everything now'}
-            </button>
-            {syncMessage && <p className="text-xs text-textDim">{syncMessage}</p>}
-          </div>
-        </div>
-      )}
-
       {section.key === 'now_showing' && (
         <div className="mb-6">
           <div className="text-[10px] font-semibold text-textFaint uppercase tracking-wide mb-1">MovieMint sync</div>
           <p className="text-xs text-textFaint mb-2">
-            A second, independent box-office source (
+            fyre's sole box-office source (
             <a href="https://moviemintbo.com/" target="_blank" rel="noreferrer" className="text-goldBright">
               moviemintbo.com
             </a>
-            ). Stored separately from Sacnilk's data — this never overwrites a Sacnilk value. Not yet on an automatic
-            schedule (see the implementation report); use this button to sync manually for now.
+            ), used with their permission. Not yet on an automatic schedule — use this button to sync manually for
+            now; a full pass through MovieMint's tracked list may take a few runs.
           </p>
           <div className="flex items-center gap-3">
             <button
@@ -815,7 +706,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
               <div className="text-xs text-textFaint mt-1">{section.secondary(item)}</div>
               {section.key === 'now_showing' && item.source_synced_at && (
                 <div className="text-[11px] text-goldDim mt-1">
-                  Last synced (Sacnilk) {new Date(item.source_synced_at).toLocaleString()}
+                  Last synced {new Date(item.source_synced_at).toLocaleString()}
                 </div>
               )}
               {section.key === 'now_showing' && (
@@ -825,15 +716,6 @@ function Dashboard({ section }: { section: SectionConfig }) {
               )}
             </div>
             <div className="flex gap-3 text-xs flex-none items-start">
-              {section.key === 'now_showing' && item.source_url && (
-                <button
-                  onClick={() => handleSync(item.id)}
-                  disabled={syncingId === item.id}
-                  className="text-goldBright disabled:opacity-50"
-                >
-                  {syncingId === item.id ? 'Refreshing…' : 'Refresh (Sacnilk)'}
-                </button>
-              )}
               {section.key === 'now_showing' && item.moviemint_slug && (
                 <button
                   onClick={() => handleMovieMintRefresh(item.id, item.moviemint_slug)}

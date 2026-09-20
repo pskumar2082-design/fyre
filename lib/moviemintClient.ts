@@ -157,7 +157,10 @@ async function fetchViaRenderEndpoint(path: string): Promise<{ html: string } | 
   }
 }
 
-export async function fetchMovieMintPage(path: string): Promise<MovieMintFetchResult> {
+export async function fetchMovieMintPage(
+  path: string,
+  opts: { scrollRounds?: number } = {}
+): Promise<MovieMintFetchResult> {
   if (!isPathAllowed(path)) {
     return { status: 'blocked', path, reason: 'path not in the permitted public-page allowlist (or under /api//admin/)' };
   }
@@ -180,7 +183,7 @@ export async function fetchMovieMintPage(path: string): Promise<MovieMintFetchRe
 
   // --- Tier 2: local headless-Chromium render (the $0 primary path) ---
   await politeWait();
-  const rendered = await renderMovieMintPage(`${ORIGIN}${path}`);
+  const rendered = await renderMovieMintPage(`${ORIGIN}${path}`, { scrollRounds: opts.scrollRounds });
   if (rendered.status === 'ok') {
     if (looksLikeInteractiveChallenge(rendered.html)) {
       return { status: 'blocked', path, reason: 'interactive challenge detected on locally-rendered page' };

@@ -69,6 +69,19 @@ export const DATA_WAIT_TIMEOUT_MS = 60000;
 const BROWSER_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+// /tracked is an infinite-scroll listing (84 movies total, ~12 rendered
+// on initial load per live investigation, 2026-09-20) -- everything past
+// that first screenful only exists in the DOM after JS-driven scroll
+// events load more. A caller asks for this via renderMovieMintPage's
+// scrollRounds option; each round scrolls to the bottom and gives the
+// page a moment to fetch/mount the next batch before the next round.
+// Modest per-round wait: unlike the initial full-page data load (which
+// can take MovieMint/Cloudflare tens of seconds, see DATA_WAIT_TIMEOUT_MS
+// above), loading one more batch into an already-hydrated list is a much
+// smaller amount of work, so a short fixed wait plus a "did the page get
+// taller" check is enough without ballooning render time.
+const SCROLL_STEP_WAIT_MS = 1200;
+
 export type BrowserRenderResult =
   | { status: 'ok'; html: string }
   // `snippet`: the first ~300 chars of document.body.innerText at the
@@ -133,7 +146,11 @@ export async function closeSharedBrowser(): Promise<void> {
   }
 }
 
-export async function renderMovieMintPage(url: string): Promise<BrowserRenderResult> {
+export async function renderMovieMintPage(
+  url: string,
+  opts: { scrollRounds?: number } = {}
+): Promise<BrowserRenderResult> {
+  const scrollRounds = opts.scrollRounds ?? 0;
   let browser: Browser;
   try {
     browser = await getSharedBrowser();
@@ -160,6 +177,17 @@ export async function renderMovieMintPage(url: string): Promise<BrowserRenderRes
     } catch {
       // Timed out waiting -- fall through and check what actually
       // rendered (could be a slow page, could be a challenge).
+    }
+
+    if (scrollRounds > 0) {
+      let lastHeight = await page.evaluate(() => document.body.scrollHeight).catch(() => 0);
+      for (let round = 0; round < scrollRounds; round++) {
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)).catch(() => {});
+        await new Promise((r) => setTimeout(r, SCROLL_STEP_WAIT_MS));
+        const newHeight = await page.evaluate(() => document.body.scrollHeight).catch(() => lastHeight);
+        if (newHeight <= lastHeight) break; // page stopped growing -- reached the end of the list
+        lastHeight = newHeight;
+      }
     }
 
     const html = await page.content();

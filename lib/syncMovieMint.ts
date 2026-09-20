@@ -4,12 +4,15 @@ import { closeSharedBrowser, NAVIGATION_TIMEOUT_MS, DATA_WAIT_TIMEOUT_MS } from 
 import {
   htmlToLines,
   parseMovieMeta,
+  parsePosterUrl,
   parseAdvanceStats,
   parseTrackedStats,
   parseBreakdownTable,
   parseListingSlugs,
   parseMultiplexReport,
-  type ParsedMovieMeta
+  type ParsedMovieMeta,
+  type ParsedAdvanceStats,
+  type ParsedTrackedStats
 } from '@/lib/moviemintParser';
 import {
   mapAdvanceSnapshot,
@@ -27,21 +30,18 @@ import {
 // moviemintMapper.ts's -- this file wires them together and is the only
 // one of the four that touches Supabase.
 //
-// Source isolation, enforced throughout:
-//   - Every row this writes carries source = 'moviemint' (or is scoped to
-//     it via the unique constraints added in migration_moviemint.sql).
-//   - Sacnilk's rows (source = 'sacnilk'/'manual' in box_office_breakdown,
-//     everything in daily_collections, every now_showing.lifetime_*/
-//     advance_* column) are never read for comparison and never written
-//     to by this file. A MovieMint sync run cannot touch a Sacnilk row --
-//     they don't share a conflict target, full stop.
-//   - Per Phase 7 of the brief: now_showing's existing lifetime_*/advance_*
-//     scalar columns are NOT written here at all, even for movies matched
-//     to MovieMint. MovieMint's numbers live only in source_snapshots and
-//     box_office_breakdown (source='moviemint'); the frontend reads those
-//     directly for MovieMint-attributed sections. That's a deliberate,
-//     temporary scope limit until source-priority rules are approved
-//     separately, not an oversight.
+// Source isolation:
+//   - Every box_office_breakdown/source_snapshots/multiplex_breakdown row
+//     this writes carries source = 'moviemint' (or is scoped to it via the
+//     unique constraints added in migration_moviemint.sql).
+//   - Sacnilk is discontinued (2026-09) -- fyre no longer syncs from it at
+//     all (app/api/sync-boxoffice and app/api/admin-sync-boxoffice are
+//     unused now). MovieMint is the sole box-office source: this file both
+//     DISCOVERS movies (inserting a new now_showing/upcoming row for a
+//     slug fyre has never seen -- see createNowShowingFromMovieMint) and
+//     writes now_showing's lifetime_*/advance_* scalar columns directly
+//     (see updateNowShowingTopLine), which earlier versions of this file
+//     deliberately left untouched while Sacnilk still owned them.
 // ---------------------------------------------------------------------------
 
 export type SyncMovieMintSummary = {
@@ -232,10 +232,18 @@ async function logMatchReview(
   );
 }
 
+// MovieMint used to only ENRICH movies fyre already had from Sacnilk -- an
+// unmatched slug was just logged to moviemint_match_review for a human to
+// resolve. Now that MovieMint is fyre's only box-office source, a
+// genuinely new title (outcome 'none' -- no title match at all, not an
+// ambiguous one) is created directly instead of sitting in a review queue
+// forever. An 'ambiguous' outcome (more than one plausible existing row)
+// still goes to review -- that's a real judgment call, not "unknown".
 async function matchAndPersistSlug(
   nowShowingRows: NowShowingRow[],
   meta: ParsedMovieMeta,
-  slug: string
+  slug: string,
+  posterUrl: string | null
 ): Promise<{ movieId: string } | null> {
   const bySlug = nowShowingRows.find((r) => r.moviemint_slug === slug);
   if (bySlug) return { movieId: bySlug.id };
@@ -246,9 +254,130 @@ async function matchAndPersistSlug(
     return { movieId: result.movieId };
   }
 
+  if (result.outcome === 'none') {
+    const created = await createNowShowingFromMovieMint(meta, slug, posterUrl);
+    if (created) {
+      nowShowingRows.push(created);
+      return { movieId: created.id };
+    }
+  }
+
   const candidateIds = result.outcome === 'ambiguous' ? result.candidateIds : [];
   await logMatchReview(meta, slug, result.reason, candidateIds);
   return null;
+}
+
+// Best-effort Rs Cr display text, matching the format every other part of
+// fyre already stores in now_showing's lifetime_*/advance_* text columns
+// (e.g. "Rs10.52 Cr") -- see lib/movieStatus.ts's collectionCr, which
+// parses this same shape back out for ranking.
+function formatCr(n: number | null): string {
+  if (n == null) return '';
+  return `₹${n.toFixed(2)} Cr`;
+}
+
+// Same Indian short-form (K/L/Cr) MovieMint's own UI uses for plain
+// counts (tickets, shows), so a synced value reads the same as it did on
+// moviemintbo.com itself.
+function formatCount(n: number | null): string {
+  if (n == null) return '';
+  if (n >= 1e7) return `${(n / 1e7).toFixed(2)} Cr`;
+  if (n >= 1e5) return `${(n / 1e5).toFixed(2)} L`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(2)} K`;
+  return String(Math.round(n));
+}
+
+// Inserts a movie MovieMint reports that fyre has never seen before.
+// Best-effort: a failed insert (e.g. a genuine race against another call)
+// just means this slug gets picked up again on the next sync rather than
+// crashing the whole run.
+async function createNowShowingFromMovieMint(
+  meta: ParsedMovieMeta,
+  slug: string,
+  posterUrl: string | null
+): Promise<NowShowingRow | null> {
+  if (!meta.title) return null;
+  const releaseDate = parseReleaseDateText(meta.releaseDateText);
+
+  const { data, error } = await supabaseAdmin
+    .from('now_showing')
+    .insert({
+      title: meta.title,
+      language: meta.language ?? '',
+      genre: meta.genre ?? '',
+      release_date: releaseDate,
+      image_url: posterUrl,
+      moviemint_slug: slug,
+      status: '',
+      amt: ''
+    })
+    .select('id, title, release_date, language, moviemint_slug')
+    .single();
+
+  if (error || !data) return null;
+
+  // A movie with a future release date is also worth surfacing on the
+  // lightweight Upcoming countdown -- best-effort, never fatal to the
+  // main sync if this one write fails.
+  if (releaseDate && new Date(releaseDate).getTime() > Date.now()) {
+    await supabaseAdmin
+      .from('upcoming')
+      .upsert(
+        { title: meta.title, release_date: releaseDate, image_url: posterUrl, moviemint_slug: slug },
+        { onConflict: 'moviemint_slug' }
+      );
+  }
+
+  return data as NowShowingRow;
+}
+
+// Writes MovieMint's own top-line numbers onto now_showing's
+// lifetime_*/advance_* columns. These used to be Sacnilk-only (MovieMint's
+// numbers lived solely in source_snapshots/box_office_breakdown) as a
+// deliberate, temporary scope limit -- now that Sacnilk is discontinued
+// and MovieMint is fyre's only box-office source, that limit no longer
+// applies: this is the only place these columns get written at all.
+// Never blanks out an existing value just because this tick didn't parse
+// a number for some field -- only the keys MovieMint actually reported
+// get patched.
+async function updateNowShowingTopLine(
+  movieId: string,
+  kind: 'advance' | 'tracked',
+  stats: ParsedAdvanceStats | ParsedTrackedStats
+) {
+  const patch: Record<string, string | number | null> =
+    kind === 'tracked'
+      ? (() => {
+          const t = stats as ParsedTrackedStats;
+          return {
+            lifetime_gross: formatCr(t.lifetimeGross),
+            lifetime_tickets: formatCount(t.lifetimeTickets),
+            lifetime_shows: formatCount(t.lifetimeShows),
+            cities: t.cities,
+            lifetime_occupancy: t.lifetimeOccupancyPct,
+            amt: formatCr(t.lifetimeGross),
+            last_day_date: todayIso(),
+            source_synced_at: new Date().toISOString()
+          };
+        })()
+      : (() => {
+          const a = stats as ParsedAdvanceStats;
+          return {
+            advance_gross: formatCr(a.gross),
+            advance_tickets: formatCount(a.tickets),
+            advance_shows: formatCount(a.shows),
+            advance_cities: a.cities,
+            advance_occupancy: a.occupancyPct
+          };
+        })();
+
+  for (const k of Object.keys(patch)) {
+    if (patch[k] === null || patch[k] === '') delete patch[k];
+  }
+  if (Object.keys(patch).length === 0) return;
+
+  const { error } = await supabaseAdmin.from('now_showing').update(patch).eq('id', movieId);
+  if (error) throw new Error(`now_showing top-line update: ${error.message}`);
 }
 
 async function upsertSnapshotIfChanged(movieId: string, mapped: MappedSnapshot, summary: SyncMovieMintSummary) {
@@ -372,7 +501,8 @@ async function syncOneMovieKind(
     return;
   }
 
-  const match = await matchAndPersistSlug(nowShowingRows, meta, slug);
+  const posterUrl = parsePosterUrl(page.html);
+  const match = await matchAndPersistSlug(nowShowingRows, meta, slug, posterUrl);
   if (!match) {
     summary.unmatched++;
     return;
@@ -382,6 +512,7 @@ async function syncOneMovieKind(
   const stats = kind === 'advance' ? parseAdvanceStats(lines) : parseTrackedStats(lines);
   const mappedSnapshot = kind === 'advance' ? mapAdvanceSnapshot(stats as any) : mapTrackedSnapshot(stats as any);
   await upsertSnapshotIfChanged(match.movieId, mappedSnapshot, summary);
+  await updateNowShowingTopLine(match.movieId, kind, stats as any);
 
   const dayLabelText = kind === 'advance' ? (stats as any).dayLabelText : (stats as any).dayLabelText;
   const dayDate = parseDayLabelDate(dayLabelText) ?? todayIso();
@@ -454,14 +585,18 @@ async function syncMultiplexReport(nowShowingRows: NowShowingRow[], summary: Syn
 
 // ---------------------------------------------------------------------------
 // Entry point. `slug` limits the run to one movie (the admin panel's
-// "Refresh" button); omitted, it discovers from the /advance and /tracked
-// top-10 listings, same "what's currently worth tracking" scope Sacnilk's
-// discoverMovies() uses, not a full historical crawl.
+// "Refresh" button); omitted, it discovers from /advance (top 10) and
+// /tracked (MovieMint's full tracked list, scrolled into view -- see
+// moviemintBrowserRenderer.ts), creating any now_showing/upcoming row that
+// doesn't exist yet (see matchAndPersistSlug) -- not a full historical
+// crawl, just "what MovieMint is currently tracking right now."
 // ---------------------------------------------------------------------------
-// A full run processes at most this many movies -- the /advance + /tracked
-// top-10 listings overlap heavily, so this is a generous ceiling on "what's
-// currently worth tracking," not a real-world limit, and it keeps a single
-// misbehaving sync from opening dozens of renders in one invocation.
+// A full run processes at most this many movies per invocation. MovieMint
+// tracks dozens of movies at once (/tracked alone runs to 80+), far more
+// than one serverless invocation's time budget can render two pages each
+// for -- this caps a single run's cost and lets repeated runs (manual
+// "Sync now" clicks, or eventually a cron tick) work through the backlog
+// incrementally via `truncated` below, rather than trying it all at once.
 const MAX_MOVIES_PER_RUN = 20;
 
 // The routes' hard ceiling (see maxDuration in app/api/*-sync-moviemint/
@@ -535,7 +670,12 @@ export async function syncMovieMint(slug?: string): Promise<SyncMovieMintSummary
           summary.truncated = { reason: 'time_budget', slugsRemaining: 0 };
           break;
         }
-        const page = await fetchMovieMintPage(path);
+        // /tracked is infinite-scroll (84 movies total, ~12 on initial
+        // load) -- scroll it into view so discovery isn't stuck seeing
+        // only the first screenful every run. /advance is a fixed top-10
+        // list with nothing more to scroll for, so it stays at 0.
+        const scrollRounds = path === '/tracked' ? 6 : 0;
+        const page = await fetchMovieMintPage(path, { scrollRounds });
         if (page.status !== 'ok') {
           summary.errors.push({ context: path, message: describeFetchFailure(page) });
           continue;
