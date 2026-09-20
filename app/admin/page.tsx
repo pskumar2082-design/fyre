@@ -591,7 +591,15 @@ function Dashboard({ section }: { section: SectionConfig }) {
         if (result.unmatched) parts.push(`${result.unmatched} unmatched (see MovieMint review queue)`);
         parts.push(`${result.snapshotsInserted ?? 0} new snapshots`);
         parts.push(`${result.breakdownsUpserted ?? 0} breakdown rows`);
-        if (result.errors?.length) parts.push(`${result.errors.length} errors`);
+        if (result.errors?.length) {
+          parts.push(`${result.errors.length} errors`);
+          // Surface the actual failure, not just a count -- e.g. "blocked:
+          // interactive challenge" vs "browser unavailable" vs a network
+          // error need different follow-up, and without this the admin UI
+          // gave no way to tell which one happened.
+          const firstErr = result.errors[0];
+          parts.push(`first error [${firstErr.context}]: ${firstErr.message}`);
+        }
         setMoviemintSyncMessage(parts.join(' · '));
       }
       loadItems();
