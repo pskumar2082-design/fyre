@@ -34,7 +34,7 @@ import { DATA_MARKERS, INTERACTIVE_CHALLENGE_MARKERS } from '@/lib/moviemintChal
 //     allowlist check happening upstream is load-bearing)
 // ---------------------------------------------------------------------------
 
-const NAVIGATION_TIMEOUT_MS = 15000; // strict: fail fast rather than hang a sync run
+export const NAVIGATION_TIMEOUT_MS = 15000; // strict: fail fast rather than hang a sync run
 
 // How long to wait for the page's own JS to populate real data.
 //
@@ -48,7 +48,7 @@ const NAVIGATION_TIMEOUT_MS = 15000; // strict: fail fast rather than hang a syn
 // at the previous 12000ms value (status: 'render_required' with no
 // interactive-challenge markers present -- i.e. genuinely still loading,
 // not blocked). Raised with real margin rather than guessed.
-const DATA_WAIT_TIMEOUT_MS = 25000;
+export const DATA_WAIT_TIMEOUT_MS = 25000;
 
 // A realistic desktop UA -- distinct from the plain-HTTP tier's
 // self-identifying bot UA, because this IS a real browser rendering the

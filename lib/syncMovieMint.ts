@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { fetchMovieMintPage, type MovieMintFetchResult } from '@/lib/moviemintClient';
-import { closeSharedBrowser } from '@/lib/moviemintBrowserRenderer';
+import { closeSharedBrowser, NAVIGATION_TIMEOUT_MS, DATA_WAIT_TIMEOUT_MS } from '@/lib/moviemintBrowserRenderer';
 import {
   htmlToLines,
   parseMovieMeta,
@@ -464,14 +464,37 @@ async function syncMultiplexReport(nowShowingRows: NowShowingRow[], summary: Syn
 // misbehaving sync from opening dozens of renders in one invocation.
 const MAX_MOVIES_PER_RUN = 20;
 
-// Soft time budget for the whole run, kept comfortably under the routes'
-// `maxDuration = 60` (see app/api/sync-moviemint/route.ts) so there's
-// always room left to close the browser cleanly and return a response
-// instead of getting hard-killed mid-render. Checked between movies, not
-// preemptively during one -- a single render's own NAVIGATION_TIMEOUT_MS/
-// DATA_WAIT_TIMEOUT_MS (see moviemintBrowserRenderer.ts) bound how long
-// any one movie can take.
-const SYNC_TIME_BUDGET_MS = 45000;
+// The routes' hard ceiling (see maxDuration in app/api/*-sync-moviemint/
+// route.ts) -- once Vercel hits this, the function is killed outright and
+// the browser gets Vercel's own error page instead of anything this code
+// returns, however good its own try/catch is. Duplicated as a literal
+// (not imported) because it's a route-file export, not a value this
+// module can read at runtime -- keep the two in sync by hand.
+const HARD_MAX_DURATION_MS = 60000;
+
+// A single render's real worst case: the navigation itself can take up to
+// NAVIGATION_TIMEOUT_MS, and if it succeeds, waiting for real data can
+// take up to DATA_WAIT_TIMEOUT_MS on top of that (see
+// moviemintBrowserRenderer.ts, and the 2026-09-20 production run that
+// motivated raising the latter to 25s). A run must never START a render
+// that couldn't finish inside the hard ceiling with room to spare.
+const WORST_CASE_RENDER_MS = NAVIGATION_TIMEOUT_MS + DATA_WAIT_TIMEOUT_MS;
+
+// Headroom reserved after the LAST render for closeSharedBrowser(),
+// whatever DB writes are still pending, and building/returning the JSON
+// response -- so a run stops proactively instead of gambling that
+// cleanup is instant.
+const RESPONSE_OVERHEAD_MS = 5000;
+
+// True only if there's enough time left to attempt one more render and
+// still finish (cleanly) inside HARD_MAX_DURATION_MS. This is checked
+// before EVERY render this module attempts -- both discovery pages and
+// every movie -- not just between movies. A run that runs out of budget
+// simply stops early and reports `truncated`; the next click (or, once
+// cron is enabled, the next tick) picks up where it left off.
+function hasTimeForAnotherRender(startedAt: number): boolean {
+  return Date.now() - startedAt + WORST_CASE_RENDER_MS + RESPONSE_OVERHEAD_MS < HARD_MAX_DURATION_MS;
+}
 
 export async function syncMovieMint(slug?: string): Promise<SyncMovieMintSummary> {
   const startedAt = Date.now();
@@ -502,6 +525,10 @@ export async function syncMovieMint(slug?: string): Promise<SyncMovieMintSummary
     } else {
       const slugSet = new Set<string>();
       for (const path of ['/advance', '/tracked'] as const) {
+        if (!hasTimeForAnotherRender(startedAt)) {
+          summary.truncated = { reason: 'time_budget', slugsRemaining: 0 };
+          break;
+        }
         const page = await fetchMovieMintPage(path);
         if (page.status !== 'ok') {
           summary.errors.push({ context: path, message: describeFetchFailure(page) });
@@ -528,7 +555,7 @@ export async function syncMovieMint(slug?: string): Promise<SyncMovieMintSummary
     // real speed benefit at this scale, and it would multiply MovieMint
     // traffic instead of keeping it conservative.
     for (const s of slugsToProcess) {
-      if (Date.now() - startedAt > SYNC_TIME_BUDGET_MS) {
+      if (!hasTimeForAnotherRender(startedAt)) {
         const doneCount = slugsToProcess.indexOf(s);
         summary.truncated = { reason: 'time_budget', slugsRemaining: slugsToProcess.length - doneCount };
         break;
@@ -540,13 +567,8 @@ export async function syncMovieMint(slug?: string): Promise<SyncMovieMintSummary
       }
 
       // Re-check between a single movie's two renders, not just between
-      // movies. A slow render can now take up to ~NAVIGATION_TIMEOUT_MS +
-      // DATA_WAIT_TIMEOUT_MS (see moviemintBrowserRenderer.ts) on its own,
-      // and the route's hard maxDuration is 60s -- without this, the
-      // 'advance' render alone could already leave too little time for
-      // 'tracked' plus a clean response, and the function would be killed
-      // mid-request instead of returning a truncated-but-valid summary.
-      if (Date.now() - startedAt > SYNC_TIME_BUDGET_MS) {
+      // movies -- 'advance' alone can already use up most of the budget.
+      if (!hasTimeForAnotherRender(startedAt)) {
         const doneCount = slugsToProcess.indexOf(s) + 1;
         summary.truncated = { reason: 'time_budget', slugsRemaining: slugsToProcess.length - doneCount };
         break;
@@ -559,12 +581,17 @@ export async function syncMovieMint(slug?: string): Promise<SyncMovieMintSummary
       }
     }
 
-    if (!slug && !summary.truncated) {
+    if (!slug && !summary.truncated && hasTimeForAnotherRender(startedAt)) {
       try {
         await syncMultiplexReport(nowShowingRows, summary);
       } catch (err: any) {
         summary.errors.push({ context: 'multiplex-report', message: err?.message ?? String(err) });
       }
+    } else if (!slug && !summary.truncated) {
+      // The movie loop finished (nothing left to process) but the clock
+      // is too close to HARD_MAX_DURATION_MS to safely start one more
+      // render -- report it rather than silently skipping.
+      summary.truncated = { reason: 'time_budget', slugsRemaining: 0 };
     }
 
     return summary;
