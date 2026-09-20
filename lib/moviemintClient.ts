@@ -76,8 +76,20 @@ export type MovieMintFetchResult =
   | { status: 'blocked'; path: string; reason: string }
   | { status: 'error'; path: string; message: string };
 
+// Case-insensitive on purpose: confirmed 2026-09-20 by inspecting the live
+// DOM directly that MovieMint renders these labels via a CSS
+// text-transform: uppercase (a Tailwind `uppercase` class) on raw text
+// that's actually title-case ("Gross", not "GROSS"). document.body.innerText
+// reflects the CSS-applied (visual) casing; page.content()'s raw serialized
+// HTML does not. A case-sensitive check against that raw HTML silently
+// never matched -- every prior "render timed out" report from this
+// renderer was actually this, not a real timeout (see git history for the
+// sequence of timeout values tried before this was found). The actual
+// parser (moviemintParser.ts) was never affected -- its label regexes
+// already use the /i flag throughout.
 function containsAny(html: string, needles: string[]): boolean {
-  return needles.some((n) => html.includes(n));
+  const lower = html.toLowerCase();
+  return needles.some((n) => lower.includes(n.toLowerCase()));
 }
 
 function looksLikeInteractiveChallenge(html: string): boolean {

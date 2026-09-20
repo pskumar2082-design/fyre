@@ -163,11 +163,21 @@ export async function renderMovieMintPage(url: string): Promise<BrowserRenderRes
     }
 
     const html = await page.content();
+    // Case-insensitive on purpose -- see moviemintClient.ts's containsAny()
+    // for the full story: MovieMint's data labels render as uppercase via
+    // CSS (Tailwind's `uppercase` class), but the raw text node value
+    // serialized into page.content() is title-case ("Gross"), so an
+    // exact-case check against 'GROSS' never matched here even when the
+    // real data had already loaded. Confirmed directly against the live
+    // DOM on 2026-09-20 after multiple production runs all reported
+    // "timed out" despite the diagnostic snippet (which reads
+    // document.body.innerText, CSS-aware) showing real data present.
+    const htmlLower = html.toLowerCase();
 
-    if (INTERACTIVE_CHALLENGE_MARKERS.some((m) => html.includes(m))) {
+    if (INTERACTIVE_CHALLENGE_MARKERS.some((m) => htmlLower.includes(m.toLowerCase()))) {
       return { status: 'blocked', reason: 'interactive challenge detected on rendered page' };
     }
-    if (!DATA_MARKERS.some((m) => html.includes(m))) {
+    if (!DATA_MARKERS.some((m) => htmlLower.includes(m.toLowerCase()))) {
       const snippet = await page
         .evaluate(() => (document.body ? document.body.innerText.slice(0, 300) : '(no body)'))
         .catch((err) => `(could not read body text: ${err?.message ?? err})`);
