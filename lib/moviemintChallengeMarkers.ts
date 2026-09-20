@@ -25,5 +25,13 @@ export const INTERACTIVE_CHALLENGE_MARKERS = [
   'hcaptcha.com',
   'Please complete the security check',
   'id="challenge-form"',
-  'Verify you are human'
+  'Verify you are human',
+  // Seen live on production (2026-09-20), on /tracked specifically -- a
+  // full-page Cloudflare interstitial, not the passive background script
+  // this list otherwise deliberately excludes. Wording is specific to
+  // Cloudflare's own verification page, not phrasing MovieMint's own UI
+  // would plausibly use, so this is a safe, low-false-positive addition.
+  'Performing security verification',
+  'verifies you are not a bot',
+  'protect against malicious bots'
 ];
