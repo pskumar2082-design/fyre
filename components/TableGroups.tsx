@@ -76,7 +76,7 @@ function TableView({ table }: { table: TTTable }) {
             {table.headers.map((h) => (
               <th
                 key={h}
-                className={`text-left font-semibold py-2.5 px-3 whitespace-nowrap text-textFaint text-[10px] uppercase tracking-wide ${isMoneyColumn(h) ? 'text-right' : ''}`}
+                className={`text-left mdtype-overline py-2.5 px-3 whitespace-nowrap text-textFaint ${isMoneyColumn(h) ? 'text-right' : ''}`}
               >
                 {h}
               </th>

@@ -67,7 +67,7 @@ export function StatCard({
     <Card className="p-5 flex items-center gap-4">
       <IconBadge icon={icon} tint={tint} size={56} />
       <div className="min-w-0">
-        <div className="text-textFaint text-[11px] font-semibold uppercase tracking-wide truncate">{label}</div>
+        <div className="mdtype-overline text-textFaint truncate">{label}</div>
         <div className="font-stat text-2xl tracking-wide truncate mt-0.5 text-text">{value}</div>
       </div>
     </Card>

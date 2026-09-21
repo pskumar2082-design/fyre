@@ -17,14 +17,40 @@ body {
    without leaving the Material type system. */
 .hdisplay {
   font-family: 'Roboto', sans-serif;
-  font-weight: 900;
-  letter-spacing: -0.01em;
-  line-height: 1.1;
+  /* Medium (500) is Material's own heaviest UI headline weight --
+     confirmed directly against the kit's App Bar title and Card title,
+     which both use Headline 6 (Roboto Medium). Weight 900/Black (what
+     this used to be) isn't part of the Material type scale at all and
+     read as an odd, wrong-feeling combination on Roboto specifically. */
+  font-weight: 500;
+  letter-spacing: 0.0125em;
+  line-height: 1.2;
   /* No color here on purpose: body already sets the high-emphasis white
      as the inherited default, and leaving color off this class lets a
      per-use text-* utility win instead of losing to this same-
      specificity rule later. */
 }
+
+/* The Material Design 2 type scale, spelled out exactly -- family,
+   weight, size, line-height and letter-spacing per component/style, not
+   approximated. Headline 6, Body 2 and Button are confirmed directly
+   against the linked kit's own components (App Bar title, Card title,
+   Card body, Card buttons); the rest follow the same documented scale.
+   Use whichever tier actually fits the text's role instead of reaching
+   for .hdisplay/font-stat by default. */
+.mdtype-h1 { font-family: 'Roboto', sans-serif; font-weight: 300; font-size: 96px; line-height: 112px; letter-spacing: -1.5px; }
+.mdtype-h2 { font-family: 'Roboto', sans-serif; font-weight: 300; font-size: 60px; line-height: 72px; letter-spacing: -0.5px; }
+.mdtype-h3 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 48px; line-height: 56px; letter-spacing: 0; }
+.mdtype-h4 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 34px; line-height: 42px; letter-spacing: 0.25px; }
+.mdtype-h5 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 24px; line-height: 32px; letter-spacing: 0; }
+.mdtype-h6 { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 20px; line-height: 24px; letter-spacing: 0.15px; }
+.mdtype-subtitle1 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 16px; line-height: 24px; letter-spacing: 0.15px; }
+.mdtype-subtitle2 { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 14px; line-height: 22px; letter-spacing: 0.1px; }
+.mdtype-body1 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 16px; line-height: 24px; letter-spacing: 0.5px; }
+.mdtype-body2 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 14px; line-height: 20px; letter-spacing: 0.25px; }
+.mdtype-button { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 14px; line-height: 16px; letter-spacing: 1.25px; text-transform: uppercase; }
+.mdtype-caption { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 12px; line-height: 16px; letter-spacing: 0.4px; }
+.mdtype-overline { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 10px; line-height: 16px; letter-spacing: 1.5px; text-transform: uppercase; }
 
 /* High-emphasis white fading into the Material primary purple -- used for
    "days to go" / headline numbers that want a touch of the accent color

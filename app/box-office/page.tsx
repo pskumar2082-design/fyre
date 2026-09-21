@@ -49,7 +49,7 @@ export default async function BoxOfficePage({ searchParams }: { searchParams: { 
         <Card className="overflow-x-auto">
           <table className="w-full text-sm border-collapse min-w-[720px]">
             <thead>
-              <tr className="text-textFaint text-[11px] uppercase tracking-wide border-b border-white/10 bg-white/[0.03]">
+              <tr className="mdtype-overline text-textFaint border-b border-white/10 bg-white/[0.03]">
                 <th className="text-left py-4 px-5 w-12">#</th>
                 <th className="text-left py-4 px-5">Movie</th>
                 <th className="text-left py-4 px-5">Genre</th>

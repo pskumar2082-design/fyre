@@ -117,7 +117,7 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
                 key={i}
                 className={`p-4 ${highlight ? 'bg-gold/5 border-gold/25' : ''}`}
               >
-                <div className="text-textFaint text-[10px] font-semibold uppercase tracking-wide truncate">{s.label}</div>
+                <div className="mdtype-overline text-textFaint truncate">{s.label}</div>
                 <div className={`font-stat text-xl tracking-wide mt-1 truncate ${highlight ? 'text-text' : 'text-textDim'}`}>{s.value}</div>
                 {s.note && <div className="text-textFaint text-[10px] mt-0.5">{s.note}</div>}
               </Card>
