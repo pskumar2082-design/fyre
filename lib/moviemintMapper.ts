@@ -2,7 +2,8 @@ import type {
   ParsedAdvanceStats,
   ParsedTrackedStats,
   ParsedBreakdownRow,
-  ParsedMultiplexChain
+  ParsedMultiplexChain,
+  ParsedDailySeriesEntry
 } from '@/lib/moviemintParser';
 
 // ---------------------------------------------------------------------------
@@ -137,6 +138,44 @@ export function mapTrackedSnapshot(stats: ParsedTrackedStats): MappedSnapshot {
     capacity: null,
     occupancy: stats.lifetimeOccupancyPct,
     sourceUpdatedText: stats.completedShowsText ?? stats.freshnessText ?? stats.dayLabelText
+  };
+}
+
+// "2026-09-02 23:39 IST" -> ISO timestamp (UTC), converting from IST
+// (UTC+5:30). Distinct from parseFreshnessToTimestamp's "Updated ..."
+// text (which always carries an "Updated " prefix) -- a dailySeries
+// entry's own lastUpdated field is this exact shape bare, with no prefix.
+export function parseIstTimestampText(text: string | null): string | null {
+  if (!text) return null;
+  const m = text.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\s*IST/i);
+  if (!m) return null;
+  const [, y, mo, d, hh, mm] = m;
+  const istMs = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mm)) - 5.5 * 3600 * 1000;
+  return new Date(istMs).toISOString();
+}
+
+// One MappedSnapshot per historical day (see parseDailySeries) instead of
+// the single latest-snapshot mapTrackedSnapshot produces. Returns null
+// when the entry has no parseable lastUpdatedText -- source_snapshots'
+// dedup key (source_captured_at) requires one, and a day this can't date
+// can't be safely deduped against itself on a future run, so
+// syncMovieMint.ts skips it rather than guessing a timestamp.
+export function mapDailySeriesEntry(entry: ParsedDailySeriesEntry): MappedSnapshot | null {
+  const sourceCapturedAt = parseIstTimestampText(entry.lastUpdatedText);
+  if (!sourceCapturedAt) return null;
+  return {
+    source: 'moviemint',
+    kind: 'tracked',
+    market: MARKET,
+    sourceCapturedAt,
+    gross: entry.gross,
+    tickets: entry.tickets,
+    shows: entry.shows,
+    theatres: null,
+    cities: null, // dailySeries entries don't carry a per-day city count
+    capacity: entry.capacity,
+    occupancy: entry.occupancyPct,
+    sourceUpdatedText: entry.dateIso ? `Day: ${entry.dateIso} (${entry.lastUpdatedText})` : entry.lastUpdatedText
   };
 }
 

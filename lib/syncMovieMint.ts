@@ -6,6 +6,7 @@ import {
   parsePosterUrl,
   parseAdvanceStats,
   parseTrackedStats,
+  parseDailySeries,
   parseBreakdownTable,
   parseListingSlugs,
   parseMultiplexReport,
@@ -16,6 +17,7 @@ import {
 import {
   mapAdvanceSnapshot,
   mapTrackedSnapshot,
+  mapDailySeriesEntry,
   mapBreakdownRow,
   mapMultiplexChain,
   normalizeTitleForMatch,
@@ -50,6 +52,8 @@ export type SyncMovieMintSummary = {
   moviesUpdated: string[]; // titles
   snapshotsInserted: number;
   snapshotsSkippedDuplicate: number;
+  dailySeriesInserted: number; // historical source_snapshots rows backfilled from a movie's dailySeries
+  dailySeriesSkippedDuplicate: number;
   breakdownsUpserted: number;
   multiplexRowsUpserted: number;
   errors: { context: string; message: string }[];
@@ -421,6 +425,50 @@ async function upsertSnapshotIfChanged(movieId: string, mapped: MappedSnapshot, 
   summary.snapshotsInserted++;
 }
 
+// Full historical day-by-day data for a movie (see parseDailySeries /
+// mapDailySeriesEntry), not just its latest snapshot. Unlike
+// upsertSnapshotIfChanged -- which only ever compares against the single
+// most recent row, because it's deduping consecutive polls of the SAME
+// moment -- this needs to know about every existing row for the movie, so
+// a day it already has is never re-inserted while every day it's missing
+// gets backfilled. Safe to call every run: once a movie's history is
+// fully backfilled, this is one cheap SELECT and no writes.
+async function backfillDailySeriesSnapshots(
+  movieId: string,
+  entries: (MappedSnapshot | null)[],
+  summary: SyncMovieMintSummary
+) {
+  const mapped = entries.filter((e): e is MappedSnapshot => e !== null);
+  if (mapped.length === 0) return;
+
+  const { data: existingRows, error: fetchError } = await supabaseAdmin
+    .from('source_snapshots')
+    .select('source_captured_at')
+    .eq('movie_id', movieId)
+    .eq('source', 'moviemint')
+    .eq('kind', 'tracked');
+  if (fetchError) throw new Error(`source_snapshots daily-series lookup: ${fetchError.message}`);
+
+  const existing = new Set((existingRows ?? []).map((r) => r.source_captured_at));
+  const missing = mapped.filter((m) => m.sourceCapturedAt && !existing.has(m.sourceCapturedAt));
+  if (missing.length === 0) return;
+
+  const payload = missing.map((m) => buildSnapshotPayload(movieId, m));
+  const { error: insertError } = await supabaseAdmin.from('source_snapshots').insert(payload);
+  if (insertError) {
+    // A concurrent run inserting the exact same day between our lookup
+    // and this insert is the only expected cause (unique_violation,
+    // 23505) -- the data's already there either way, not worth failing
+    // the whole sync over. Anything else is a real error worth surfacing.
+    if (insertError.code === '23505') {
+      summary.dailySeriesSkippedDuplicate += missing.length;
+      return;
+    }
+    throw new Error(`source_snapshots daily-series insert: ${insertError.message}`);
+  }
+  summary.dailySeriesInserted += payload.length;
+}
+
 // Same reasoning as buildBreakdownPayload above.
 export function buildSnapshotPayload(movieId: string, mapped: MappedSnapshot) {
   return {
@@ -521,6 +569,15 @@ async function syncOneMovieKind(
   const breakdown = parseBreakdownTable(page.html);
   const mappedRows = breakdown.rows.map(mapBreakdownRow);
   await upsertBreakdownRows(match.movieId, kind, dayDate, mappedRows, summary);
+
+  if (kind === 'tracked') {
+    // Every completed-day entry MovieMint has for this movie, backfilled
+    // once per day (not just today's) -- see backfillDailySeriesSnapshots.
+    const dailySeries = parseDailySeries(page.html);
+    if (dailySeries.length > 0) {
+      await backfillDailySeriesSnapshots(match.movieId, dailySeries.map(mapDailySeriesEntry), summary);
+    }
+  }
 
   if (!summary.moviesUpdated.includes(meta.title)) summary.moviesUpdated.push(meta.title);
 }
@@ -647,6 +704,8 @@ export async function syncMovieMint(slug?: string): Promise<SyncMovieMintSummary
     moviesUpdated: [],
     snapshotsInserted: 0,
     snapshotsSkippedDuplicate: 0,
+    dailySeriesInserted: 0,
+    dailySeriesSkippedDuplicate: 0,
     breakdownsUpserted: 0,
     multiplexRowsUpserted: 0,
     errors: [],

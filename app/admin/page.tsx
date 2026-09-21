@@ -503,6 +503,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
         parts.push(`${result.matched ?? 0} matched`);
         if (result.unmatched) parts.push(`${result.unmatched} unmatched (see MovieMint review queue)`);
         parts.push(`${result.snapshotsInserted ?? 0} new snapshots`);
+        if (result.dailySeriesInserted) parts.push(`${result.dailySeriesInserted} historical days backfilled`);
         parts.push(`${result.breakdownsUpserted ?? 0} breakdown rows`);
         if (result.errors?.length) {
           parts.push(`${result.errors.length} errors`);

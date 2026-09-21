@@ -2,12 +2,19 @@ import { describe, it, expect } from 'vitest';
 import {
   parseFreshnessToTimestamp,
   parseCompletedShowsTimestamp,
+  parseIstTimestampText,
   mapAdvanceSnapshot,
   mapTrackedSnapshot,
+  mapDailySeriesEntry,
   mapBreakdownRow,
   normalizeTitleForMatch
 } from '@/lib/moviemintMapper';
-import type { ParsedAdvanceStats, ParsedTrackedStats, ParsedBreakdownRow } from '@/lib/moviemintParser';
+import type {
+  ParsedAdvanceStats,
+  ParsedTrackedStats,
+  ParsedBreakdownRow,
+  ParsedDailySeriesEntry
+} from '@/lib/moviemintParser';
 
 describe('parseFreshnessToTimestamp', () => {
   it('parses "Updated 1h 5m ago" relative to a reference time', () => {
@@ -106,5 +113,48 @@ describe('normalizeTitleForMatch', () => {
 
   it('is case- and punctuation-insensitive', () => {
     expect(normalizeTitleForMatch('Hanuman Ansh')).toBe(normalizeTitleForMatch('HANUMAN, ANSH!'));
+  });
+});
+
+describe('parseIstTimestampText', () => {
+  it('converts a bare "YYYY-MM-DD HH:MM IST" string to a UTC ISO timestamp', () => {
+    const ts = parseIstTimestampText('2026-09-02 23:39 IST');
+    // 23:39 IST == 18:09 UTC
+    expect(ts).toBe(new Date('2026-09-02T18:09:00.000Z').toISOString());
+  });
+
+  it('returns null for unrecognized text', () => {
+    expect(parseIstTimestampText('not a timestamp')).toBeNull();
+    expect(parseIstTimestampText(null)).toBeNull();
+  });
+});
+
+describe('mapDailySeriesEntry', () => {
+  const entry: ParsedDailySeriesEntry = {
+    dateIso: '2026-09-02',
+    gross: 0.1599846,
+    tickets: 7890,
+    shows: 35,
+    occupancyPct: 79.7,
+    capacity: 9897,
+    lastUpdatedText: '2026-09-02 23:39 IST'
+  };
+
+  it('maps a daily series entry to a tracked-kind MappedSnapshot keyed on its own day', () => {
+    const mapped = mapDailySeriesEntry(entry);
+    expect(mapped).not.toBeNull();
+    expect(mapped!.kind).toBe('tracked');
+    expect(mapped!.source).toBe('moviemint');
+    expect(mapped!.sourceCapturedAt).toBe(new Date('2026-09-02T18:09:00.000Z').toISOString());
+    expect(mapped!.gross).toBe(0.1599846);
+    expect(mapped!.tickets).toBe(7890);
+    expect(mapped!.shows).toBe(35);
+    expect(mapped!.occupancy).toBe(79.7);
+    expect(mapped!.capacity).toBe(9897);
+  });
+
+  it('returns null when the entry has no parseable lastUpdatedText, since it cannot be safely deduped', () => {
+    expect(mapDailySeriesEntry({ ...entry, lastUpdatedText: null })).toBeNull();
+    expect(mapDailySeriesEntry({ ...entry, lastUpdatedText: 'garbage' })).toBeNull();
   });
 });

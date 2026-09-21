@@ -7,6 +7,7 @@ import {
   parseMovieMeta,
   parseAdvanceStats,
   parseTrackedStats,
+  parseDailySeries,
   parseBreakdownTable,
   htmlToLines,
   parseListingSlugs
@@ -186,6 +187,37 @@ describe('parseTrackedStats', () => {
     expect(stats.lifetimeTickets).toBe(210000);
   });
 
+  it('returns [] when there is no Flight dailySeries at all', () => {
+    const html = `<script>self.__next_f.push([1, "11:[\\"$\\",\\"$L12\\",null,{\\"data\\":{\\"summary\\":{\\"totalGross\\":0}}}]"])</script>`;
+    expect(parseDailySeries(html)).toEqual([]);
+  });
+});
+
+describe('parseDailySeries', () => {
+  const html = `<script>self.__next_f.push([1, "11:[\\"$\\",\\"$L12\\",null,{\\"data\\":{\\"summary\\":{\\"totalGross\\":0}},\\"dailySeries\\":[{\\"date\\":\\"20260805\\",\\"gross\\":20000000,\\"ticketsSold\\":100000,\\"shows\\":5000,\\"totalSeats\\":300000,\\"avgOccupancy\\":33.3,\\"lastUpdated\\":\\"2026-08-05 23:40 IST\\"},{\\"date\\":\\"20260806\\",\\"gross\\":15000000,\\"ticketsSold\\":80000,\\"shows\\":4000,\\"totalSeats\\":250000,\\"avgOccupancy\\":32.0,\\"lastUpdated\\":\\"2026-08-06 23:41 IST\\"}]}]"])</script>`;
+
+  it('returns one entry per completed day, converting the compact date and Cr-scaling gross', () => {
+    const entries = parseDailySeries(html);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toEqual({
+      dateIso: '2026-08-05',
+      gross: 2,
+      tickets: 100000,
+      shows: 5000,
+      occupancyPct: 33.3,
+      capacity: 300000,
+      lastUpdatedText: '2026-08-05 23:40 IST'
+    });
+    expect(entries[1].dateIso).toBe('2026-08-06');
+  });
+
+  it('returns [] when the page has no dailySeries (e.g. an advance-only page)', () => {
+    const noSeriesHtml = `<script>self.__next_f.push([1, "11:[\\"$\\",\\"$L12\\",null,{\\"data\\":{\\"summary\\":{\\"totalGross\\":0}}}]"])</script>`;
+    expect(parseDailySeries(noSeriesHtml)).toEqual([]);
+  });
+});
+
+describe('parseTrackedStatsFromLines fallback', () => {
   it('falls back to line-based extraction when no Flight summary is present', () => {
     const lines = [
       'Hanuman Ansh',

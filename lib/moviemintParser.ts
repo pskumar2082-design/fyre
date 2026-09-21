@@ -530,6 +530,48 @@ export function parseTrackedStats(html: string): ParsedTrackedStats {
   return parseTrackedStatsFromLines(htmlToLines(html));
 }
 
+// One entry per day MovieMint has already rolled into its completed-day
+// series (see the FlightPageData comment above) -- i.e. real day-by-day
+// history since release, not just the single latest/lifetime snapshot
+// parseTrackedStats derives from `summary`. Each entry carries its OWN
+// lastUpdated text (not the page's overall metadata.lastUpdated), so
+// syncMovieMint.ts can give every historical source_snapshots row its own
+// accurate source_captured_at instead of stamping all of history with
+// today's fetch time. Only present on ?kind=tracked pages -- always []
+// when the Flight payload has no dailySeries (advance pages, or a page
+// shape this hasn't seen).
+export type ParsedDailySeriesEntry = {
+  dateIso: string | null; // "2026-09-02"
+  gross: number | null; // Cr, same unit as every other gross field here
+  tickets: number | null;
+  shows: number | null;
+  occupancyPct: number | null;
+  capacity: number | null; // total seats across that day's shows
+  lastUpdatedText: string | null; // e.g. "2026-09-02 23:39 IST" -- that day's own freshness stamp
+};
+
+export function parseDailySeries(html: string): ParsedDailySeriesEntry[] {
+  const data = extractFlightPageData(html);
+  const series = data && Array.isArray(data.dailySeries) ? (data.dailySeries as unknown[]) : [];
+  const out: ParsedDailySeriesEntry[] = [];
+  for (const raw of series) {
+    if (!raw || typeof raw !== 'object') continue;
+    const e = raw as Record<string, unknown>;
+    const dateCompact = typeof e.date === 'string' ? e.date : null;
+    const m = dateCompact ? /^(\d{4})(\d{2})(\d{2})$/.exec(dateCompact) : null;
+    out.push({
+      dateIso: m ? `${m[1]}-${m[2]}-${m[3]}` : null,
+      gross: typeof e.gross === 'number' ? e.gross / 1e7 : null,
+      tickets: typeof e.ticketsSold === 'number' ? e.ticketsSold : null,
+      shows: typeof e.shows === 'number' ? e.shows : null,
+      occupancyPct: typeof e.avgOccupancy === 'number' ? e.avgOccupancy : null,
+      capacity: typeof e.totalSeats === 'number' ? e.totalSeats : null,
+      lastUpdatedText: typeof e.lastUpdated === 'string' ? e.lastUpdated : null
+    });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Breakdown table (State Wise / Language Wise / Format Wise). Parsed from
 // the actual <table> markup (cheerio row/cell walk) rather than the
