@@ -52,7 +52,7 @@ function SidebarLinks({ pathname, onNavigate }: { pathname: string; onNavigate?:
           >
             {active && (
               <>
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-[60px] bg-gold rounded-r-[10px] shadow-[0_0_16px_rgba(0,225,140,0.6)]" />
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-[60px] bg-gold rounded-r-[10px] shadow-[0_0_16px_rgba(187,134,252,0.6)]" />
                 <span className="absolute inset-y-1 left-2 right-2 bg-gold/10 rounded-xl" />
               </>
             )}
@@ -103,7 +103,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setMobileOpen(false)}
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
           />
-          <aside className="absolute left-0 top-0 h-full w-[250px] bg-bgAlt flex flex-col shadow-card">
+          <aside className="absolute left-0 top-0 h-full w-[250px] bg-surfaceTop flex flex-col shadow-card">
             <div className="flex items-center justify-between px-6 h-[100px] flex-none border-b border-border">
               <Link href="/" className="flex items-center">
                 <Image src="/logo.png" alt="fyre" width={78} height={32} />
@@ -124,7 +124,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="sticky top-0 z-30 h-[100px] flex-none bg-bgAlt/95 backdrop-blur border-b border-border flex items-center justify-between gap-4 px-5 md:px-10">
+        <header className="sticky top-0 z-30 h-[100px] flex-none bg-surfaceHigh/95 backdrop-blur border-b border-border flex items-center justify-between gap-4 px-5 md:px-10">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"

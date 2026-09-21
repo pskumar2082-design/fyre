@@ -1,36 +1,37 @@
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Condensed:wght@400;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Monochromatic Minimalism -- charcoal canvas, light-gray text. No hue
-   anywhere in the base palette; depth comes from value (light/dark
-   grays) and a hairline border, not color or a drop shadow. */
+/* Material Design dark theme base: #121212 surface, on-surface text at
+   87% white (high emphasis) as the default -- see tailwind.config.js for
+   the full elevation/opacity token set this builds on. */
 body {
   background-color: #121212;
-  color: #E0E0E0;
+  color: rgba(255, 255, 255, 0.87);
 }
 
-/* Bold condensed display face for section titles, page headings and
-   movie titles -- distinct from the body font (Inter) the way the
-   reference screenshots use a heavier display face for headlines. */
+/* Section titles, page headings, movie titles -- Roboto at its heaviest
+   weight stands in for the display face the reference screenshots used,
+   without leaving the Material type system. */
 .hdisplay {
-  font-family: 'Anton', sans-serif;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  line-height: 1.05;
-  /* No color here on purpose: body already sets the primary text gray
+  font-family: 'Roboto', sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  /* No color here on purpose: body already sets the high-emphasis white
      as the inherited default, and leaving color off this class lets a
      per-use text-* utility win instead of losing to this same-
      specificity rule later. */
 }
 
-/* Light gray -> accent gray fade, still inside the grayscale palette --
-   used for the "days to go" / headline numbers that want a touch of
-   shine without introducing any color. */
+/* High-emphasis white fading into the Material primary purple -- used for
+   "days to go" / headline numbers that want a touch of the accent color
+   the spec explicitly allows for this kind of emphasis, without tinting
+   the whole page. */
 .gtext {
-  background: linear-gradient(90deg, #E0E0E0 0%, #B0B0B0 100%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.95) 0%, #bb86fc 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -47,11 +48,12 @@ body {
   opacity: 0.25;
 }
 
-/* Featured-movie banner (homepage) -- a plain dark-to-slightly-lighter
-   charcoal sweep, no color tint at all. */
+/* Featured-movie banner (homepage) -- a plain charcoal sweep for the base
+   layer, and a subtle primary-purple tint (the one spot the spec calls
+   out brand color being fine at more saturation) for the accent layer. */
 .card-gradient-primary {
-  background: linear-gradient(120deg, #121212 0%, #1E1E1E 55%, #0A0A0A 100%);
+  background: linear-gradient(120deg, #121212 0%, #1e1e1e 55%, #0a0a0a 100%);
 }
 .card-gradient-secondary {
-  background: linear-gradient(115deg, #2A2A2A 2.6%, #888888 140%);
+  background: linear-gradient(115deg, #2a2a2a 2.6%, #bb86fc 140%);
 }
