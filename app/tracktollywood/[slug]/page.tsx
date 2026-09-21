@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles, Clock } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { getMovieDetails } from '@/lib/tracktollywood/scraper';
 import type { TTTable } from '@/lib/tracktollywood/types';
@@ -98,6 +98,32 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
           </div>
         </div>
       </Card>
+
+      {/* MOVIE INFO — Released/Releasing On, Cast, Director, Genre,
+          Languages, Production, straight from TrackTollywood's own
+          per-movie footer. Generic label/value list (see
+          TTMovieMetaItem) rather than fixed fields, so this keeps
+          working even if TrackTollywood adds or renames a field.
+          `wide` items (Cast, Production -- usually long comma lists)
+          get two columns instead of one, same as the source site. */}
+      {details.meta.length > 0 && (
+        <Card className="p-5 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5">
+            {details.meta.map((item, i) => (
+              <div key={i} className={item.wide ? 'col-span-2' : ''}>
+                <div className="mdtype-overline text-textFaint mb-1.5">{item.label}</div>
+                <div className="text-text font-semibold">{item.value}</div>
+              </div>
+            ))}
+          </div>
+          {details.metaUpdatedText && (
+            <div className="flex items-center gap-1.5 text-textFaint text-xs mt-5 pt-5 border-t border-border">
+              <Clock size={14} className="flex-none" />
+              {details.metaUpdatedText}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* STAT CARDS — the label matching /gross/i gets the accent
           treatment, same restraint as the rest of the site: green means

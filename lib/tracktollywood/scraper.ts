@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import type { TTListedMovie, TTMovieDetails, TTMovieState, TTStat, TTTable, TTTableRow } from './types';
+import type { TTListedMovie, TTMovieDetails, TTMovieMetaItem, TTMovieState, TTStat, TTTable, TTTableRow } from './types';
 import { cachedFetch } from './cache';
 
 const ORIGIN = 'https://tracktollywood.com';
@@ -207,6 +207,23 @@ function parseStats($: cheerio.CheerioAPI): TTStat[] {
   return stats;
 }
 
+// The "Released/Releasing On · Cast · Director · Genre · Languages ·
+// Production" footer every movie page carries, plus its own "Last
+// updated" line. Generic label/value pairs (not fixed fields) so a
+// field TrackTollywood adds or renames later still comes through.
+function parseMovieMeta($: cheerio.CheerioAPI): { meta: TTMovieMetaItem[]; metaUpdatedText: string | null } {
+  const meta: TTMovieMetaItem[] = [];
+  $('.tt-mv-meta > div').each((_, el) => {
+    const $item = $(el);
+    if ($item.hasClass('tt-mv-updated')) return; // handled separately below
+    const label = cleanText($item.find('.tt-mv-meta-label').first());
+    const value = cleanText($item.find('.tt-mv-meta-value').first());
+    if (label && value) meta.push({ label, value, wide: $item.hasClass('tt-mv-meta-item--wide') });
+  });
+  const metaUpdatedText = cleanText($('.tt-mv-updated').first()) || null;
+  return { meta, metaUpdatedText };
+}
+
 // Every breakdown table on a movie page (day-wise, top cities,
 // state-wise, language-wise, format-wise, time slots, per-advance-date,
 // cumulative) is rendered the same way: a `.tt-ac-table-wrap
@@ -268,6 +285,8 @@ export function parseMovieDetails(html: string, slug: string): TTMovieDetails {
   const posterSrc =
     $('img.tt-mv-poster-fg').first().attr('src') || $('img.tt-mv-poster-fg').first().attr('data-lazy-src') || null;
 
+  const { meta, metaUpdatedText } = parseMovieMeta($);
+
   return {
     slug,
     title,
@@ -278,6 +297,8 @@ export function parseMovieDetails(html: string, slug: string): TTMovieDetails {
     headlineGross: cleanText($('.tt-mv-big').first()) || null,
     headlineLabel: cleanText($('.tt-mv-headline-label').first()) || null,
     stats: parseStats($),
+    meta,
+    metaUpdatedText,
     tables: parseTables($),
     fetchedAt: new Date().toISOString()
   };

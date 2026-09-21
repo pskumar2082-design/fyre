@@ -54,6 +54,15 @@ export type TTTable = {
   rows: TTTableRow[];
 };
 
+// One row of the movie-info footer TrackTollywood publishes on every
+// movie page (Released/Releasing On, Cast, Director, Genre, Languages,
+// Production) -- kept as a generic label/value list, same pattern as
+// TTStat, rather than fixed fields, so a field TrackTollywood adds or
+// renames later still shows up without a code change. `wide` mirrors
+// the site's own "tt-mv-meta-item--wide" class (their long fields --
+// Cast, Production -- get more room; short ones don't).
+export type TTMovieMetaItem = { label: string; value: string; wide: boolean };
+
 export type TTMovieDetails = {
   slug: string;
   title: string;
@@ -64,6 +73,8 @@ export type TTMovieDetails = {
   headlineGross: string | null; // e.g. "₹5.41Cr"
   headlineLabel: string | null; // e.g. "India Gross · Day 4 running"
   stats: TTStat[];
+  meta: TTMovieMetaItem[]; // Released/Cast/Director/Genre/Languages/Production
+  metaUpdatedText: string | null; // e.g. "Last updated 2026-09-21 23:53 IST"
   tables: TTTable[];
   fetchedAt: string; // ISO timestamp of this fetch (not cache-aware -- see cache.ts)
 };
