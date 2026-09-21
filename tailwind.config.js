@@ -63,11 +63,18 @@ module.exports = {
       boxShadow: {
         card: '0 4px 24px -4px rgba(20,22,28,0.08)'
       },
+      // Public Sans stands in for Walmart's proprietary "Everyday Sans"
+      // (brand-restricted, not available outside Walmart) -- see
+      // globals.css's @import comment for why. Money/stat figures
+      // (font-stat) now share the same face rather than a separate
+      // condensed one, since Everyday Sans has no condensed cut either;
+      // Walmart's own weight hierarchy (Regular/Medium/Bold/Black) is
+      // what carries the emphasis instead.
       fontFamily: {
-        display: ['Roboto', 'sans-serif'],
-        body: ['Roboto', 'sans-serif'],
-        heading: ['Roboto', 'sans-serif'],
-        stat: ['"Roboto Condensed"', 'sans-serif']
+        display: ['"Public Sans"', 'sans-serif'],
+        body: ['"Public Sans"', 'sans-serif'],
+        heading: ['"Public Sans"', 'sans-serif'],
+        stat: ['"Public Sans"', 'sans-serif']
       }
     }
   },

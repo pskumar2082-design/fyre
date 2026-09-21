@@ -1,4 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Condensed:wght@400;700&display=swap');
+/* Walmart's own typeface ("Everyday Sans") is a proprietary,
+   brand-restricted font -- not obtainable for a third-party site. Public
+   Sans is the closest open-license match to its brief (a clean,
+   corporate-neutral grotesque, wide weight range), used here to carry
+   the same weight hierarchy Walmart's brand center documents: Light
+   300 / Regular 400 / Medium 500 / Bold 700 / Black 900. */
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;700;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -8,11 +14,14 @@
 body {
   background-color: #ffffff;
   color: #111827;
+  /* Walmart's documented body leading (1.2-1.3) is tighter than the
+     browser default -- a small, site-wide nudge toward their rhythm. */
+  line-height: 1.3;
 }
 
 /* Section titles, page headings, movie titles. */
 .hdisplay {
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Public Sans', sans-serif;
   font-weight: 500;
   letter-spacing: 0.0125em;
   line-height: 1.2;
@@ -48,16 +57,16 @@ body {
 
 /* Material Design 2 type scale -- unchanged by the theme swap, still the
    real spec values. */
-.mdtype-h1 { font-family: 'Roboto', sans-serif; font-weight: 300; font-size: 96px; line-height: 112px; letter-spacing: -1.5px; }
-.mdtype-h2 { font-family: 'Roboto', sans-serif; font-weight: 300; font-size: 60px; line-height: 72px; letter-spacing: -0.5px; }
-.mdtype-h3 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 48px; line-height: 56px; letter-spacing: 0; }
-.mdtype-h4 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 34px; line-height: 42px; letter-spacing: 0.25px; }
-.mdtype-h5 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 24px; line-height: 32px; letter-spacing: 0; }
-.mdtype-h6 { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 20px; line-height: 24px; letter-spacing: 0.15px; }
-.mdtype-subtitle1 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 16px; line-height: 24px; letter-spacing: 0.15px; }
-.mdtype-subtitle2 { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 14px; line-height: 22px; letter-spacing: 0.1px; }
-.mdtype-body1 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 16px; line-height: 24px; letter-spacing: 0.5px; }
-.mdtype-body2 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 14px; line-height: 20px; letter-spacing: 0.25px; }
-.mdtype-button { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 14px; line-height: 16px; letter-spacing: 1.25px; text-transform: uppercase; }
-.mdtype-caption { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 12px; line-height: 16px; letter-spacing: 0.4px; }
-.mdtype-overline { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 10px; line-height: 16px; letter-spacing: 1.5px; text-transform: uppercase; }
+.mdtype-h1 { font-family: 'Public Sans', sans-serif; font-weight: 300; font-size: 96px; line-height: 112px; letter-spacing: -1.5px; }
+.mdtype-h2 { font-family: 'Public Sans', sans-serif; font-weight: 300; font-size: 60px; line-height: 72px; letter-spacing: -0.5px; }
+.mdtype-h3 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 48px; line-height: 56px; letter-spacing: 0; }
+.mdtype-h4 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 34px; line-height: 42px; letter-spacing: 0.25px; }
+.mdtype-h5 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 24px; line-height: 32px; letter-spacing: 0; }
+.mdtype-h6 { font-family: 'Public Sans', sans-serif; font-weight: 500; font-size: 20px; line-height: 24px; letter-spacing: 0.15px; }
+.mdtype-subtitle1 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 16px; line-height: 24px; letter-spacing: 0.15px; }
+.mdtype-subtitle2 { font-family: 'Public Sans', sans-serif; font-weight: 500; font-size: 14px; line-height: 22px; letter-spacing: 0.1px; }
+.mdtype-body1 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 16px; line-height: 24px; letter-spacing: 0.5px; }
+.mdtype-body2 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 14px; line-height: 20px; letter-spacing: 0.25px; }
+.mdtype-button { font-family: 'Public Sans', sans-serif; font-weight: 500; font-size: 14px; line-height: 16px; letter-spacing: 1.25px; text-transform: uppercase; }
+.mdtype-caption { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 12px; line-height: 16px; letter-spacing: 0.4px; }
+.mdtype-overline { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 10px; line-height: 16px; letter-spacing: 1.5px; text-transform: uppercase; }
