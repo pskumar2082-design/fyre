@@ -65,6 +65,7 @@ type NowShowingRow = {
   release_date: string | null;
   language: string | null;
   moviemint_slug: string | null;
+  source_synced_at: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -196,7 +197,9 @@ function parseDayLabelDate(text: string | null): string | null {
 }
 
 async function fetchAllNowShowing(): Promise<NowShowingRow[]> {
-  const { data, error } = await supabaseAdmin.from('now_showing').select('id, title, release_date, language, moviemint_slug');
+  const { data, error } = await supabaseAdmin
+    .from('now_showing')
+    .select('id, title, release_date, language, moviemint_slug, source_synced_at');
   if (error) throw new Error(`now_showing lookup: ${error.message}`);
   return (data ?? []) as NowShowingRow[];
 }
@@ -686,6 +689,24 @@ export async function syncMovieMint(slug?: string): Promise<SyncMovieMintSummary
     }
 
     summary.slugsSeen = slugs.length;
+
+    // Highest priority: a slug this run just discovered that no
+    // now_showing row is linked to yet (brand new, or still pending a
+    // match). Next: a linked movie that's never actually completed a
+    // 'tracked' sync (source_synced_at null). Last: linked movies sorted
+    // oldest-synced-first, so a movie this run doesn't get to still moves
+    // up the queue for next time instead of being stuck behind the same
+    // handful forever.
+    const syncedAtBySlug = new Map<string, string | null>();
+    for (const row of nowShowingRows) {
+      if (row.moviemint_slug) syncedAtBySlug.set(row.moviemint_slug, row.source_synced_at);
+    }
+    const priority = (s: string): number => {
+      if (!syncedAtBySlug.has(s)) return -2;
+      const syncedAt = syncedAtBySlug.get(s);
+      return syncedAt ? new Date(syncedAt).getTime() : -1;
+    };
+    slugs = [...slugs].sort((a, b) => priority(a) - priority(b));
 
     const slugsToProcess = slugs.slice(0, MAX_MOVIES_PER_RUN);
     if (slugs.length > MAX_MOVIES_PER_RUN) {

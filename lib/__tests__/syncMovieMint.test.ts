@@ -8,7 +8,14 @@ import {
 import type { ParsedMovieMeta } from '@/lib/moviemintParser';
 import type { MappedSnapshot } from '@/lib/moviemintMapper';
 
-type Row = { id: string; title: string; release_date: string | null; language: string | null; moviemint_slug: string | null };
+type Row = {
+  id: string;
+  title: string;
+  release_date: string | null;
+  language: string | null;
+  moviemint_slug: string | null;
+  source_synced_at: string | null;
+};
 
 const row = (over: Partial<Row>): Row => ({
   id: 'id',
@@ -16,6 +23,7 @@ const row = (over: Partial<Row>): Row => ({
   release_date: null,
   language: null,
   moviemint_slug: null,
+  source_synced_at: null,
   ...over
 });
 
