@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Search, TrendingUp, Film, ListFilter } from 'lucide-react';
+import { Search, TrendingUp, Film, ListFilter, IndianRupee } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { getLiveMovies, getCompletedMovies, parseReleaseDate, parseAmountToCr } from '@/lib/tracktollywood/scraper';
 import { getDailyTotals } from '@/lib/tracktollywood/aggregate';
 import { STATE_LABEL, STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
-import { Card, StatCard, SectionHeading, EmptyState, Pill } from '@/components/ui';
+import { Card, IconBadge, SectionHeading, EmptyState, Pill } from '@/components/ui';
 import { Donut, TrendChart } from '@/components/charts';
 
 export const dynamic = 'force-dynamic';
@@ -74,21 +74,23 @@ export default async function HomePage() {
         <p className="text-textFaint text-xs mb-5">{asOf} IST</p>
 
         <Card className="p-5 mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-text font-medium">Today's Gross</span>
+          <div className="flex items-center justify-between mb-4">
+            <IconBadge icon={IndianRupee} tint="blue" size={48} />
             <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
           </div>
-          <div className="font-stat text-3xl tracking-wide text-text">{formatCr(todaysGrossCr)}</div>
-          <div className="text-textFaint text-xs mt-2">across {nowShowing.length} movie{nowShowing.length === 1 ? '' : 's'} live right now</div>
+          <div className="text-textFaint text-xs mb-1">Today's Gross</div>
+          <div className="font-stat font-bold text-5xl tracking-wide text-gold leading-none">{formatCr(todaysGrossCr)}</div>
+          <div className="text-textFaint text-xs mt-2.5">across {nowShowing.length} movie{nowShowing.length === 1 ? '' : 's'} live right now</div>
         </Card>
 
         <Card className="p-5 mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-text font-medium">Live Now</span>
+          <div className="flex items-center justify-between mb-4">
+            <IconBadge icon={Film} tint="yellow" size={48} />
             <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
           </div>
-          <div className="font-stat text-3xl tracking-wide text-text">{nowShowing.length}</div>
-          <div className="text-textFaint text-xs mt-2">{upcoming.length} upcoming · {completedCount} completed archive</div>
+          <div className="text-textFaint text-xs mb-1">Live Now</div>
+          <div className="font-stat font-bold text-5xl tracking-wide text-red leading-none">{nowShowing.length}</div>
+          <div className="text-textFaint text-xs mt-2.5">{upcoming.length} upcoming · {completedCount} completed archive</div>
         </Card>
 
         <Card className="p-5">
@@ -176,7 +178,7 @@ export default async function HomePage() {
                           {STATE_LABEL[m.state]}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right font-stat text-base text-text">{m.gross || '—'}</td>
+                      <td className="py-3 px-3 text-right font-stat font-bold text-base text-gold">{m.gross || '—'}</td>
                       <td className="py-3 px-3 text-right">
                         <Pill href={`/tracktollywood/${m.slug}`} variant="primary" className="!text-xs !px-4 !py-1.5">
                           Details

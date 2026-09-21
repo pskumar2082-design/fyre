@@ -66,7 +66,7 @@ export default async function UpcomingPage({ searchParams }: { searchParams: { s
                   )}
                   <div className="text-sm font-medium text-text">{u.title}</div>
                   <div className="text-xs text-textFaint">{u.releaseText ?? (u.genre || '')}</div>
-                  {u.gross && <div className="text-sm font-stat text-text mt-1">{u.gross} advance</div>}
+                  {u.gross && <div className="text-sm font-stat font-bold text-gold mt-1">{u.gross} advance</div>}
                 </Card>
               </Link>
             );

@@ -5,11 +5,25 @@ import Link from 'next/link';
 // rounded-2xl cards with a soft shadow, tinted icon badges, stat cards
 // (icon + label + value), and pill buttons/links -- matching the "Car
 // Rent" dashboard reference's card/button language.
+//
+// Badges use a stronger tint (12% fill / 20% border, full-saturation
+// icon) than the first light-theme pass -- the original 10%/15% read as
+// washed-out and "basic" next to the reference's confident icon chips.
 const TINTS = {
-  blue: 'bg-gold/10 text-gold border border-gold/15',
-  teal: 'bg-goldDim/10 text-goldDim border border-goldDim/15',
-  yellow: 'bg-red/10 text-red border border-red/15',
-  pink: 'bg-black/[0.03] text-textFaint border border-black/5'
+  blue: 'bg-gold/[0.12] text-gold border border-gold/20',
+  teal: 'bg-goldDim/[0.12] text-goldDim border border-goldDim/20',
+  yellow: 'bg-red/[0.12] text-red border border-red/20',
+  pink: 'bg-black/[0.04] text-textDim border border-black/[0.06]'
+} as const;
+
+// Matching solid-text color for each tint, used where a number itself
+// (not just its icon chip) should carry the accent -- e.g. StatCard
+// values and the homepage's big gross/live figures.
+const TINT_TEXT = {
+  blue: 'text-gold',
+  teal: 'text-goldDim',
+  yellow: 'text-red',
+  pink: 'text-text'
 } as const;
 
 export type Tint = keyof typeof TINTS;
@@ -37,10 +51,10 @@ export function IconBadge({
 }) {
   return (
     <div
-      className={`flex-none rounded-xl flex items-center justify-center ${TINTS[tint]}`}
+      className={`flex-none rounded-2xl flex items-center justify-center ${TINTS[tint]}`}
       style={{ width: size, height: size }}
     >
-      <Icon size={Math.round(size * 0.45)} strokeWidth={2} />
+      <Icon size={Math.round(size * 0.48)} strokeWidth={2.25} />
     </div>
   );
 }
@@ -61,7 +75,9 @@ export function StatCard({
       <IconBadge icon={icon} tint={tint} size={56} />
       <div className="min-w-0">
         <div className="mdtype-overline text-textFaint truncate">{label}</div>
-        <div className="font-stat text-2xl tracking-wide truncate mt-0.5 text-text">{value}</div>
+        <div className={`font-stat font-bold text-3xl sm:text-4xl tracking-wide truncate mt-0.5 ${TINT_TEXT[tint]}`}>
+          {value}
+        </div>
       </div>
     </Card>
   );
@@ -85,14 +101,15 @@ export function Pill({
   children: React.ReactNode;
 }) {
   const styles = {
-    // Solid blue pill with white text -- the reference's "Check" button
-    // and its active filter-tab treatment.
-    primary: 'bg-gold text-white border border-gold hover:bg-goldBright',
+    // Solid blue pill with white text and a soft colored shadow -- the
+    // shadow is what was missing before; flat pills read as "basic"
+    // against the reference's buttons, which visibly lift off the page.
+    primary: 'bg-gold text-white border border-gold shadow-[0_10px_24px_-10px_rgba(47,111,237,0.55)] hover:bg-goldBright',
     default: 'bg-surface text-textDim border border-border hover:border-gold/30 hover:text-text',
     outline: 'bg-transparent text-textDim border border-border hover:border-gold/40 hover:text-text',
-    active: 'bg-gold text-white border border-gold'
+    active: 'bg-gold text-white border border-gold shadow-[0_10px_24px_-10px_rgba(47,111,237,0.55)]'
   }[variant];
-  const base = `inline-flex items-center justify-center gap-1.5 text-sm font-semibold rounded-full px-5 py-2 transition disabled:opacity-40 disabled:pointer-events-none ${styles} ${className}`;
+  const base = `inline-flex items-center justify-center gap-1.5 text-[15px] font-semibold rounded-full px-5 py-2 transition disabled:opacity-40 disabled:pointer-events-none ${styles} ${className}`;
 
   if (href) {
     return (
