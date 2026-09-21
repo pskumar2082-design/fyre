@@ -437,7 +437,20 @@ async function upsertSnapshotIfChanged(movieId: string, mapped: MappedSnapshot, 
   }
 
   const { error } = await supabaseAdmin.from('source_snapshots').insert(buildSnapshotPayload(movieId, mapped));
-  if (error) throw new Error(`source_snapshots insert: ${error.message}`);
+  if (error) {
+    // Same reasoning as backfillDailySeriesSnapshots: the (movie_id,
+    // source, kind, market, source_captured_at) unique constraint can
+    // already be satisfied by a row backfillDailySeriesSnapshots wrote
+    // for this exact captured_at (or a concurrent run), even though the
+    // prev-row check above only compared against the latest row. Either
+    // way the data's already there, so treat it as a duplicate-skip
+    // rather than a hard error.
+    if (error.code === '23505') {
+      summary.snapshotsSkippedDuplicate++;
+      return;
+    }
+    throw new Error(`source_snapshots insert: ${error.message}`);
+  }
   summary.snapshotsInserted++;
 }
 
