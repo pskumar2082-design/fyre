@@ -27,6 +27,18 @@ function daysSince(dateStr: string): number | null {
 
 export function isInTheaters(movie: { release_date?: string | null; last_day_date?: string | null }): boolean {
   const releaseAge = movie.release_date ? daysSince(movie.release_date) : null;
+
+  // A future release_date makes daysSince NEGATIVE (Date.now() - t < 0)
+  // -- this movie hasn't opened yet, however much MovieMint advance data
+  // it already has (see createNowShowingFromMovieMint, which creates its
+  // now_showing row the moment MovieMint's /advance lists it, days or
+  // weeks before release). It belongs on /upcoming, not Now Showing.
+  // Bug fixed 2026-09-21: previously `releaseAge <= THEATRICAL_RUN_DAYS`
+  // was also true for any negative releaseAge, so every not-yet-released
+  // movie MovieMint had advance data for showed up in Now Showing as if
+  // it were already running.
+  if (releaseAge != null && releaseAge < 0) return false;
+
   if (releaseAge == null || releaseAge <= THEATRICAL_RUN_DAYS) return true;
 
   const dataAge = movie.last_day_date ? daysSince(movie.last_day_date) : null;

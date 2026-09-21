@@ -15,6 +15,7 @@ type Row = {
   language: string | null;
   moviemint_slug: string | null;
   source_synced_at: string | null;
+  image_url: string | null;
 };
 
 const row = (over: Partial<Row>): Row => ({
@@ -24,6 +25,7 @@ const row = (over: Partial<Row>): Row => ({
   language: null,
   moviemint_slug: null,
   source_synced_at: null,
+  image_url: null,
   ...over
 });
 

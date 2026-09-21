@@ -70,6 +70,7 @@ type NowShowingRow = {
   language: string | null;
   moviemint_slug: string | null;
   source_synced_at: string | null;
+  image_url: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -203,7 +204,7 @@ function parseDayLabelDate(text: string | null): string | null {
 async function fetchAllNowShowing(): Promise<NowShowingRow[]> {
   const { data, error } = await supabaseAdmin
     .from('now_showing')
-    .select('id, title, release_date, language, moviemint_slug, source_synced_at');
+    .select('id, title, release_date, language, moviemint_slug, source_synced_at, image_url');
   if (error) throw new Error(`now_showing lookup: ${error.message}`);
   return (data ?? []) as NowShowingRow[];
 }
@@ -252,11 +253,26 @@ async function matchAndPersistSlug(
   posterUrl: string | null
 ): Promise<{ movieId: string } | null> {
   const bySlug = nowShowingRows.find((r) => r.moviemint_slug === slug);
-  if (bySlug) return { movieId: bySlug.id };
+  if (bySlug) {
+    // Only fills a gap -- never overwrites an existing image with a
+    // possibly-worse later parse.
+    if (posterUrl && !bySlug.image_url) {
+      await supabaseAdmin.from('now_showing').update({ image_url: posterUrl }).eq('id', bySlug.id);
+      bySlug.image_url = posterUrl;
+    }
+    return { movieId: bySlug.id };
+  }
 
   const result = resolveMatchCandidates(nowShowingRows, meta);
   if (result.outcome === 'matched') {
-    await supabaseAdmin.from('now_showing').update({ moviemint_slug: slug }).eq('id', result.movieId);
+    const patch: Record<string, unknown> = { moviemint_slug: slug };
+    const matchedRow = nowShowingRows.find((r) => r.id === result.movieId);
+    if (posterUrl && !matchedRow?.image_url) patch.image_url = posterUrl;
+    await supabaseAdmin.from('now_showing').update(patch).eq('id', result.movieId);
+    if (matchedRow) {
+      matchedRow.moviemint_slug = slug;
+      if (patch.image_url) matchedRow.image_url = posterUrl;
+    }
     return { movieId: result.movieId };
   }
 
@@ -317,7 +333,7 @@ async function createNowShowingFromMovieMint(
       status: '',
       amt: ''
     })
-    .select('id, title, release_date, language, moviemint_slug')
+    .select('id, title, release_date, language, moviemint_slug, source_synced_at, image_url')
     .single();
 
   if (error || !data) return null;
