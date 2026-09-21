@@ -1,27 +1,22 @@
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
-// Small shared dark-theme primitives used across every page: zinc-toned
+// Small shared dark-theme primitives used across every page: charcoal
 // rounded-2xl cards with a hairline border, tinted icon badges, stat
 // cards (icon + label + value), and pill buttons/links. Keeping these in
 // one file since each is a few lines -- see components/ui/ only if this
 // grows enough to warrant splitting later.
 //
-// Tint palette is deliberately restrained -- MovieMint's own tracker UI
-// uses one accent (mint green) for anything money- or status-related and
-// leaves everything else neutral zinc, rather than a different candy
-// color per metric. "blue" reads as neutral, "teal" is the money/accent
-// tint, "yellow" is time-related (amber), "pink" is the reviews/rating
-// accent (rose) -- kept as separate keys so existing call sites don't
-// need to change, only what each one renders.
+// Monochromatic Minimalism has no hue to spend, so every "tint" below is
+// a different VALUE of gray rather than a different color -- the most
+// important one (teal, used for money-adjacent stats) is just the
+// brightest, the rest step down. Kept as separate keys so existing call
+// sites don't need to change, only what each one renders.
 const TINTS = {
   blue: 'bg-white/5 text-textDim border border-white/5',
   teal: 'bg-gold/10 text-gold border border-gold/20',
-  // Cool blue rather than another warm/amber tone -- keeps the calendar
-  // "days to go" cards from reading as a duller copy of the primary
-  // ember-orange accent used for money figures.
-  yellow: 'bg-sky-400/10 text-sky-400 border border-sky-400/20',
-  pink: 'bg-coral/10 text-coral border border-coral/20'
+  yellow: 'bg-white/5 text-textDim border border-white/10',
+  pink: 'bg-white/[0.03] text-textFaint border border-white/5'
 } as const;
 
 export type Tint = keyof typeof TINTS;
@@ -73,7 +68,7 @@ export function StatCard({
       <IconBadge icon={icon} tint={tint} size={56} />
       <div className="min-w-0">
         <div className="text-textFaint text-[11px] font-semibold uppercase tracking-wide truncate">{label}</div>
-        <div className="hdisplay text-xl truncate mt-0.5">{value}</div>
+        <div className="font-stat text-2xl tracking-wide truncate mt-0.5 text-text">{value}</div>
       </div>
     </Card>
   );
@@ -97,12 +92,12 @@ export function Pill({
   children: React.ReactNode;
 }) {
   const styles = {
-    // Solid mint-green pill with black text -- MovieMint's own primary
-    // button treatment, reused here for every "do the thing" action.
+    // Solid accent-gray pill with charcoal text -- same treatment as an
+    // active nav item or selected filter tab, reserved for "do the
+    // thing" actions and the currently-active filter/tab.
     primary: 'bg-gold text-black border border-gold hover:bg-goldBright',
     default: 'bg-surface text-textDim border border-white/5 hover:border-white/15 hover:text-text',
-    outline: 'bg-transparent text-gold border border-gold/30 hover:border-gold/60',
-    // For a currently-selected filter/tab pill.
+    outline: 'bg-transparent text-textDim border border-white/20 hover:border-white/40 hover:text-text',
     active: 'bg-gold text-black border border-gold'
   }[variant];
   const base = `inline-flex items-center justify-center gap-1.5 text-sm font-semibold rounded-full px-5 py-2 transition disabled:opacity-40 disabled:pointer-events-none ${styles} ${className}`;

@@ -8,53 +8,57 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Dark theme built around fyre's own mark -- a flame -- instead
-        // of borrowing another tracker's exact brand color. Near-black
-        // canvas, neutral zinc-toned cards, and one accent: ember
-        // orange, reserved for money figures, live status and primary
-        // actions. Every existing className (bg-surface, text-textDim,
-        // border-border, bg-gold, ...) picks up the new palette
-        // automatically -- this file is the single place it all lives.
-        bg: '#0C0B0A',
-        bgAlt: '#131210',
-        surface: '#161513',
-        surface2: '#1C1B18',
-        border: '#2A2825', // warm-tinted zinc-800
-        gold: '#FF7A1A',       // primary accent -- ember/flame orange
-        goldBright: '#FFA245', // brighter amber for hover/emphasis states
-        goldDim: '#FF7A1A',    // same hue -- always used at low opacity (bg-goldDim/10) for tints
-        red: '#F65A5A',        // negative / error
-        text: '#FFFFFF',       // headings
-        textDim: '#A8A29A',    // warm-tinted gray -- body / secondary text
-        textFaint: '#78726A',  // muted labels, placeholders
-        // Gradient-text stops (.gtext) -- ember red -> orange -> gold,
-        // an actual flame gradient instead of a cool blue/teal run.
-        brandPurple: '#E8460F',
-        brandPink: '#FF7A1A',
-        brandOrange: '#FFC94D',
-        positive: '#FF7A1A',
-        coral: '#FF6B8B',
-        chartBlue: '#FF7A1A',
-        chartTeal: '#FFC94D',
-        tintBlue: '#161513',
-        tintPink: '#1A1416',
-        tintYellow: '#1A1712',
-        tintTeal: '#171310'
+        // Monochromatic Minimalism -- the user's own palette, used
+        // literally rather than approximated: a charcoal canvas, two
+        // grays of text, a dark-gray border, and one muted gray accent
+        // for interactive chrome (buttons, links, active states). No hue
+        // anywhere -- hierarchy comes from value (how light/dark) and
+        // typography, not color, which is the whole point of this
+        // palette and also settles the "looks copied" complaint for
+        // good: nothing here matches another tracker's brand color.
+        bg: '#121212',
+        bgAlt: '#161616',
+        surface: '#1A1A1A',
+        surface2: '#202020',
+        border: '#444444',
+        gold: '#888888',       // "Accent" in the given palette -- interactive chrome only
+        goldBright: '#A8A8A8', // lighter gray for hover/emphasis
+        goldDim: '#888888',
+        red: '#F65A5A',        // errors stay a real color -- can't signal "this failed" in grayscale
+        text: '#E0E0E0',       // Primary Text
+        textDim: '#B0B0B0',    // Secondary Text
+        textFaint: '#777777',  // dimmer still, for captions/placeholders
+        // .gtext stays inside the grayscale range -- light gray fading
+        // to the accent gray, not a color gradient.
+        brandPurple: '#E0E0E0',
+        brandPink: '#B0B0B0',
+        brandOrange: '#888888',
+        positive: '#E0E0E0',
+        coral: '#B0B0B0',
+        chartBlue: '#E0E0E0',
+        chartTeal: '#B0B0B0',
+        tintBlue: '#1A1A1A',
+        tintPink: '#1A1A1A',
+        tintYellow: '#1A1A1A',
+        tintTeal: '#1A1A1A'
       },
-      // Keep the same radius scale the app already uses everywhere.
       borderRadius: {
         lg: '15px',
         xl: '20px',
         '2xl': '25px'
       },
       boxShadow: {
-        // A dark canvas needs depth from a border + soft black falloff,
-        // not a visible drop shadow -- see .Card's border-white/5.
         card: '0 10px 30px -10px rgba(0,0,0,0.7)'
       },
       fontFamily: {
         display: ['"Inter"', 'sans-serif'],
-        body: ['Inter', 'sans-serif']
+        body: ['Inter', 'sans-serif'],
+        // Bold condensed display face for headings (see .hdisplay in
+        // globals.css) and a tall condensed face specifically for big
+        // stat/money figures -- matches the two type styles in the
+        // reference screenshots.
+        heading: ['"Anton"', 'sans-serif'],
+        stat: ['"Bebas Neue"', 'sans-serif']
       }
     }
   },

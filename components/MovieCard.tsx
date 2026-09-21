@@ -45,7 +45,7 @@ export default function MovieCard({ movie, rank }: { movie: TTListedMovie; rank?
         )}
       </div>
       <div className="text-sm font-medium mt-2.5 truncate text-text group-hover:text-gold transition">{movie.title}</div>
-      {movie.gross && <div className="text-xs text-gold font-semibold mt-0.5">{movie.gross}</div>}
+      {movie.gross && <div className="text-sm font-stat text-text mt-0.5">{movie.gross}</div>}
     </Link>
   );
 }

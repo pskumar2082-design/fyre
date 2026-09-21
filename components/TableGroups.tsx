@@ -97,7 +97,7 @@ function TableView({ table }: { table: TTTable }) {
                 <td
                   key={h}
                   className={`py-2.5 px-3 whitespace-nowrap ${
-                    isMoneyColumn(h) ? `text-right font-semibold ${row.__isTotal ? 'text-gold' : 'text-gold/90'}` : 'text-textDim'
+                    isMoneyColumn(h) ? 'text-right font-stat text-base tracking-wide text-text' : 'text-textDim'
                   } ${row.__isTotal ? 'text-text' : ''}`}
                 >
                   {row[h] ?? ''}

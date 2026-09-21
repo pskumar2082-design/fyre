@@ -97,7 +97,7 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
             <h1 className="hdisplay text-2xl sm:text-3xl text-text">{details.title}</h1>
             {details.headlineGross && (
               <div className="mt-3">
-                <div className="text-gold font-bold text-3xl sm:text-4xl">{details.headlineGross}</div>
+                <div className="text-text font-stat text-4xl sm:text-5xl tracking-wide">{details.headlineGross}</div>
                 {details.headlineLabel && <div className="text-textFaint text-xs mt-1">{details.headlineLabel}</div>}
               </div>
             )}
@@ -118,7 +118,7 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
                 className={`p-4 ${highlight ? 'bg-gold/5 border-gold/25' : ''}`}
               >
                 <div className="text-textFaint text-[10px] font-semibold uppercase tracking-wide truncate">{s.label}</div>
-                <div className={`hdisplay text-lg mt-1 truncate ${highlight ? 'text-gold' : 'text-text'}`}>{s.value}</div>
+                <div className={`font-stat text-xl tracking-wide mt-1 truncate ${highlight ? 'text-text' : 'text-textDim'}`}>{s.value}</div>
                 {s.note && <div className="text-textFaint text-[10px] mt-0.5">{s.note}</div>}
               </Card>
             );

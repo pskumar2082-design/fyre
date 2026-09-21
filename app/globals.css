@@ -1,53 +1,57 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Near-black canvas with a whisper of warmth (not a flat, cold #0A0A0A)
-   -- zinc-toned cards sit on top (bg-surface / bg-surface2), depth comes
-   from tone + a hairline border rather than a drop shadow. */
+/* Monochromatic Minimalism -- charcoal canvas, light-gray text. No hue
+   anywhere in the base palette; depth comes from value (light/dark
+   grays) and a hairline border, not color or a drop shadow. */
 body {
-  background-color: #0C0B0A;
-  color: #FFFFFF;
+  background-color: #121212;
+  color: #E0E0E0;
 }
 
+/* Bold condensed display face for section titles, page headings and
+   movie titles -- distinct from the body font (Inter) the way the
+   reference screenshots use a heavier display face for headlines. */
 .hdisplay {
-  font-family: 'Inter', sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-family: 'Anton', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   line-height: 1.05;
-  /* No color here on purpose: body already sets white as the inherited
-     default, and leaving color off this class lets a per-use text-*
-     utility win instead of losing to this same-specificity rule later. */
+  /* No color here on purpose: body already sets the primary text gray
+     as the inherited default, and leaving color off this class lets a
+     per-use text-* utility win instead of losing to this same-
+     specificity rule later. */
 }
 
-/* Ember red -> orange -> gold: an actual flame gradient for fyre's own
-   mark, used on the "days to go" / headline numbers that want a touch
-   of shine. */
+/* Light gray -> accent gray fade, still inside the grayscale palette --
+   used for the "days to go" / headline numbers that want a touch of
+   shine without introducing any color. */
 .gtext {
-  background: linear-gradient(90deg, #E8460F 0%, #FF7A1A 55%, #FFC94D 100%);
+  background: linear-gradient(90deg, #E0E0E0 0%, #B0B0B0 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-/* Soft blurred color blobs behind a hero/header for depth -- opacity
-   kept low so they read as ambient glow, not a visible shape. */
+/* Soft blurred blobs behind a hero/header for depth -- opacity kept low
+   so they read as ambient tonal shading, not a visible shape or color. */
 .glow-spot {
   position: absolute;
   border-radius: 9999px;
   filter: blur(90px);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.35;
+  opacity: 0.25;
 }
 
-/* Featured-movie banner (homepage) -- a moody near-black -> ember glow
-   sweep, so a poster image laid on top still reads clearly. */
+/* Featured-movie banner (homepage) -- a plain dark-to-slightly-lighter
+   charcoal sweep, no color tint at all. */
 .card-gradient-primary {
-  background: linear-gradient(120deg, #0C0B0A 0%, #2A130A 55%, #170A06 100%);
+  background: linear-gradient(120deg, #121212 0%, #1E1E1E 55%, #0A0A0A 100%);
 }
 .card-gradient-secondary {
-  background: linear-gradient(115deg, #3A160A 2.6%, #FF7A1A 140%);
+  background: linear-gradient(115deg, #2A2A2A 2.6%, #888888 140%);
 }

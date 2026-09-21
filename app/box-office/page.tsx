@@ -75,7 +75,7 @@ export default async function BoxOfficePage({ searchParams }: { searchParams: { 
                       {m.dayLabel ? `Final · ${m.dayLabel}` : 'Completed run'}
                     </span>
                   </td>
-                  <td className="py-3 px-5 text-right font-semibold text-gold">{m.gross || '—'}</td>
+                  <td className="py-3 px-5 text-right font-stat text-lg text-text">{m.gross || '—'}</td>
                 </tr>
               ))}
             </tbody>
