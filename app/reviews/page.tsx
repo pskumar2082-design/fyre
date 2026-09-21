@@ -2,6 +2,15 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { Card, SectionHeading, EmptyState } from '@/components/ui';
 
+import type { Metadata } from 'next';
+import { SITE_URL } from '@/lib/siteConfig';
+
+export const metadata: Metadata = {
+  title: 'Telugu Movie Reviews',
+  description: 'Fresh reviews and ratings for the latest Telugu movie releases.',
+  alternates: { canonical: `${SITE_URL}/reviews` }
+};
+
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
 
 export default async function ReviewsPage() {

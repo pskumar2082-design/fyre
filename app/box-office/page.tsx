@@ -1,6 +1,15 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { getCompletedMovies } from '@/lib/tracktollywood/scraper';
+
+import type { Metadata } from 'next';
+import { SITE_URL } from '@/lib/siteConfig';
+
+export const metadata: Metadata = {
+  title: 'Telugu Box Office Archive — Completed Movies',
+  description: 'Final box office collections for every completed Telugu movie release, with full day-wise breakdowns.',
+  alternates: { canonical: `${SITE_URL}/box-office` }
+};
 import { Card, SectionHeading, EmptyState, Pill } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';

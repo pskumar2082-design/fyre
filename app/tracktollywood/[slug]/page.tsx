@@ -2,13 +2,67 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Sparkles, Clock } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import { getMovieDetails } from '@/lib/tracktollywood/scraper';
-import type { TTTable } from '@/lib/tracktollywood/types';
+import type { Metadata } from 'next';
+import { getMovieDetails, parseReleaseDate } from '@/lib/tracktollywood/scraper';
+import type { TTMovieMetaItem, TTTable } from '@/lib/tracktollywood/types';
 import { STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
 import { Card } from '@/components/ui';
 import TableGroups from '@/components/TableGroups';
+import { SITE_URL } from '@/lib/siteConfig';
 
 export const dynamic = 'force-dynamic';
+
+// Every scraped field is a generic label/value pair (see TTMovieMetaItem),
+// not fixed Director/Cast/Genre properties -- this looks one up by label
+// so both the metadata below and the JSON-LD further down can pull
+// "whichever item has this label" without caring where it landed in the
+// array.
+function metaValue(meta: TTMovieMetaItem[], pattern: RegExp): string | null {
+  return meta.find((m) => pattern.test(m.label))?.value ?? null;
+}
+
+// Per-movie <title>/description/Open Graph card -- this is the single
+// biggest SEO gap this site had: every one of these pages was sharing
+// the site's generic homepage title before, so Google (and a pasted
+// link) had no way to tell one movie's page from another's.
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  let details;
+  try {
+    details = await getMovieDetails(params.slug);
+  } catch {
+    details = null;
+  }
+  if (!details) return {};
+
+  const title = `${details.title} Box Office Collection${details.headlineGross ? ` — ${details.headlineGross}` : ''}`;
+  const description = [
+    `${details.title} live box office collection`,
+    details.headlineGross ? `at ${details.headlineGross}` : null,
+    '— day-wise breakdown, cast, director, genre and release date, updated daily.'
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const url = `${SITE_URL}/tracktollywood/${params.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website',
+      url,
+      title,
+      description,
+      images: details.poster ? [{ url: details.poster }] : undefined
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: details.poster ? [details.poster] : undefined
+    }
+  };
+}
 
 // Groups TrackTollywood's flat table list (54+ tables for a well-into-its-run
 // movie) into sections a person can actually scan: one per release day, one
@@ -57,8 +111,36 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
   const backLabel =
     details.state === 'final' ? 'Box office archive' : details.state === 'live' ? 'Now showing' : 'Upcoming releases';
 
+  // Schema.org structured data -- what actually earns a movie a rich
+  // result (poster, cast, release date) in Google rather than a plain
+  // blue link, the thing TrackTollywood/MovieMint already have and this
+  // site didn't. Built from the same generic meta list rendered above,
+  // so it's automatically complete for whatever TrackTollywood actually
+  // published for this movie -- no field is required.
+  const director = metaValue(details.meta, /director/i);
+  const cast = metaValue(details.meta, /cast/i);
+  const genre = metaValue(details.meta, /genre/i);
+  const releaseDate = metaValue(details.meta, /^released$|releasing/i);
+  // Schema.org wants ISO 8601 ("2026-09-11"), not TrackTollywood's own
+  // display format ("11 Sep 2026") -- parseReleaseDate already parses
+  // that exact format for the release-countdown logic elsewhere, so
+  // it's reused here rather than writing a second date parser.
+  const releaseDateIso = parseReleaseDate(releaseDate)?.toISOString().slice(0, 10);
+  const movieJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Movie',
+    name: details.title,
+    url: `${SITE_URL}/tracktollywood/${params.slug}`,
+    image: details.poster || undefined,
+    genre: genre ? genre.split(',').map((g) => g.trim()) : undefined,
+    director: director ? director.split(',').map((d) => ({ '@type': 'Person', name: d.trim() })) : undefined,
+    actor: cast ? cast.split(',').map((a) => ({ '@type': 'Person', name: a.trim() })) : undefined,
+    datePublished: releaseDateIso || undefined
+  };
+
   return (
     <div className="px-5 md:px-10 py-8 max-w-5xl mx-auto">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(movieJsonLd) }} />
       <Link href={backHref} className="inline-flex items-center gap-1.5 text-gold text-sm font-semibold hover:text-goldBright transition mb-5">
         <ArrowLeft size={15} /> {backLabel}
       </Link>

@@ -1,5 +1,14 @@
 import Link from 'next/link';
 import { getLiveMovies } from '@/lib/tracktollywood/scraper';
+
+import type { Metadata } from 'next';
+import { SITE_URL } from '@/lib/siteConfig';
+
+export const metadata: Metadata = {
+  title: 'Now Showing — Live Telugu Box Office Collections',
+  description: 'Every Telugu movie currently running, with live day-wise box office collections updated throughout the day.',
+  alternates: { canonical: `${SITE_URL}/now-showing` }
+};
 import MovieCard from '@/components/MovieCard';
 import { SectionHeading, EmptyState, Pill } from '@/components/ui';
 

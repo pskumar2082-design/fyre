@@ -1,6 +1,15 @@
 import { CalendarRange } from 'lucide-react';
 import Link from 'next/link';
 import { getLiveMovies, parseReleaseDate } from '@/lib/tracktollywood/scraper';
+
+import type { Metadata } from 'next';
+import { SITE_URL } from '@/lib/siteConfig';
+
+export const metadata: Metadata = {
+  title: 'Upcoming Telugu Movies — Release Dates & Advance Bookings',
+  description: 'Upcoming Telugu movie releases with confirmed dates and live advance-booking collections.',
+  alternates: { canonical: `${SITE_URL}/upcoming` }
+};
 import { Card, IconBadge, SectionHeading, EmptyState, Pill } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';

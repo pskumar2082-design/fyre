@@ -1,6 +1,15 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
+
+import type { Metadata } from 'next';
+import { SITE_URL } from '@/lib/siteConfig';
+
+export const metadata: Metadata = {
+  title: 'Telugu Cinema News',
+  description: 'Latest Telugu film industry news, updates and announcements.',
+  alternates: { canonical: `${SITE_URL}/news` }
+};
 import { Card, SectionHeading, EmptyState } from '@/components/ui';
 
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
