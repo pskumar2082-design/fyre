@@ -85,14 +85,19 @@ export default async function HomePage() {
 
         <Card className="p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
-            <IconBadge icon={Film} tint="yellow" size={48} />
+            <IconBadge icon={Film} tint="indigo" size={48} />
             <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
           </div>
           <div className="text-textFaint text-xs mb-1">Live Now</div>
-          <div className="font-stat font-bold text-5xl text-red leading-none">{nowShowing.length}</div>
+          <div className="font-stat font-bold text-5xl text-indigo-600 leading-none">{nowShowing.length}</div>
           <div className="text-textFaint text-xs mt-2.5">{upcoming.length} upcoming · {completedCount} completed archive</div>
         </Card>
 
+        {/* Live/Upcoming/Completed all read as one blue-adjacent family
+            here (indigo / blue / slate) rather than the red-vs-green
+            pairing this replaced -- red stays reserved for the actual
+            live-tracking badges and pulse dots elsewhere in the app
+            (see lib/tracktollywood/stateStyle.ts), not this summary. */}
         <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-text font-medium">Live vs Upcoming vs Completed</span>
@@ -100,9 +105,9 @@ export default async function HomePage() {
           </div>
           <Donut
             segments={[
-              { label: 'Live', value: nowShowing.length, colorClass: 'text-red', dotClass: 'bg-red' },
+              { label: 'Live', value: nowShowing.length, colorClass: 'text-indigo-500', dotClass: 'bg-indigo-500' },
               { label: 'Upcoming', value: upcoming.length, colorClass: 'text-gold', dotClass: 'bg-gold' },
-              { label: 'Completed', value: completedCount, colorClass: 'text-goldDim', dotClass: 'bg-goldDim' }
+              { label: 'Completed', value: completedCount, colorClass: 'text-slate-400', dotClass: 'bg-slate-400' }
             ]}
           />
         </Card>

@@ -13,7 +13,12 @@ const TINTS = {
   blue: 'bg-gold/[0.12] text-gold border border-gold/20',
   teal: 'bg-goldDim/[0.12] text-goldDim border border-goldDim/20',
   yellow: 'bg-red/[0.12] text-red border border-red/20',
-  pink: 'bg-black/[0.04] text-textDim border border-black/[0.06]'
+  pink: 'bg-black/[0.04] text-textDim border border-black/[0.06]',
+  // A second, subtler cool tone that still reads as part of the blue
+  // family -- for stats that sit right next to the blue accent (the
+  // homepage's Live Now card) without borrowing the vivid red that's
+  // reserved for actual live-tracking badges/pulse dots.
+  indigo: 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'
 } as const;
 
 // Matching solid-text color for each tint, used where a number itself
@@ -23,7 +28,8 @@ const TINT_TEXT = {
   blue: 'text-gold',
   teal: 'text-goldDim',
   yellow: 'text-red',
-  pink: 'text-text'
+  pink: 'text-text',
+  indigo: 'text-indigo-600'
 } as const;
 
 export type Tint = keyof typeof TINTS;
