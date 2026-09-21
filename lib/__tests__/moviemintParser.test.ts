@@ -10,7 +10,8 @@ import {
   parseDailySeries,
   parseBreakdownTable,
   htmlToLines,
-  parseListingSlugs
+  parseListingSlugs,
+  parsePosterUrl
 } from '@/lib/moviemintParser';
 
 // ---------------------------------------------------------------------------
@@ -66,6 +67,40 @@ describe('numeric parsing', () => {
     expect(parseIndianNumber(undefined)).toBeNull();
     expect(parseIndianNumber('')).toBeNull();
     expect(parsePct('—')).toBeNull();
+  });
+});
+
+describe('parsePosterUrl', () => {
+  it('reads config.poster from the embedded Flight JSON even with no real <img> in the HTML', () => {
+    // Confirmed live 2026-09-21 against /movie/gdn on the fast plain-HTTP
+    // (non-rendered) path: the only real <img> tag on the page is
+    // MovieMint's own logo -- the poster only exists as this JSON string
+    // until client-side hydration mounts it. Scanning <img> tags alone
+    // (the old behavior) silently returned null here for most movies.
+    // Built with JSON.stringify (rather than a hand-escaped literal) so
+    // the fixture can't drift from what real double-escaped HTML looks
+    // like -- see the moviemintParser test-fixture note at the top of
+    // this file about a past hand-escaping bug.
+    const chunk =
+      '11:["$","$L12",null,{"data":{"config":{"movieId":"gdn","title":"GDN","tmdbId":0,"poster":"https://image.tmdb.org/t/p/w780/aAbvbKbNU6YyYDZ5ntSQcOygliw.jpg","language":"Tamil"}}}]';
+    const html = `<script>self.__next_f.push([1, ${JSON.stringify(chunk)}])</script><img alt="MovieMint Logo" src="/_next/image?url=%2Fmovie_mint.svg&amp;w=3840&amp;q=75"/>`;
+    expect(parsePosterUrl(html)).toBe('https://image.tmdb.org/t/p/w780/aAbvbKbNU6YyYDZ5ntSQcOygliw.jpg');
+  });
+
+  it('falls back to scanning <img> tags when there is no Flight JSON at all', () => {
+    const html = `<img src="https://image.tmdb.org/t/p/w780/fallback.jpg" alt="poster"/>`;
+    expect(parsePosterUrl(html)).toBe('https://image.tmdb.org/t/p/w780/fallback.jpg');
+  });
+
+  it('unwraps a Next.js image-proxy URL when scanning <img> tags', () => {
+    const encoded = encodeURIComponent('https://image.tmdb.org/t/p/w780/proxied.jpg');
+    const html = `<img src="/_next/image?url=${encoded}&w=780&q=75" alt="poster"/>`;
+    expect(parsePosterUrl(html)).toBe('https://image.tmdb.org/t/p/w780/proxied.jpg');
+  });
+
+  it('returns null when no poster is found either way', () => {
+    const html = `<img src="/movie_mint.svg" alt="logo"/>`;
+    expect(parsePosterUrl(html)).toBeNull();
   });
 });
 

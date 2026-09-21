@@ -228,6 +228,7 @@ type FlightPageData = {
     releaseDate?: unknown;
     language?: unknown;
     genres?: unknown;
+    poster?: unknown;
   };
   metadata?: { lastUpdated?: unknown };
   summary?: {
@@ -360,13 +361,25 @@ function valueAfterLabel(lines: string[], labelPattern: RegExp): string | null {
   return null;
 }
 
-// MovieMint sources posters from TMDB and serves them either as a direct
-// image.tmdb.org URL or wrapped in Next.js's own image proxy
-// (/_next/image?url=<encoded-tmdb-url>&w=...&q=...). This looks at every
-// <img> in the rendered page and returns the first TMDB poster it finds,
-// unwrapping the proxy when needed. Operates on raw HTML (not htmlToLines'
-// text-only output), since the URL lives in an attribute, not text.
+// MovieMint sources posters from TMDB. The per-movie page's embedded
+// Flight JSON (see extractFlightPageData) carries the poster directly at
+// config.poster -- confirmed live 2026-09-21 against /movie/gdn -- and
+// this is present even on the fast plain-HTTP (non-rendered) path, where
+// there's no real <img> tag for it at all (only the site's own logo
+// image is server-rendered; the poster <img> is mounted client-side
+// after hydration). Checking config.poster first means posters populate
+// even for movies whose sync never needed a full Chromium render.
+// Falls back to scanning every <img> in the page (the old approach,
+// still useful if a page's poster ever shows up only that way) --
+// either a direct image.tmdb.org URL or one wrapped in Next.js's own
+// image proxy (/_next/image?url=<encoded-tmdb-url>&w=...&q=...).
 export function parsePosterUrl(html: string): string | null {
+  const data = extractFlightPageData(html);
+  const cfgPoster = data?.config?.poster;
+  if (typeof cfgPoster === 'string' && cfgPoster.includes('image.tmdb.org')) {
+    return cfgPoster;
+  }
+
   const $ = cheerio.load(html);
   let found: string | null = null;
 
@@ -375,21 +388,27 @@ export function parsePosterUrl(html: string): string | null {
     const src = $(el).attr('src');
     if (!src) return;
 
-    if (src.includes('image.tmdb.org')) {
-      found = src.startsWith('http') ? src : `https://moviemintbo.com${src}`;
-      return;
-    }
-
+    // Checked before the plain-domain match below: encodeURIComponent
+    // leaves letters and dots unescaped, so a wrapped URL's query string
+    // still contains the literal substring "image.tmdb.org" even though
+    // src itself is a /_next/image path, not a direct one -- matching
+    // the plain check first would wrongly keep the un-unwrapped proxy
+    // URL as `found` instead of the real TMDB URL underneath it.
     if (src.includes('/_next/image') && src.includes('url=')) {
       try {
         const u = new URL(src, 'https://moviemintbo.com');
         const inner = u.searchParams.get('url');
         if (inner && inner.includes('image.tmdb.org')) {
           found = decodeURIComponent(inner);
+          return;
         }
       } catch {
         // Malformed src -- skip, keep looking at other <img> tags.
       }
+    }
+
+    if (src.includes('image.tmdb.org')) {
+      found = src.startsWith('http') ? src : `https://moviemintbo.com${src}`;
     }
   });
 
