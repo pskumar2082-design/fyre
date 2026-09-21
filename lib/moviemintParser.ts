@@ -284,15 +284,24 @@ function extractBalancedObjectText(text: string, startIdx: number): string {
 // date", a real and different answer from "couldn't find any data".
 function extractFlightPageData(html: string): FlightPageData | null {
   const flightText = extractFlightText(html);
-  const key = '"data":{';
-  const keyIdx = flightText.indexOf(key);
-  if (keyIdx === -1) return null;
+  // MovieMint's Flight payload nests page metadata (config/summary/breakdowns)
+  // under "data", but dailySeries/selectedDate/completedMode/completedAsOf/
+  // availableDates/todayDate/advanceHref/trackedHref are SIBLINGS of "data",
+  // not children of it. Locate the true outer object (the one containing
+  // "data" as a property) via the ",null,{" wrapper Next.js emits around it,
+  // then flatten data's fields together with its siblings so downstream
+  // parsers (which expect a single flat object) see everything.
+  const marker = ',null,{"data":{';
+  const markerIdx = flightText.indexOf(marker);
+  if (markerIdx === -1) return null;
 
-  const objStart = keyIdx + key.length - 1; // index of the '{'
+  const objStart = markerIdx + ',null,'.length; // index of the outer '{'
   const objText = extractBalancedObjectText(flightText, objStart);
   try {
-    const parsed: unknown = JSON.parse(objText);
-    return parsed && typeof parsed === 'object' ? (parsed as FlightPageData) : null;
+    const parsed = JSON.parse(objText) as { data?: Record<string, unknown> } & Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const { data: inner, ...outer } = parsed;
+    return { ...(inner ?? {}), ...outer } as FlightPageData;
   } catch {
     return null;
   }

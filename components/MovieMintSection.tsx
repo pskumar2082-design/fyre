@@ -50,16 +50,8 @@ export default function MovieMintSection({
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-gold" />
-          <h2 className="hdisplay text-xl">MovieMint Data</h2>
+          <h2 className="hdisplay text-xl">Box Office Data</h2>
         </div>
-        <a
-          href="https://moviemintbo.com/"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gold border border-gold/30 rounded-full px-3 py-1 hover:border-gold transition"
-        >
-          Source: MovieMint →
-        </a>
       </div>
 
       {advance && (
