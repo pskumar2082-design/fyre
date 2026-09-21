@@ -49,7 +49,7 @@ export default async function BoxOfficePage({ searchParams }: { searchParams: { 
         <Card className="overflow-x-auto">
           <table className="w-full text-sm border-collapse min-w-[720px]">
             <thead>
-              <tr className="mdtype-overline text-textFaint border-b border-white/10 bg-white/[0.03]">
+              <tr className="mdtype-overline text-textFaint border-b border-border bg-black/[0.02]">
                 <th className="text-left py-4 px-5 w-12">#</th>
                 <th className="text-left py-4 px-5">Movie</th>
                 <th className="text-left py-4 px-5">Genre</th>
@@ -59,11 +59,11 @@ export default async function BoxOfficePage({ searchParams }: { searchParams: { 
             </thead>
             <tbody>
               {sorted.map((m, i) => (
-                <tr key={m.slug} className="border-b border-white/5 last:border-0 hover:bg-white/[0.03] transition">
+                <tr key={m.slug} className="border-b border-border last:border-0 hover:bg-black/[0.02] transition">
                   <td className="py-3 px-5 text-textFaint font-semibold">{i + 1}</td>
                   <td className="py-3 px-5">
                     <Link href={`/tracktollywood/${m.slug}`} className="flex items-center gap-3 group">
-                      <div className="w-10 h-14 flex-none rounded-lg overflow-hidden bg-surface2 border border-white/5 relative">
+                      <div className="w-10 h-14 flex-none rounded-lg overflow-hidden bg-surface2 border border-black/[0.04] relative">
                         {m.poster && <Image src={m.poster} alt="" fill unoptimized className="object-cover object-top" />}
                       </div>
                       <span className="font-medium text-text group-hover:text-gold transition">{m.title}</span>
@@ -71,7 +71,7 @@ export default async function BoxOfficePage({ searchParams }: { searchParams: { 
                   </td>
                   <td className="py-3 px-5 text-textDim">{m.genre || '—'}</td>
                   <td className="py-3 px-5">
-                    <span className="inline-block text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+                    <span className="inline-block text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-goldDim/10 text-goldDim border border-goldDim/20">
                       {m.dayLabel ? `Final · ${m.dayLabel}` : 'Completed run'}
                     </span>
                   </td>

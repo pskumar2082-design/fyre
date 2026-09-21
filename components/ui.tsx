@@ -1,22 +1,15 @@
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
-// Small shared dark-theme primitives used across every page: charcoal
-// rounded-2xl cards with a hairline border, tinted icon badges, stat
-// cards (icon + label + value), and pill buttons/links. Keeping these in
-// one file since each is a few lines -- see components/ui/ only if this
-// grows enough to warrant splitting later.
-//
-// Monochromatic Minimalism has no hue to spend, so every "tint" below is
-// a different VALUE of gray rather than a different color -- the most
-// important one (teal, used for money-adjacent stats) is just the
-// brightest, the rest step down. Kept as separate keys so existing call
-// sites don't need to change, only what each one renders.
+// Small shared light-theme primitives used across every page: white
+// rounded-2xl cards with a soft shadow, tinted icon badges, stat cards
+// (icon + label + value), and pill buttons/links -- matching the "Car
+// Rent" dashboard reference's card/button language.
 const TINTS = {
-  blue: 'bg-white/5 text-textDim border border-white/5',
-  teal: 'bg-gold/10 text-gold border border-gold/20',
-  yellow: 'bg-white/5 text-textDim border border-white/10',
-  pink: 'bg-white/[0.03] text-textFaint border border-white/5'
+  blue: 'bg-gold/10 text-gold border border-gold/15',
+  teal: 'bg-goldDim/10 text-goldDim border border-goldDim/15',
+  yellow: 'bg-red/10 text-red border border-red/15',
+  pink: 'bg-black/[0.03] text-textFaint border border-black/5'
 } as const;
 
 export type Tint = keyof typeof TINTS;
@@ -29,7 +22,7 @@ export function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`bg-surface border border-white/5 rounded-2xl shadow-card ${className}`}>{children}</div>
+    <div className={`bg-surface border border-black/[0.04] rounded-2xl shadow-card ${className}`}>{children}</div>
   );
 }
 
@@ -92,13 +85,12 @@ export function Pill({
   children: React.ReactNode;
 }) {
   const styles = {
-    // Solid accent-gray pill with charcoal text -- same treatment as an
-    // active nav item or selected filter tab, reserved for "do the
-    // thing" actions and the currently-active filter/tab.
-    primary: 'bg-gold text-black border border-gold hover:bg-goldBright',
-    default: 'bg-surface text-textDim border border-white/5 hover:border-white/15 hover:text-text',
-    outline: 'bg-transparent text-textDim border border-white/20 hover:border-white/40 hover:text-text',
-    active: 'bg-white/[0.12] text-text border border-white/[0.12] hover:bg-white/[0.16]'
+    // Solid blue pill with white text -- the reference's "Check" button
+    // and its active filter-tab treatment.
+    primary: 'bg-gold text-white border border-gold hover:bg-goldBright',
+    default: 'bg-surface text-textDim border border-border hover:border-gold/30 hover:text-text',
+    outline: 'bg-transparent text-textDim border border-border hover:border-gold/40 hover:text-text',
+    active: 'bg-gold text-white border border-gold'
   }[variant];
   const base = `inline-flex items-center justify-center gap-1.5 text-sm font-semibold rounded-full px-5 py-2 transition disabled:opacity-40 disabled:pointer-events-none ${styles} ${className}`;
 
@@ -125,7 +117,7 @@ export function SectionHeading({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-      <h2 className="hdisplay text-xl">{title}</h2>
+      <h2 className="hdisplay text-xl text-text">{title}</h2>
       {action}
     </div>
   );

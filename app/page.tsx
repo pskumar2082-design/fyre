@@ -1,18 +1,22 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Film, TrendingUp, CalendarRange, Star, ArrowRight } from 'lucide-react';
+import { Search, TrendingUp, Film, ListFilter } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
-import { getLiveMovies, parseReleaseDate } from '@/lib/tracktollywood/scraper';
-import MovieCard from '@/components/MovieCard';
-import { Card, StatCard, SectionHeading, EmptyState } from '@/components/ui';
+import { getLiveMovies, getCompletedMovies, parseReleaseDate, parseAmountToCr } from '@/lib/tracktollywood/scraper';
+import { getDailyTotals } from '@/lib/tracktollywood/aggregate';
+import { STATE_LABEL, STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
+import { Card, StatCard, SectionHeading, EmptyState, Pill } from '@/components/ui';
+import { Donut, TrendChart } from '@/components/charts';
 
 export const dynamic = 'force-dynamic';
 
 async function getData() {
-  const [{ data: news }, { data: reviews }, allMovies] = await Promise.all([
-    supabase.from('news').select('*').order('created_at', { ascending: false }).limit(12),
-    supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(9),
-    getLiveMovies().catch(() => [] as Awaited<ReturnType<typeof getLiveMovies>>)
+  const [{ data: news }, { data: reviews }, allMovies, completed, dailyTotals] = await Promise.all([
+    supabase.from('news').select('*').order('created_at', { ascending: false }).limit(6),
+    supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(3),
+    getLiveMovies().catch(() => [] as Awaited<ReturnType<typeof getLiveMovies>>),
+    getCompletedMovies().catch(() => [] as Awaited<ReturnType<typeof getCompletedMovies>>),
+    getDailyTotals().catch(() => [] as Awaited<ReturnType<typeof getDailyTotals>>)
   ]);
 
   const nowShowing = allMovies.filter((m) => m.state === 'live');
@@ -21,197 +25,232 @@ async function getData() {
     .map((m) => ({ ...m, _date: parseReleaseDate(m.releaseText) }))
     .sort((a, b) => (a._date?.getTime() ?? Infinity) - (b._date?.getTime() ?? Infinity));
 
-  // Ranked across every currently-showing movie, not just the 10 shown in
-  // the carousel below -- the top earner overall might not be among the
-  // most recently released.
-  const topLive = [...nowShowing].filter((m) => (m.grossCr ?? 0) > 0).sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0))[0] ?? null;
+  // Today's aggregate gross -- summed live from each live movie's own
+  // "today" figure (todayText), not from the snapshot table, so this is
+  // always accurate to the minute rather than lagging a day behind.
+  const todaysGrossCr = nowShowing.reduce((sum, m) => sum + (parseAmountToCr(m.todayText) ?? 0), 0);
 
   return {
     news: news ?? [],
     reviews: reviews ?? [],
-    nowShowing: nowShowing.slice(0, 10),
-    topLive,
-    upcoming: upcoming.slice(0, 8)
+    nowShowing,
+    upcoming,
+    completedCount: completed.length,
+    todaysGrossCr,
+    dailyTotals
   };
 }
 
+function formatCr(cr: number): string {
+  if (cr <= 0) return '—';
+  return cr >= 1 ? `₹${cr.toFixed(2)} Cr` : `₹${(cr * 100).toFixed(1)} L`;
+}
+
 export default async function HomePage() {
-  const { news, reviews, nowShowing, topLive, upcoming } = await getData();
-  const featured = nowShowing[0];
-  const nearestUpcoming = upcoming[0] ?? null;
-  const nearestDays = nearestUpcoming?._date
-    ? Math.max(0, Math.ceil((nearestUpcoming._date.getTime() - Date.now()) / 86400000))
-    : null;
-  const latestReview = reviews[0] ?? null;
+  const { news, reviews, nowShowing, upcoming, completedCount, todaysGrossCr, dailyTotals } = await getData();
+  const asOf = new Date().toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+
+  const liveTable = [...nowShowing].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
 
   return (
-    <div className="px-5 md:px-10 py-8">
-      {/* STAT ROW — BankDash's "Main Dashboard" stat-card band, driven by
-          real site data instead of static copy. */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <StatCard icon={Film} tint="blue" label="In theaters" value={nowShowing.length} />
-        <StatCard
-          icon={TrendingUp}
-          tint="teal"
-          label={topLive ? topLive.title : 'No live tracking yet'}
-          value={topLive?.gross ?? '—'}
-        />
-        <StatCard
-          icon={CalendarRange}
-          tint="yellow"
-          label={nearestUpcoming ? nearestUpcoming.title : 'No upcoming releases'}
-          value={nearestDays == null ? '—' : nearestDays === 0 ? 'Releasing today' : `${nearestDays}d to go`}
-        />
-        <StatCard
-          icon={Star}
-          tint="pink"
-          label={latestReview ? latestReview.title : 'No reviews yet'}
-          value={latestReview ? `${latestReview.rating} / 5` : '—'}
-        />
-      </div>
+    <div className="px-5 md:px-8 py-8 flex flex-col lg:flex-row gap-6">
+      {/* LEFT — the cream "Today's Statistics" column from the reference:
+          today's real aggregate gross, a live count, and the real
+          Live/Upcoming/Completed split as a donut. No "vs yesterday"
+          comparison line on the two stat cards -- there's no persisted
+          history to back that number honestly (see
+          lib/tracktollywood/snapshot.ts for what now collects it going
+          forward for the trend chart on the right). */}
+      <aside className="lg:w-[300px] flex-none bg-bgAlt -mx-5 -mt-8 px-5 pt-8 pb-8 md:-mx-8 md:px-8 lg:mx-0 lg:px-5 lg:py-6 lg:rounded-2xl">
+        <h2 className="hdisplay text-lg text-text mb-1">Live Snapshot</h2>
+        <p className="text-textFaint text-xs mb-5">{asOf} IST</p>
 
-      {/* FEATURED — BankDash's gradient "bank card" widget, repurposed as a
-          featured-movie banner. */}
-      {featured && (
-        <Link
-          href={`/tracktollywood/${featured.slug}`}
-          className="relative block rounded-2xl shadow-card overflow-hidden mb-10 card-gradient-primary group"
-        >
-          <div className="relative flex flex-col md:flex-row items-stretch min-h-[220px]">
-            <div className="flex-1 p-8 flex flex-col justify-center">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-white/80 mb-3">
-                <span className="relative flex w-1.5 h-1.5">
-                  <span className="absolute inline-flex w-full h-full rounded-full bg-gold animate-ping" />
-                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-gold" />
-                </span> Featured &amp; tracked live
-              </span>
-              <h1 className="hdisplay text-3xl md:text-4xl text-white mb-2">{featured.title}</h1>
-              <p className="text-white/70 text-sm max-w-md mb-4">
-                {featured.genre || 'Live advance bookings and box office collections, tracked daily.'}
-              </p>
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white">
-                View full breakdown <ArrowRight size={15} />
-              </span>
+        <Card className="p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-text font-medium">Today's Gross</span>
+            <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
+          </div>
+          <div className="font-stat text-3xl tracking-wide text-text">{formatCr(todaysGrossCr)}</div>
+          <div className="text-textFaint text-xs mt-2">across {nowShowing.length} movie{nowShowing.length === 1 ? '' : 's'} live right now</div>
+        </Card>
+
+        <Card className="p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-text font-medium">Live Now</span>
+            <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
+          </div>
+          <div className="font-stat text-3xl tracking-wide text-text">{nowShowing.length}</div>
+          <div className="text-textFaint text-xs mt-2">{upcoming.length} upcoming · {completedCount} completed archive</div>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-text font-medium">Live vs Upcoming vs Completed</span>
+            <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
+          </div>
+          <Donut
+            segments={[
+              { label: 'Live', value: nowShowing.length, colorClass: 'text-red', dotClass: 'bg-red' },
+              { label: 'Upcoming', value: upcoming.length, colorClass: 'text-gold', dotClass: 'bg-gold' },
+              { label: 'Completed', value: completedCount, colorClass: 'text-goldDim', dotClass: 'bg-goldDim' }
+            ]}
+          />
+        </Card>
+      </aside>
+
+      {/* RIGHT — the white main column: a movie search/filter bar (this
+          reference had no real fyre equivalent for "Car Availability",
+          so it's rebuilt as an actual search), the Live Movies table
+          ("Live Car Status" equivalent), and the Earning Summary trend
+          chart, which reads real accumulated data and says so plainly
+          when there isn't much of it yet. */}
+      <div className="flex-1 min-w-0">
+        <Card className="p-5 mb-6">
+          <h2 className="hdisplay text-lg text-text mb-4">Find a movie</h2>
+          <form action="/search" className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2.5 bg-surface2 border border-border rounded-xl h-[50px] px-4 flex-1 min-w-[220px]">
+              <Search size={18} className="text-textFaint flex-none" />
+              <input
+                type="text"
+                name="q"
+                placeholder="Movie title"
+                className="bg-transparent outline-none text-sm text-text placeholder:text-textFaint w-full"
+              />
             </div>
-            {featured.poster && (
-              <div className="relative w-full md:w-[280px] h-[220px] flex-none">
-                <Image
-                  src={featured.poster}
-                  alt=""
-                  fill
-                  unoptimized
-                  className="object-cover object-top transition duration-300 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-bg md:from-transparent via-transparent to-transparent" />
-              </div>
-            )}
-          </div>
-        </Link>
-      )}
+            <Pill href="/now-showing" variant="default" className="!h-[50px] !rounded-xl !px-5">
+              <Film size={16} /> Now showing
+            </Pill>
+            <Pill href="/upcoming" variant="default" className="!h-[50px] !rounded-xl !px-5">
+              <ListFilter size={16} /> Upcoming
+            </Pill>
+            <Pill type="submit" variant="primary" className="!h-[50px] !rounded-xl !px-8">
+              Search
+            </Pill>
+          </form>
+        </Card>
 
-      {/* NOW SHOWING */}
-      <section id="boxoffice" className="mb-12">
-        <SectionHeading
-          title="Now showing"
-          action={
-            <div className="flex items-center gap-4 text-xs font-semibold">
-              <Link href="/now-showing" className="text-gold hover:underline">See all in theaters →</Link>
-              <Link href="/box-office" className="text-textDim hover:text-gold transition">Full box office archive →</Link>
+        <Card className="p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="hdisplay text-lg text-text">Live Movies</h2>
+            <Link href="/now-showing" className="text-xs font-semibold text-gold hover:underline">See all →</Link>
+          </div>
+          {liveTable.length === 0 ? (
+            <EmptyState>Nothing currently in theaters.</EmptyState>
+          ) : (
+            <div className="overflow-x-auto -mx-1">
+              <table className="w-full text-sm border-collapse min-w-[600px]">
+                <thead>
+                  <tr className="mdtype-overline text-textFaint border-b border-border">
+                    <th className="text-left py-3 px-3 w-10">No.</th>
+                    <th className="text-left py-3 px-3">Movie</th>
+                    <th className="text-left py-3 px-3">Status</th>
+                    <th className="text-right py-3 px-3">Gross</th>
+                    <th className="text-right py-3 px-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liveTable.map((m, i) => (
+                    <tr key={m.slug} className="border-b border-border last:border-0 hover:bg-black/[0.02] transition">
+                      <td className="py-3 px-3 text-textFaint font-semibold">{String(i + 1).padStart(2, '0')}</td>
+                      <td className="py-3 px-3">
+                        <Link href={`/tracktollywood/${m.slug}`} className="flex items-center gap-3 group">
+                          <div className="w-9 h-9 flex-none rounded-full overflow-hidden bg-surface2 border border-black/[0.04] relative">
+                            {m.poster && <Image src={m.poster} alt="" fill unoptimized className="object-cover object-top" />}
+                          </div>
+                          <span className="font-medium text-text group-hover:text-gold transition truncate max-w-[220px]">{m.title}</span>
+                        </Link>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${
+                          m.state === 'live' ? 'bg-red/10 text-red border border-red/20' : 'bg-black/[0.03] text-textFaint border border-black/5'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${m.state === 'live' ? 'bg-red' : 'bg-textFaint'}`} />
+                          {STATE_LABEL[m.state]}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right font-stat text-base text-text">{m.gross || '—'}</td>
+                      <td className="py-3 px-3 text-right">
+                        <Pill href={`/tracktollywood/${m.slug}`} variant="primary" className="!text-xs !px-4 !py-1.5">
+                          Details
+                        </Pill>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          }
-        />
-        {nowShowing.length === 0 ? (
-          <EmptyState>Nothing currently in theaters.</EmptyState>
-        ) : (
-          <div className="flex gap-4 overflow-x-auto pb-3">
-            {nowShowing.map((m, i) => (
-              <MovieCard key={m.slug} movie={m} rank={i + 1} />
-            ))}
-          </div>
-        )}
-      </section>
+          )}
+        </Card>
 
-      {/* NEWS */}
-      <section id="news" className="mb-12">
-        <SectionHeading title="Latest from the industry" action={<Link href="/news" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
-        {news.length === 0 ? (
-          <EmptyState>No stories yet.</EmptyState>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {news.map((n: any) => (
-              <Link key={n.id} href={`/news/${n.id}`} className="block group">
-                <Card className="overflow-hidden hover:-translate-y-0.5 transition">
-                  {n.image_url && (
-                    <div className="relative h-40 w-full">
-                      <Image src={n.image_url} alt="" fill className="object-cover object-top" />
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <h3 className="font-semibold mb-2 group-hover:text-gold transition">{n.title}</h3>
-                    <p className="text-sm text-textDim line-clamp-3">{n.excerpt}</p>
-                    <div className="text-xs text-textFaint mt-3 pt-3 border-t border-border">{n.date}</div>
-                  </div>
-                </Card>
-              </Link>
-            ))}
+        <Card className="p-5 mb-10">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h2 className="hdisplay text-lg text-text">Earning Summary</h2>
+            <span className="flex items-center gap-1.5 text-xs text-textDim">
+              <TrendingUp size={14} className="text-gold" /> Daily total gross across every tracked movie
+            </span>
           </div>
-        )}
-      </section>
+          {dailyTotals.length < 2 ? (
+            <EmptyState>
+              Collecting daily data now — a daily snapshot job saves today's totals going forward, so this trend
+              fills in over the next few days instead of showing invented history.
+            </EmptyState>
+          ) : (
+            <TrendChart points={dailyTotals.map((d) => ({ date: d.date, value: Math.round(d.totalCr * 100) / 100 }))} />
+          )}
+        </Card>
 
-      {/* REVIEWS */}
-      <section id="reviews" className="mb-12">
-        <SectionHeading title="Fresh reviews" action={<Link href="/reviews" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
-        {reviews.length === 0 ? (
-          <EmptyState>No reviews yet.</EmptyState>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {reviews.map((r: any) => (
-              <Link key={r.id} href={`/reviews/${r.id}`} className="block group">
-                <Card className="p-5 hover:-translate-y-0.5 transition">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-[#F6A609]">★★★★★</span>
-                    <span className="bg-gold text-black text-sm font-bold px-2.5 py-1 rounded-lg">{r.rating} / 5</span>
-                  </div>
-                  <h3 className="font-semibold mb-2 group-hover:text-gold transition">{r.title}</h3>
-                  <p className="text-sm text-textDim line-clamp-3">{r.excerpt}</p>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* UPCOMING */}
-      <section id="upcoming" className="mb-6">
-        <SectionHeading title="Upcoming releases" action={<Link href="/upcoming" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
-        {upcoming.length === 0 ? (
-          <EmptyState>No upcoming releases yet.</EmptyState>
-        ) : (
-          <div className="flex gap-4 overflow-x-auto pb-3">
-            {upcoming.map((u) => {
-              const days = u._date ? Math.max(0, Math.ceil((u._date.getTime() - Date.now()) / 86400000)) : null;
-              return (
-                <Link key={u.slug} href={`/tracktollywood/${u.slug}`}>
-                  <Card className="flex-none w-44 p-4 h-full hover:-translate-y-0.5 transition">
-                    {days == null ? (
-                      <div className="hdisplay text-lg gtext mb-2">Coming soon</div>
-                    ) : days > 0 ? (
-                      <>
-                        <div className="hdisplay text-3xl gtext">{days}</div>
-                        <div className="text-xs text-textFaint mb-2">days to go</div>
-                      </>
-                    ) : (
-                      <div className="hdisplay text-lg gtext mb-2">Releasing today</div>
+        {/* Existing content, kept below the dashboard and restyled light. */}
+        {news.length > 0 && (
+          <section className="mb-10">
+            <SectionHeading title="Latest from the industry" action={<Link href="/news" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {news.map((n: any) => (
+                <Link key={n.id} href={`/news/${n.id}`} className="block group">
+                  <Card className="overflow-hidden hover:-translate-y-0.5 transition">
+                    {n.image_url && (
+                      <div className="relative h-36 w-full">
+                        <Image src={n.image_url} alt="" fill className="object-cover object-top" />
+                      </div>
                     )}
-                    <div className="text-sm font-medium">{u.title}</div>
-                    <div className="text-xs text-textFaint">{u.releaseText ?? ''}</div>
+                    <div className="p-4">
+                      <h3 className="font-semibold mb-2 text-text group-hover:text-gold transition">{n.title}</h3>
+                      <p className="text-sm text-textDim line-clamp-2">{n.excerpt}</p>
+                    </div>
                   </Card>
                 </Link>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          </section>
         )}
-      </section>
+
+        {reviews.length > 0 && (
+          <section className="mb-6">
+            <SectionHeading title="Fresh reviews" action={<Link href="/reviews" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {reviews.map((r: any) => (
+                <Link key={r.id} href={`/reviews/${r.id}`} className="block group">
+                  <Card className="p-5 hover:-translate-y-0.5 transition">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-[#F6A609]">★★★★★</span>
+                      <span className="bg-gold text-white text-sm font-bold px-2.5 py-1 rounded-lg">{r.rating} / 5</span>
+                    </div>
+                    <h3 className="font-semibold mb-2 text-text group-hover:text-gold transition">{r.title}</h3>
+                    <p className="text-sm text-textDim line-clamp-3">{r.excerpt}</p>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

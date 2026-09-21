@@ -54,6 +54,28 @@ function parseGrossCr(text: string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Same idea as parseGrossCr, but also handles Lakh figures (dividing by
+// 100 to normalize to crores) since a single day's collection --
+// TTListedMovie.todayText -- is routinely in Lakhs for a smaller or
+// later-in-its-run movie, unlike the lifetime gross figure. Exported for
+// lib/tracktollywood/snapshot.ts, which needs a same-unit number to sum
+// across movies for the daily snapshot.
+export function parseAmountToCr(text: string | null | undefined): number | null {
+  if (!text) return null;
+  const cleaned = text.replace(/,/g, '');
+  const crMatch = cleaned.match(/([\d.]+)\s*Cr/i);
+  if (crMatch) {
+    const n = Number(crMatch[1]);
+    return Number.isFinite(n) ? n : null;
+  }
+  const lMatch = cleaned.match(/([\d.]+)\s*L/i);
+  if (lMatch) {
+    const n = Number(lMatch[1]);
+    return Number.isFinite(n) ? n / 100 : null;
+  }
+  return null;
+}
+
 function cleanText($el: cheerio.Cheerio<any>): string {
   return $el.text().replace(/\s+/g, ' ').trim();
 }

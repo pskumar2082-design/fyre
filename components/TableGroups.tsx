@@ -72,7 +72,7 @@ function TableView({ table }: { table: TTTable }) {
     <div className="overflow-x-auto -mx-1">
       <table className="w-full text-xs border-collapse min-w-[480px]">
         <thead>
-          <tr className="bg-white/[0.03] border-b border-white/10">
+          <tr className="bg-black/[0.02] border-b border-border">
             {table.headers.map((h) => (
               <th
                 key={h}
@@ -89,8 +89,8 @@ function TableView({ table }: { table: TTTable }) {
               key={i}
               className={
                 row.__isTotal
-                  ? 'bg-gold/10 border-t-2 border-gold/30 font-bold'
-                  : `border-b border-white/5 hover:bg-white/[0.03] transition ${i % 2 === 1 ? 'bg-white/[0.015]' : ''}`
+                  ? 'bg-gold/[0.06] border-t-2 border-gold/20 font-bold'
+                  : `border-b border-border hover:bg-black/[0.02] transition ${i % 2 === 1 ? 'bg-black/[0.012]' : ''}`
               }
             >
               {table.headers.map((h) => (
@@ -150,8 +150,8 @@ export default function TableGroups({ groups }: { groups: Group[] }) {
               onClick={() => selectHeading(g.heading)}
               className={`flex-none inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl border transition ${
                 active
-                  ? 'bg-white/[0.12] text-text border-white/[0.12]'
-                  : 'bg-surface text-textDim border-white/5 hover:border-white/15 hover:text-text'
+                  ? 'bg-gold text-white border-gold'
+                  : 'bg-surface text-textDim border-border hover:border-gold/30 hover:text-text'
               }`}
             >
               <Icon size={14} strokeWidth={2.25} />
@@ -173,8 +173,8 @@ export default function TableGroups({ groups }: { groups: Group[] }) {
                 onClick={() => setCategory(label)}
                 className={`flex-none inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
                   active
-                    ? 'bg-white/[0.12] text-text border-white/[0.12]'
-                    : 'bg-transparent text-textFaint border-white/5 hover:border-white/15 hover:text-textDim'
+                    ? 'bg-gold text-white border-gold'
+                    : 'bg-transparent text-textFaint border-border hover:border-gold/30 hover:text-textDim'
                 }`}
               >
                 <Icon size={13} strokeWidth={2.25} />

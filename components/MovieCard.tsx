@@ -12,7 +12,7 @@ export default function MovieCard({ movie, rank }: { movie: TTListedMovie; rank?
   const badgeLabel = movie.dayLabel ? `${STATE_LABEL[movie.state]} · ${movie.dayLabel}` : STATE_LABEL[movie.state];
   return (
     <Link href={`/tracktollywood/${movie.slug}`} className="flex-none w-40 group">
-      <div className="w-40 h-56 rounded-2xl bg-surface2 border border-white/5 shadow-card relative overflow-hidden flex items-end p-2.5 transition group-hover:border-gold/30">
+      <div className="w-40 h-56 rounded-2xl bg-surface2 border border-black/[0.04] shadow-card relative overflow-hidden flex items-end p-2.5 transition group-hover:border-gold/30">
         {movie.poster ? (
           <Image
             src={movie.poster}
@@ -36,8 +36,8 @@ export default function MovieCard({ movie, rank }: { movie: TTListedMovie; rank?
           >
             {movie.state === 'live' && (
               <span className="relative flex w-1.5 h-1.5">
-                <span className="absolute inline-flex w-full h-full rounded-full bg-black/50 animate-ping" />
-                <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-black" />
+                <span className="absolute inline-flex w-full h-full rounded-full bg-white/60 animate-ping" />
+                <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-white" />
               </span>
             )}
             {badgeLabel}

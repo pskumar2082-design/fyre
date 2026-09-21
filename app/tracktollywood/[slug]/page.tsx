@@ -63,19 +63,13 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
         <ArrowLeft size={15} /> {backLabel}
       </Link>
 
-      {/* HERO — blurred poster backdrop behind the title block, sharp
-          poster thumbnail + state badge + headline gross on top. */}
-      <div className="relative rounded-2xl overflow-hidden border border-white/5 mb-6">
-        {details.poster && (
-          <>
-            <Image src={details.poster} alt="" fill unoptimized className="object-cover object-top scale-110 blur-2xl opacity-30" />
-            <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/85 to-bg/40" />
-          </>
-        )}
-        {!details.poster && <div className="absolute inset-0 bg-bgAlt" />}
-
+      {/* HERO — flat white card (matching the rest of the light theme,
+          no dark blurred-poster backdrop): sharp poster thumbnail + state
+          badge + headline gross. The badge itself still uses the on-photo
+          treatment since it sits right against the poster art. */}
+      <Card className="relative overflow-hidden mb-6">
         <div className="relative flex gap-5 p-5 sm:p-7 flex-wrap sm:flex-nowrap">
-          <div className="relative w-[104px] sm:w-[130px] aspect-[2/3] flex-none rounded-xl overflow-hidden bg-surface2 border border-white/10 shadow-card">
+          <div className="relative w-[104px] sm:w-[130px] aspect-[2/3] flex-none rounded-xl overflow-hidden bg-surface2 border border-black/[0.06] shadow-card">
             {details.poster ? (
               <Image src={details.poster} alt={details.title} fill className="object-cover" unoptimized />
             ) : (
@@ -87,8 +81,8 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
               <span className={`inline-flex items-center gap-1.5 w-fit text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-lg mb-2.5 ${STATE_BADGE[details.state]}`}>
                 {details.state === 'live' && (
                   <span className="relative flex w-1.5 h-1.5">
-                    <span className="absolute inline-flex w-full h-full rounded-full bg-black/50 animate-ping" />
-                    <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-black" />
+                    <span className="absolute inline-flex w-full h-full rounded-full bg-white/60 animate-ping" />
+                    <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-white" />
                   </span>
                 )}
                 {details.badgeText || details.state}
@@ -103,7 +97,7 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
             )}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* STAT CARDS — the label matching /gross/i gets the accent
           treatment, same restraint as the rest of the site: green means

@@ -4,40 +4,50 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Material Design dark theme base: #121212 surface, on-surface text at
-   87% white (high emphasis) as the default -- see tailwind.config.js for
-   the full elevation/opacity token set this builds on. */
+/* Light theme: white page, near-black high-emphasis text. */
 body {
-  background-color: #121212;
-  color: rgba(255, 255, 255, 0.87);
+  background-color: #ffffff;
+  color: #111827;
 }
 
-/* Section titles, page headings, movie titles -- Roboto at its heaviest
-   weight stands in for the display face the reference screenshots used,
-   without leaving the Material type system. */
+/* Section titles, page headings, movie titles. */
 .hdisplay {
   font-family: 'Roboto', sans-serif;
-  /* Medium (500) is Material's own heaviest UI headline weight --
-     confirmed directly against the kit's App Bar title and Card title,
-     which both use Headline 6 (Roboto Medium). Weight 900/Black (what
-     this used to be) isn't part of the Material type scale at all and
-     read as an odd, wrong-feeling combination on Roboto specifically. */
   font-weight: 500;
   letter-spacing: 0.0125em;
   line-height: 1.2;
-  /* No color here on purpose: body already sets the high-emphasis white
-     as the inherited default, and leaving color off this class lets a
-     per-use text-* utility win instead of losing to this same-
-     specificity rule later. */
 }
 
-/* The Material Design 2 type scale, spelled out exactly -- family,
-   weight, size, line-height and letter-spacing per component/style, not
-   approximated. Headline 6, Body 2 and Button are confirmed directly
-   against the linked kit's own components (App Bar title, Card title,
-   Card body, Card buttons); the rest follow the same documented scale.
-   Use whichever tier actually fits the text's role instead of reaching
-   for .hdisplay/font-stat by default. */
+/* Kept for any element still combining .gtext with .hdisplay -- a subtle
+   dark-to-accent-blue fade instead of the old light-on-dark version. */
+.gtext {
+  background: linear-gradient(90deg, #111827 0%, #2f6fed 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.glow-spot {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.12;
+}
+
+/* Featured-movie banner (homepage) -- kept dark since it sits behind a
+   poster image and white/light text on it, same purpose as a photo
+   scrim in any theme. */
+.card-gradient-primary {
+  background: linear-gradient(120deg, #0c0d10 0%, #14161c 55%, #05060a 100%);
+}
+.card-gradient-secondary {
+  background: linear-gradient(115deg, #14161c 2.6%, #2f6fed 140%);
+}
+
+/* Material Design 2 type scale -- unchanged by the theme swap, still the
+   real spec values. */
 .mdtype-h1 { font-family: 'Roboto', sans-serif; font-weight: 300; font-size: 96px; line-height: 112px; letter-spacing: -1.5px; }
 .mdtype-h2 { font-family: 'Roboto', sans-serif; font-weight: 300; font-size: 60px; line-height: 72px; letter-spacing: -0.5px; }
 .mdtype-h3 { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 48px; line-height: 56px; letter-spacing: 0; }
@@ -51,35 +61,3 @@ body {
 .mdtype-button { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 14px; line-height: 16px; letter-spacing: 1.25px; text-transform: uppercase; }
 .mdtype-caption { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 12px; line-height: 16px; letter-spacing: 0.4px; }
 .mdtype-overline { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 10px; line-height: 16px; letter-spacing: 1.5px; text-transform: uppercase; }
-
-/* High-emphasis white fading into the Material primary purple -- used for
-   "days to go" / headline numbers that want a touch of the accent color
-   the spec explicitly allows for this kind of emphasis, without tinting
-   the whole page. */
-.gtext {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.95) 0%, #bb86fc 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-/* Soft blurred blobs behind a hero/header for depth -- opacity kept low
-   so they read as ambient tonal shading, not a visible shape or color. */
-.glow-spot {
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(90px);
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.25;
-}
-
-/* Featured-movie banner (homepage) -- a plain charcoal sweep for the base
-   layer, and a subtle primary-purple tint (the one spot the spec calls
-   out brand color being fine at more saturation) for the accent layer. */
-.card-gradient-primary {
-  background: linear-gradient(120deg, #121212 0%, #1e1e1e 55%, #0a0a0a 100%);
-}
-.card-gradient-secondary {
-  background: linear-gradient(115deg, #2a2a2a 2.6%, #bb86fc 140%);
-}

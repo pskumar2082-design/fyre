@@ -16,9 +16,10 @@ import {
   X
 } from 'lucide-react';
 
-// Dark app shell: a fixed 250px near-black sidebar with icon nav + a
-// green active accent bar, a matching header with a page title / search
-// pill, and a #0C0B0A content well. Wraps every public route via
+// Light app shell, matching the "Car Rent" dashboard reference: a dark
+// navy sidebar (the one part of the page that stays dark) with icon nav +
+// a solid blue active pill, a white header with a page title / search
+// pill, and a white content well. Wraps every public route via
 // app/layout.tsx. /admin is reachable directly by URL but intentionally
 // left off the public nav -- it's not a section a visitor should be
 // browsing to.
@@ -39,7 +40,7 @@ function isActive(pathname: string, item: (typeof NAV)[number]) {
 
 function SidebarLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
-    <nav className="flex-1 py-2">
+    <nav className="flex-1 py-2 px-4">
       {NAV.map((item) => {
         const active = isActive(pathname, item);
         const Icon = item.icon;
@@ -48,16 +49,13 @@ function SidebarLinks({ pathname, onNavigate }: { pathname: string; onNavigate?:
             key={item.href}
             href={item.href}
             onClick={onNavigate}
-            className="relative flex items-center gap-4 h-[60px] px-8 text-[15px] font-medium transition hover:text-text"
+            className={`relative flex items-center gap-3 h-[52px] px-4 mb-1 rounded-xl text-[15px] font-medium transition ${
+              active ? 'bg-gold text-white' : 'text-white/60 hover:bg-navyAlt hover:text-white'
+            }`}
           >
-            {active && (
-              <>
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-[60px] bg-gold rounded-r-[10px] shadow-[0_0_16px_rgba(187,134,252,0.6)]" />
-                <span className="absolute inset-y-1 left-2 right-2 bg-gold/10 rounded-xl" />
-              </>
-            )}
-            <Icon size={22} strokeWidth={2} className={`relative ${active ? 'text-gold' : 'text-textFaint'}`} />
-            <span className={`relative ${active ? 'text-text' : 'text-textFaint'}`}>{item.label}</span>
+            {active && <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-1 h-[22px] rounded-full bg-white" />}
+            <Icon size={20} strokeWidth={2} className={active ? 'ml-2.5' : ''} />
+            <span>{item.label}</span>
           </Link>
         );
       })}
@@ -65,11 +63,9 @@ function SidebarLinks({ pathname, onNavigate }: { pathname: string; onNavigate?:
   );
 }
 
-// The real fyre wordmark -- a white flame + "fyre" PNG designed to sit on
-// a dark surface (public/logo.png). It was invisible under the site's
-// previous light theme, which is why the shell used a placeholder icon
-// instead; now that the shell is dark again, the actual purchased asset
-// is what renders here.
+// The real fyre wordmark -- a white flame + "fyre" PNG, designed to sit
+// on a dark surface (public/logo.png), which is exactly what the
+// permanent navy sidebar still is in this theme.
 function Logo({ height = 34 }: { height?: number }) {
   return (
     <Link href="/" className="flex items-center px-8 h-[100px] flex-none flex-shrink-0">
@@ -85,11 +81,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex bg-bg">
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col w-[250px] flex-none bg-bgAlt border-r border-border sticky top-0 h-screen overflow-y-auto">
+      {/* Desktop sidebar -- stays dark navy regardless of theme */}
+      <aside className="hidden md:flex md:flex-col w-[250px] flex-none bg-navy sticky top-0 h-screen overflow-y-auto">
         <Logo />
         <SidebarLinks pathname={pathname} />
-        <div className="px-8 py-6 text-[11px] text-textFaint border-t border-border mt-auto">
+        <div className="px-8 py-6 text-[11px] text-white/40 border-t border-white/10 mt-auto">
           © {new Date().getFullYear()} fyre
         </div>
       </aside>
@@ -101,10 +97,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             aria-label="Close menu"
             onClick={() => setMobileOpen(false)}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
           />
-          <aside className="absolute left-0 top-0 h-full w-[250px] bg-surfaceTop flex flex-col shadow-card">
-            <div className="flex items-center justify-between px-6 h-[100px] flex-none border-b border-border">
+          <aside className="absolute left-0 top-0 h-full w-[250px] bg-navy flex flex-col shadow-card">
+            <div className="flex items-center justify-between px-6 h-[100px] flex-none border-b border-white/10">
               <Link href="/" className="flex items-center">
                 <Image src="/logo.png" alt="fyre" width={78} height={32} />
               </Link>
@@ -112,7 +108,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 type="button"
                 aria-label="Close menu"
                 onClick={() => setMobileOpen(false)}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-surface text-textDim border border-border"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-navyAlt text-white/70 border border-white/10"
               >
                 <X size={18} />
               </button>
@@ -123,28 +119,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
+        {/* Header -- white, matching the main content behind it */}
         <header className="sticky top-0 z-30 h-[100px] flex-none bg-bg/95 backdrop-blur border-b border-border flex items-center justify-between gap-4 px-5 md:px-10">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               aria-label="Open menu"
               onClick={() => setMobileOpen(true)}
-              className="md:hidden flex items-center justify-center w-9 h-9 rounded-full bg-surface text-textDim border border-border flex-none"
+              className="md:hidden flex items-center justify-center w-9 h-9 rounded-full bg-surface2 text-textDim border border-border flex-none"
             >
               <Menu size={18} />
             </button>
-            <h1 className="hdisplay text-xl md:text-[28px] truncate">{current?.label ?? 'fyre'}</h1>
+            <h1 className="hdisplay text-xl md:text-[28px] truncate text-text">{current?.label ?? 'fyre'}</h1>
           </div>
 
           <div className="flex items-center gap-3 flex-none">
             <form action="/search" className="hidden lg:block">
-              <div className="flex items-center gap-2 bg-surface border border-border rounded-full h-[50px] w-[255px] px-5 focus-within:border-gold/50 transition">
+              <div className="flex items-center gap-2 bg-surface2 border border-border rounded-full h-[50px] w-[280px] px-5 focus-within:border-gold/50 transition">
                 <Search size={17} className="text-textFaint flex-none" />
                 <input
                   type="text"
                   name="q"
-                  placeholder="Search for something"
+                  placeholder="Search here"
                   className="bg-transparent outline-none text-sm text-text placeholder:text-textFaint w-full"
                 />
               </div>
@@ -152,7 +148,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/search"
               aria-label="Search"
-              className="lg:hidden flex items-center justify-center w-10 h-10 rounded-full bg-surface text-textDim border border-border"
+              className="lg:hidden flex items-center justify-center w-10 h-10 rounded-full bg-surface2 text-textDim border border-border"
             >
               <Search size={18} />
             </Link>

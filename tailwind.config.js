@@ -8,57 +8,52 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Google's actual Material Design dark theme, implemented literally
-        // rather than approximated -- this replaces two rounds of invented
-        // palettes (a MovieMint-matched green, then a custom ember-orange,
-        // then a flat monochrome gray) with the spec's own values.
-        //
-        // ELEVATION: dark theme surfaces are the #121212 base lightened by a
-        // semi-transparent WHITE overlay that gets stronger the "higher" a
-        // surface sits, not a black drop shadow. These are the spec's own
-        // dp-to-overlay values (00dp 0%, 01dp 5%, 02dp 7%, 04dp 9%, 08dp 12%,
-        // 24dp 16%) pre-blended onto #121212 so they work as flat Tailwind
-        // colors.
-        bg: '#121212',          // 00dp -- page background
-        bgAlt: '#1E1E1E',       // 01dp -- permanent nav rail (low elevation, per spec)
-        surface: '#222222',     // 02dp -- base cards
-        surface2: '#262626',    // 04dp -- nested rows / hover surfaces
-        surfaceHigh: '#2E2E2E', // 08dp -- sticky header, dropdowns, toasts
-        surfaceTop: '#383838',  // 24dp -- modals, the mobile drawer overlay
-        border: 'rgba(255,255,255,0.12)', // spec's own divider value: 12% white
+        // Light theme, matching the "Car Rent" dashboard reference exactly:
+        // white main content, a warm cream secondary panel, a dark navy
+        // sidebar (the one region that stays dark), and a solid blue
+        // accent. Token NAMES are kept the same as the dark-theme pass so
+        // every component that already reads bg/surface/text/gold/etc
+        // picks up the new values automatically -- only the sidebar/header
+        // split needed real file edits (see AppShell.tsx), since a
+        // permanent dark sidebar next to light content has no single-value
+        // token that covers both.
+        bg: '#FFFFFF',       // page / main content background
+        bgAlt: '#F6F4F0',    // warm cream secondary panel (stats column)
+        surface: '#FFFFFF',  // card background
+        surface2: '#F8F9FB', // nested / hover row tint
+        surfaceHigh: '#FFFFFF',
+        surfaceTop: '#FFFFFF',
+        border: '#E7E5E0',   // hairline border/divider
 
-        // Primary/secondary/error straight from Google's own Material dark
-        // theme reference palette -- not a color I'm picking, the one their
-        // docs use as the canonical example. Primary is deliberately a
-        // light, desaturated 200-tone (not a saturated brand color) so it
-        // clears the spec's 4.5:1 contrast requirement against #121212 and
-        // pairs with black text/icons on top of it.
-        gold: '#BB86FC',       // primary
-        goldBright: '#D1A9FF', // primary, lighter -- hover/emphasis
-        goldDim: '#03DAC6',    // secondary (teal) -- second accent, e.g. "advance" state
-        red: '#CF6679',        // spec's own baseline dark-theme error color
+        // The sidebar is the one part of the page that stays dark --
+        // doesn't fit the bg/bgAlt system above, so it gets its own
+        // dedicated tokens instead of overloading an existing one.
+        navy: '#14161C',
+        navyAlt: '#1D2029',
 
-        // On-surface text at the spec's own opacity tiers, applied to white
-        // rather than picking gray hex values -- 87% high emphasis, 60%
-        // medium/hint, 38% disabled/faint.
-        text: 'rgba(255,255,255,0.87)',
-        textDim: 'rgba(255,255,255,0.60)',
-        textFaint: 'rgba(255,255,255,0.38)',
+        gold: '#2F6FED',       // primary blue accent
+        goldBright: '#1D5FE0', // darker blue -- hover/pressed on a filled blue element
+        goldDim: '#22C55E',    // secondary accent (green) -- positive/"completed" states
+        red: '#EF4444',        // error / negative / urgent state
+
+        text: '#111827',      // near-black, high-emphasis text
+        textDim: '#6B7280',   // medium gray, secondary text
+        textFaint: '#9CA3AF', // light gray, faint/placeholder text
 
         // Not used anywhere live (only the orphaned VersionSelector.tsx) --
         // kept pointed at the same system so nothing breaks if it's ever
         // wired back up.
-        brandPurple: '#BB86FC',
-        brandPink: '#03DAC6',
-        brandOrange: '#3700B3',
-        positive: '#03DAC6',
-        coral: '#CF6679',
-        chartBlue: '#BB86FC',
-        chartTeal: '#03DAC6',
-        tintBlue: '#1E1E1E',
-        tintPink: '#1E1E1E',
-        tintYellow: '#1E1E1E',
-        tintTeal: '#1E1E1E'
+        brandPurple: '#2F6FED',
+        brandPink: '#22C55E',
+        brandOrange: '#1D5FE0',
+        positive: '#22C55E',
+        coral: '#EF4444',
+        chartBlue: '#2F6FED',
+        chartTeal: '#22C55E',
+        tintBlue: '#F6F4F0',
+        tintPink: '#F6F4F0',
+        tintYellow: '#F6F4F0',
+        tintTeal: '#F6F4F0'
       },
       borderRadius: {
         lg: '15px',
@@ -66,15 +61,9 @@ module.exports = {
         '2xl': '25px'
       },
       boxShadow: {
-        card: '0 10px 30px -10px rgba(0,0,0,0.7)'
+        card: '0 4px 24px -4px rgba(20,22,28,0.08)'
       },
       fontFamily: {
-        // Roboto is Material Design's own system typeface -- switching to it
-        // (from Inter/Anton/Bebas Neue) makes the type match the spec too,
-        // not just the colors. Roboto Condensed carries the dense numeric
-        // figures (money/stats), the same role Bebas Neue played, but stays
-        // inside the same type family instead of mixing in an unrelated
-        // display face.
         display: ['Roboto', 'sans-serif'],
         body: ['Roboto', 'sans-serif'],
         heading: ['Roboto', 'sans-serif'],
