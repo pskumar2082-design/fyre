@@ -65,16 +65,20 @@ module.exports = {
       },
       // Public Sans stands in for Walmart's proprietary "Everyday Sans"
       // (brand-restricted, not available outside Walmart) -- see
-      // globals.css's @import comment for why. Money/stat figures
-      // (font-stat) now share the same face rather than a separate
-      // condensed one, since Everyday Sans has no condensed cut either;
-      // Walmart's own weight hierarchy (Regular/Medium/Bold/Black) is
-      // what carries the emphasis instead.
+      // globals.css's @import comment for why. `stat` (money/gross
+      // figures) is Walmart's "Inline Header" tier -- Bold Public Sans,
+      // same face as everything else, emphasis carried by weight/color
+      // rather than a separate condensed cut. `mono` is Walmart's
+      // "Data + Code" tier (Everyday Sans Mono in their system) --
+      // overrides Tailwind's own default mono stack so the existing
+      // `font-mono` utility already carries the right face; used on
+      // genuinely tabular numeric columns (see TableGroups.tsx).
       fontFamily: {
         display: ['"Public Sans"', 'sans-serif'],
         body: ['"Public Sans"', 'sans-serif'],
         heading: ['"Public Sans"', 'sans-serif'],
-        stat: ['"Public Sans"', 'sans-serif']
+        stat: ['"Public Sans"', 'sans-serif'],
+        mono: ['"Noto Sans Mono"', 'monospace']
       }
     }
   },

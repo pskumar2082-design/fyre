@@ -1,30 +1,81 @@
-/* Walmart's own typeface ("Everyday Sans") is a proprietary,
-   brand-restricted font -- not obtainable for a third-party site. Public
-   Sans is the closest open-license match to its brief (a clean,
-   corporate-neutral grotesque, wide weight range), used here to carry
-   the same weight hierarchy Walmart's brand center documents: Light
-   300 / Regular 400 / Medium 500 / Bold 700 / Black 900. */
-@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;700;900&display=swap');
+/* ============================================================
+   Typography system -- Walmart's documented typesetting rules
+   (brandcenter.walmart.com/brand/brand-identity/typography),
+   applied with an open-license typeface standing in for their
+   proprietary "Everyday Sans" (not obtainable outside Walmart --
+   no public listing, files gated behind Walmart Creative Studio
+   authorization). Public Sans covers the brief: a clean,
+   corporate-neutral grotesque with the same weight range their
+   system calls for (Light 300 / Regular 400 / Medium 500 / Bold
+   700 / Black 900). Their "Data + Code" tier specifically calls
+   for a mono cut (Everyday Sans Mono); Noto Sans Mono stands in
+   for that -- picked over other open monospace faces specifically
+   for its full Unicode coverage, since this site's numbers are
+   almost always prefixed with the Indian Rupee sign (₹).
+
+   Every tier below follows the brand center's own cheatsheet
+   (hierarchy / leading ratio / tracking), not an approximation:
+     XL Headline    -- Light,  leading 1.0, tracking -0.015em (5X)
+     Headline       -- Medium, leading 1.2, tracking 0        (4X)
+     Subhead        -- Medium, leading 1.2, tracking 0        (2X)
+     Inline Header  -- Bold,   leading 1.2, tracking 0        (1X)
+     Body Copy      -- Regular,leading 1.2, tracking 0        (1X)
+     Captions/Legal -- Regular,leading 1.3, tracking 0        (1X)
+     Data + Code    -- Mono Regular, leading 1.3, tracking 0  (1X)
+   "Scale" (5X/4X/2X/1X) is relative to body copy and is left to
+   each usage site's own Tailwind text-size utility -- same
+   pattern the codebase already used for .hdisplay -- rather than
+   hard-coded here, so one rule works across every context a tier
+   appears in. ============================================== */
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;700;900&family=Noto+Sans+Mono:wght@400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Light theme: white page, near-black high-emphasis text. */
+/* Light theme: white page, near-black high-emphasis text.
+   Body Copy tier: Regular weight (the browser/Tailwind default,
+   nothing to set), leading 1.2, tracking 0 (the default). */
 body {
   background-color: #ffffff;
   color: #111827;
-  /* Walmart's documented body leading (1.2-1.3) is tighter than the
-     browser default -- a small, site-wide nudge toward their rhythm. */
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
-/* Section titles, page headings, movie titles. */
+/* Section titles, page headings, movie titles -- covers both the
+   Headline and Subhead tiers (Medium weight, leading 1.2, tracking
+   0 for both; only their Scale differs, which is whatever
+   Tailwind text-size utility a usage site pairs this with). */
 .hdisplay {
   font-family: 'Public Sans', sans-serif;
   font-weight: 500;
-  letter-spacing: 0.0125em;
+  letter-spacing: 0;
   line-height: 1.2;
+}
+
+/* XL Headline tier -- Light weight, tight (1.0) leading, tracking
+   pulled in to -0.015em (Walmart's "-15" units) so letters don't
+   gap out at very large sizes. Not used by any page today (this
+   site has no cover/splash/signage-style screen), defined here so
+   the full 7-tier system exists and is ready for one. */
+.type-xl-headline {
+  font-family: 'Public Sans', sans-serif;
+  font-weight: 300;
+  letter-spacing: -0.015em;
+  line-height: 1.0;
+}
+
+/* Small uppercase eyebrow/meta labels (section tags, table column
+   heads) -- closest fit is the Captions + Legal tier: Regular
+   weight, leading 1.3, tracking 0. Kept uppercase: that specific
+   Walmart "don't" is scoped to headlines/subheads, not tags. */
+.mdtype-overline {
+  font-family: 'Public Sans', sans-serif;
+  font-weight: 400;
+  font-size: 10px;
+  line-height: 13px;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 /* Kept for any element still combining .gtext with .hdisplay -- a subtle
@@ -54,19 +105,3 @@ body {
 .card-gradient-secondary {
   background: linear-gradient(115deg, #14161c 2.6%, #2f6fed 140%);
 }
-
-/* Material Design 2 type scale -- unchanged by the theme swap, still the
-   real spec values. */
-.mdtype-h1 { font-family: 'Public Sans', sans-serif; font-weight: 300; font-size: 96px; line-height: 112px; letter-spacing: -1.5px; }
-.mdtype-h2 { font-family: 'Public Sans', sans-serif; font-weight: 300; font-size: 60px; line-height: 72px; letter-spacing: -0.5px; }
-.mdtype-h3 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 48px; line-height: 56px; letter-spacing: 0; }
-.mdtype-h4 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 34px; line-height: 42px; letter-spacing: 0.25px; }
-.mdtype-h5 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 24px; line-height: 32px; letter-spacing: 0; }
-.mdtype-h6 { font-family: 'Public Sans', sans-serif; font-weight: 500; font-size: 20px; line-height: 24px; letter-spacing: 0.15px; }
-.mdtype-subtitle1 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 16px; line-height: 24px; letter-spacing: 0.15px; }
-.mdtype-subtitle2 { font-family: 'Public Sans', sans-serif; font-weight: 500; font-size: 14px; line-height: 22px; letter-spacing: 0.1px; }
-.mdtype-body1 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 16px; line-height: 24px; letter-spacing: 0.5px; }
-.mdtype-body2 { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 14px; line-height: 20px; letter-spacing: 0.25px; }
-.mdtype-button { font-family: 'Public Sans', sans-serif; font-weight: 500; font-size: 14px; line-height: 16px; letter-spacing: 1.25px; text-transform: uppercase; }
-.mdtype-caption { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 12px; line-height: 16px; letter-spacing: 0.4px; }
-.mdtype-overline { font-family: 'Public Sans', sans-serif; font-weight: 400; font-size: 10px; line-height: 16px; letter-spacing: 1.5px; text-transform: uppercase; }
