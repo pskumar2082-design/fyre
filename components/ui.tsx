@@ -98,7 +98,7 @@ export function Pill({
     primary: 'bg-gold text-black border border-gold hover:bg-goldBright',
     default: 'bg-surface text-textDim border border-white/5 hover:border-white/15 hover:text-text',
     outline: 'bg-transparent text-textDim border border-white/20 hover:border-white/40 hover:text-text',
-    active: 'bg-gold text-black border border-gold'
+    active: 'bg-white/[0.12] text-text border border-white/[0.12] hover:bg-white/[0.16]'
   }[variant];
   const base = `inline-flex items-center justify-center gap-1.5 text-sm font-semibold rounded-full px-5 py-2 transition disabled:opacity-40 disabled:pointer-events-none ${styles} ${className}`;
 

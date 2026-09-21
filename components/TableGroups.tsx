@@ -150,7 +150,7 @@ export default function TableGroups({ groups }: { groups: Group[] }) {
               onClick={() => selectHeading(g.heading)}
               className={`flex-none inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl border transition ${
                 active
-                  ? 'bg-gold text-black border-gold'
+                  ? 'bg-white/[0.12] text-text border-white/[0.12]'
                   : 'bg-surface text-textDim border-white/5 hover:border-white/15 hover:text-text'
               }`}
             >
@@ -173,7 +173,7 @@ export default function TableGroups({ groups }: { groups: Group[] }) {
                 onClick={() => setCategory(label)}
                 className={`flex-none inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
                   active
-                    ? 'bg-gold/15 text-gold border-gold/40'
+                    ? 'bg-white/[0.12] text-text border-white/[0.12]'
                     : 'bg-transparent text-textFaint border-white/5 hover:border-white/15 hover:text-textDim'
                 }`}
               >
