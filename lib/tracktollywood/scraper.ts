@@ -14,8 +14,6 @@ const HUB_PATH = '/box-office-collection/';
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
 
-const CREDIT = 'Data sourced from TrackTollywood' as const;
-
 async function fetchHtml(path: string): Promise<string> {
   const res = await axios.get<string>(`${ORIGIN}${path}`, {
     headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' },
@@ -58,6 +56,19 @@ function parseGrossCr(text: string | null | undefined): number | null {
 
 function cleanText($el: cheerio.Cheerio<any>): string {
   return $el.text().replace(/\s+/g, ' ').trim();
+}
+
+// "Releasing 25 Sep 2026" / "Released 18 Sep 2026" -> a real Date, or null
+// if the text doesn't match -- kept defensive since this is free text off
+// the page (releaseText) rather than a machine-readable field. Exported
+// since both app/upcoming/page.tsx and app/page.tsx need a countdown from
+// the same text.
+export function parseReleaseDate(releaseText: string | null): Date | null {
+  if (!releaseText) return null;
+  const m = releaseText.match(/(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/);
+  if (!m) return null;
+  const d = new Date(`${m[2]} ${m[1]}, ${m[3]}`);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,14 +114,13 @@ export function parseLiveMovies(html: string): TTListedMovie[] {
   return movies;
 }
 
-// The hub paginates (plain WordPress /page/N/ links, not JS/AJAX --
-// confirmed live 2026-09-21: 24 live/advance/upcoming movies spread
-// across 2 pages via a real `.tt-hub-pagination a.next` link). This
-// follows that link until it disappears so callers get the whole set,
-// not just page 1. The separate 67-movie "completed" archive
-// (.../box-office-collection/completed/) is intentionally not included
-// here -- the brief asks for the live list, not the historical archive.
-const MAX_HUB_PAGES = 10; // safety cap, not a real expected page count
+// Every hub listing paginates the same way (plain WordPress /page/N/
+// links, not JS/AJAX -- confirmed live 2026-09-21 on both the default
+// hub, 24 live/advance/upcoming movies across 2 pages, and the
+// completed archive, 67 movies across 6 pages, each via a real
+// `.tt-hub-pagination a.next` link). This follows that link until it
+// disappears so callers get the whole set, not just page 1.
+const MAX_HUB_PAGES = 20; // safety cap, not a real expected page count
 
 function findNextPageUrl(html: string): string | null {
   const $ = cheerio.load(html);
@@ -118,30 +128,42 @@ function findNextPageUrl(html: string): string | null {
   return href ?? null;
 }
 
-export async function getLiveMovies(): Promise<TTListedMovie[]> {
-  return cachedFetch('tt:live', 300, async () => {
-    const movies: TTListedMovie[] = [];
-    const seenSlugs = new Set<string>();
-    let path: string | null = HUB_PATH;
-    let pagesFetched = 0;
+async function fetchAllHubPages(startPath: string): Promise<TTListedMovie[]> {
+  const movies: TTListedMovie[] = [];
+  const seenSlugs = new Set<string>();
+  let path: string | null = startPath;
+  let pagesFetched = 0;
 
-    while (path && pagesFetched < MAX_HUB_PAGES) {
-      const html = await fetchHtml(path);
-      for (const m of parseLiveMovies(html)) {
-        // The hub can legitimately repeat a movie across a "featured"
-        // strip and the paginated grid -- de-dupe by slug so callers
-        // never see the same movie twice.
-        if (seenSlugs.has(m.slug)) continue;
-        seenSlugs.add(m.slug);
-        movies.push(m);
-      }
-      pagesFetched++;
-      const nextUrl = findNextPageUrl(html);
-      path = nextUrl ? nextUrl.replace(ORIGIN, '') : null;
+  while (path && pagesFetched < MAX_HUB_PAGES) {
+    const html = await fetchHtml(path);
+    for (const m of parseLiveMovies(html)) {
+      // The hub can legitimately repeat a movie across a "featured"
+      // strip and the paginated grid -- de-dupe by slug so callers
+      // never see the same movie twice.
+      if (seenSlugs.has(m.slug)) continue;
+      seenSlugs.add(m.slug);
+      movies.push(m);
     }
+    pagesFetched++;
+    const nextUrl = findNextPageUrl(html);
+    path = nextUrl ? nextUrl.replace(ORIGIN, '') : null;
+  }
 
-    return movies;
-  });
+  return movies;
+}
+
+// Currently live/advance/upcoming movies (the default hub view).
+export async function getLiveMovies(): Promise<TTListedMovie[]> {
+  return cachedFetch('tt:live', 300, async () => fetchAllHubPages(HUB_PATH));
+}
+
+// The historical archive of movies whose theatrical run has wrapped up
+// (badge state 'final'). A separate, much larger listing --
+// .../box-office-collection/completed/ -- not a filter on the hub above.
+// Cached longer than the live list (30 min) since a completed movie's
+// figures don't change run to run the way a live one's do.
+export async function getCompletedMovies(): Promise<TTListedMovie[]> {
+  return cachedFetch('tt:completed', 1800, async () => fetchAllHubPages(`${HUB_PATH}completed/`));
 }
 
 // ---------------------------------------------------------------------------
@@ -235,8 +257,6 @@ export function parseMovieDetails(html: string, slug: string): TTMovieDetails {
     headlineLabel: cleanText($('.tt-mv-headline-label').first()) || null,
     stats: parseStats($),
     tables: parseTables($),
-    source: ORIGIN as 'https://tracktollywood.com',
-    credit: CREDIT,
     fetchedAt: new Date().toISOString()
   };
 }

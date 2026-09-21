@@ -114,7 +114,6 @@ describe('parseMovieDetails', () => {
       { label: "Today's Gross", value: '₹42.40L', note: null },
       { label: 'Best Day', value: '₹1.91Cr', note: 'Day 3' }
     ]);
-    expect(d.credit).toBe('Data sourced from TrackTollywood');
   });
 
   it('parses every data-snapshot table generically, aligning a colspan TOTAL row by header position', () => {

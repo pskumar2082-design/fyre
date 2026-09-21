@@ -350,13 +350,6 @@ function Dashboard({ section }: { section: SectionConfig }) {
   const [error, setError] = useState('');
   // options for any 'reference' fields (e.g. Movie picker), keyed by field.key
   const [refOptions, setRefOptions] = useState<Record<string, { id: string; label: string }[]>>({});
-  // For the now_showing section's MovieMint sync controls (see
-  // lib/syncMovieMint.ts / app/api/admin-sync-moviemint). Sacnilk is
-  // discontinued (2026-09) -- MovieMint is fyre's sole box-office source,
-  // so this is the only sync state the admin panel tracks any more.
-  const [moviemintRefreshingId, setMoviemintRefreshingId] = useState<string | null>(null);
-  const [moviemintSyncMessage, setMoviemintSyncMessage] = useState('');
-  const [moviemintSyncing, setMoviemintSyncing] = useState(false);
 
   const referenceFields = section.fields.filter((f): f is Extract<Field, { kind: 'reference' }> => f.kind === 'reference');
 
@@ -481,79 +474,6 @@ function Dashboard({ section }: { section: SectionConfig }) {
     loadItems();
   }
 
-  // MovieMint is fyre's sole box-office source (Sacnilk discontinued,
-  // 2026-09 -- see lib/syncMovieMint.ts). This discovers movies MovieMint
-  // tracks that fyre doesn't have yet and syncs numbers -- including
-  // lifetime_*/advance_* -- for every movie it already knows.
-  async function handleMovieMintDiscover() {
-    setMoviemintSyncing(true);
-    setMoviemintSyncMessage('');
-    try {
-      const { data } = await supabase.auth.getSession();
-      const res = await fetch('/api/admin-sync-moviemint', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
-        body: JSON.stringify({})
-      });
-      const result = await res.json();
-      if (result.error) {
-        setMoviemintSyncMessage(`MovieMint sync failed: ${result.error}`);
-      } else {
-        const parts: string[] = [];
-        parts.push(`${result.matched ?? 0} matched`);
-        if (result.unmatched) parts.push(`${result.unmatched} unmatched (see MovieMint review queue)`);
-        parts.push(`${result.snapshotsInserted ?? 0} new snapshots`);
-        if (result.dailySeriesInserted) parts.push(`${result.dailySeriesInserted} historical days backfilled`);
-        parts.push(`${result.breakdownsUpserted ?? 0} breakdown rows`);
-        if (result.errors?.length) {
-          parts.push(`${result.errors.length} errors`);
-          // Surface the actual failure, not just a count -- e.g. "blocked:
-          // interactive challenge" vs "browser unavailable" vs a network
-          // error need different follow-up, and without this the admin UI
-          // gave no way to tell which one happened.
-          const firstErr = result.errors[0];
-          parts.push(`first error [${firstErr.context}]: ${firstErr.message}`);
-        }
-        setMoviemintSyncMessage(parts.join(' · '));
-      }
-      loadItems();
-    } catch (err: any) {
-      setMoviemintSyncMessage(`MovieMint sync failed: ${err?.message ?? err}`);
-    } finally {
-      setMoviemintSyncing(false);
-    }
-  }
-
-  // Refreshes MovieMint data for one already-matched movie only (the
-  // 'Refresh (MovieMint)' button below, shown once a movie has a
-  // moviemint_slug) instead of re-running discovery across every tracked
-  // movie.
-  async function handleMovieMintRefresh(id: string, slug: string) {
-    setMoviemintRefreshingId(id);
-    setMoviemintSyncMessage('');
-    try {
-      const { data } = await supabase.auth.getSession();
-      const res = await fetch('/api/admin-sync-moviemint', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
-        body: JSON.stringify({ slug })
-      });
-      const result = await res.json();
-      if (result.error) {
-        setMoviemintSyncMessage(`MovieMint refresh failed: ${result.error}`);
-      } else if (result.errors?.length) {
-        setMoviemintSyncMessage(`MovieMint refresh: ${result.errors[0].message}`);
-      } else {
-        setMoviemintSyncMessage(`MovieMint refreshed — ${result.snapshotsInserted ?? 0} new snapshots`);
-      }
-      loadItems();
-    } catch (err: any) {
-      setMoviemintSyncMessage(`MovieMint refresh failed: ${err?.message ?? err}`);
-    } finally {
-      setMoviemintRefreshingId(null);
-    }
-  }
-
   return (
     <Card className="p-6">
       <p className="text-textFaint text-xs mb-6">
@@ -673,31 +593,6 @@ function Dashboard({ section }: { section: SectionConfig }) {
         )}
       </form>
 
-      {section.key === 'now_showing' && (
-        <div className="mb-6">
-          <div className="text-[10px] font-semibold text-textFaint uppercase tracking-wide mb-1">MovieMint sync</div>
-          <p className="text-xs text-textFaint mb-2">
-            fyre's sole box-office source (
-            <a href="https://moviemintbo.com/" target="_blank" rel="noreferrer" className="text-goldBright">
-              moviemintbo.com
-            </a>
-            ), used with their permission. Not yet on an automatic schedule — use this button to sync manually for
-            now; a full pass through MovieMint's tracked list may take a few runs.
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleMovieMintDiscover}
-              disabled={moviemintSyncing}
-              className="text-xs font-semibold text-goldBright border border-gold/30 rounded-full px-3 py-1.5 hover:border-gold transition disabled:opacity-50"
-            >
-              {moviemintSyncing ? 'Syncing MovieMint…' : 'Sync MovieMint now'}
-            </button>
-            {moviemintSyncMessage && <p className="text-xs text-textDim">{moviemintSyncMessage}</p>}
-          </div>
-        </div>
-      )}
-
       <div className="flex flex-col gap-3">
         {items.length === 0 && <p className="text-textFaint text-sm">Nothing here yet.</p>}
         {items.map((item) => (
@@ -710,22 +605,8 @@ function Dashboard({ section }: { section: SectionConfig }) {
                   Last synced {new Date(item.source_synced_at).toLocaleString()}
                 </div>
               )}
-              {section.key === 'now_showing' && (
-                <div className="text-[11px] mt-1 text-textFaint">
-                  MovieMint: {item.moviemint_slug ? <span className="text-goldDim">matched ({item.moviemint_slug})</span> : 'not matched yet'}
-                </div>
-              )}
             </div>
             <div className="flex gap-3 text-xs flex-none items-start">
-              {section.key === 'now_showing' && item.moviemint_slug && (
-                <button
-                  onClick={() => handleMovieMintRefresh(item.id, item.moviemint_slug)}
-                  disabled={moviemintRefreshingId === item.id}
-                  className="text-goldBright disabled:opacity-50"
-                >
-                  {moviemintRefreshingId === item.id ? 'Refreshing…' : 'Refresh (MovieMint)'}
-                </button>
-              )}
               <button onClick={() => startEdit(item)} className="text-goldBright">
                 Edit
               </button>

@@ -9,12 +9,7 @@ export const runtime = 'nodejs';
 export async function GET() {
   try {
     const movies = await getLiveMovies();
-    return NextResponse.json({
-      movies,
-      count: movies.length,
-      credit: 'Data sourced from TrackTollywood',
-      source: 'https://tracktollywood.com/box-office-collection/'
-    });
+    return NextResponse.json({ movies, count: movies.length });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? 'failed to fetch TrackTollywood listing' }, { status: 502 });
   }

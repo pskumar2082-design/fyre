@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Search as SearchIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { getLiveMovies, getCompletedMovies } from '@/lib/tracktollywood/scraper';
 import { Card, SectionHeading } from '@/components/ui';
 
 export const revalidate = 0; // always fetch fresh results
@@ -8,43 +9,40 @@ export const revalidate = 0; // always fetch fresh results
 type Row = Record<string, any>;
 
 async function search(q: string) {
-  const empty = { news: [] as Row[], reviews: [] as Row[], liveBoxOffice: [] as Row[], nowShowing: [] as Row[], upcoming: [] as Row[] };
+  const empty = { news: [] as Row[], reviews: [] as Row[], movies: [] as Awaited<ReturnType<typeof getLiveMovies>> };
   const term = q.trim();
   if (!term) return empty;
 
   const like = `%${term}%`;
-  const [
-    { data: news },
-    { data: reviews },
-    { data: liveBoxOffice },
-    { data: nowShowing },
-    { data: upcoming }
-  ] = await Promise.all([
+  const [{ data: news }, { data: reviews }, live, completed] = await Promise.all([
     supabase.from('news').select('*').ilike('title', like).limit(20),
     supabase.from('reviews').select('*').ilike('title', like).limit(20),
-    supabase.from('live_box_office').select('*').ilike('title', like).limit(20),
-    supabase.from('now_showing').select('*').ilike('title', like).limit(20),
-    supabase.from('upcoming').select('*').ilike('title', like).limit(20)
+    getLiveMovies().catch(() => [] as Awaited<ReturnType<typeof getLiveMovies>>),
+    getCompletedMovies().catch(() => [] as Awaited<ReturnType<typeof getCompletedMovies>>)
   ]);
+
+  const needle = term.toLowerCase();
+  const movies = [...live, ...completed].filter((m) => m.title.toLowerCase().includes(needle)).slice(0, 20);
 
   return {
     news: news ?? [],
     reviews: reviews ?? [],
-    liveBoxOffice: liveBoxOffice ?? [],
-    nowShowing: nowShowing ?? [],
-    upcoming: upcoming ?? []
+    movies
   };
 }
+
+const STATE_LABEL: Record<string, string> = {
+  live: 'Live',
+  advance: 'Advance booking',
+  upcoming: 'Upcoming',
+  final: 'Completed run',
+  unknown: ''
+};
 
 export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
   const q = searchParams.q ?? '';
   const results = await search(q);
-  const total =
-    results.news.length +
-    results.reviews.length +
-    results.liveBoxOffice.length +
-    results.nowShowing.length +
-    results.upcoming.length;
+  const total = results.news.length + results.reviews.length + results.movies.length;
 
   return (
     <div className="px-5 md:px-10 py-8 max-w-2xl">
@@ -86,26 +84,15 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         </ResultSection>
       )}
 
-      {results.liveBoxOffice.length > 0 && (
-        <ResultSection title="Box office">
-          {results.liveBoxOffice.map((m) => (
-            <ResultRow key={m.id} href="/box-office" title={m.title} meta={`₹${Number(m.amt).toFixed(1)} Cr`} />
-          ))}
-        </ResultSection>
-      )}
-
-      {results.nowShowing.length > 0 && (
-        <ResultSection title="Now showing">
-          {results.nowShowing.map((m) => (
-            <ResultRow key={m.id} href={`/now-showing/${m.id}`} title={m.title} meta={m.status} />
-          ))}
-        </ResultSection>
-      )}
-
-      {results.upcoming.length > 0 && (
-        <ResultSection title="Upcoming">
-          {results.upcoming.map((u) => (
-            <ResultRow key={u.id} href="/upcoming" title={u.title} meta={u.release_date} />
+      {results.movies.length > 0 && (
+        <ResultSection title="Movies">
+          {results.movies.map((m) => (
+            <ResultRow
+              key={m.slug}
+              href={`/tracktollywood/${m.slug}`}
+              title={m.title}
+              meta={[STATE_LABEL[m.state], m.gross].filter(Boolean).join(' · ')}
+            />
           ))}
         </ResultSection>
       )}

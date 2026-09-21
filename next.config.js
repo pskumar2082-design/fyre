@@ -1,25 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // @sparticuz/chromium + puppeteer-core (see lib/moviemintBrowserRenderer.ts)
-  // ship a native Chromium binary that must be resolved by RELATIVE PATH at
-  // runtime -- bundling it into the function like ordinary JS breaks that.
-  // serverComponentsExternalPackages keeps both packages un-bundled;
-  // outputFileTracingIncludes makes sure Vercel's file tracer still copies
-  // the binary itself into the two MovieMint API routes' deployed output
-  // (Next.js's tracer can't see a require() the package does dynamically,
-  // so without this the binary silently isn't there at runtime even though
-  // everything works locally). Both routes are also pinned to the Node.js
-  // runtime in their own files (export const runtime = 'nodejs') since the
-  // compiled binary cannot run under the Edge runtime at all.
-  experimental: {
-    serverComponentsExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
-    outputFileTracingIncludes: {
-      '/api/sync-moviemint/route': ['./node_modules/@sparticuz/chromium/bin/**'],
-      '/api/sync-moviemint': ['./node_modules/@sparticuz/chromium/bin/**'],
-      '/api/admin-sync-moviemint/route': ['./node_modules/@sparticuz/chromium/bin/**'],
-      '/api/admin-sync-moviemint': ['./node_modules/@sparticuz/chromium/bin/**']
-    }
-  },
   images: {
     remotePatterns: [
       {
@@ -36,14 +16,6 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'cdn.sacnilk.com',
         pathname: '/image/**'
-      },
-      {
-        // Posters MovieMint itself sources from TMDB (see
-        // lib/moviemintParser.ts's poster extraction / lib/syncMovieMint.ts),
-        // e.g. https://image.tmdb.org/t/p/w780/9k5F5Lk2bUP7ODifk1KP5Vw8yGm.jpg
-        protocol: 'https',
-        hostname: 'image.tmdb.org',
-        pathname: '/t/p/**'
       },
       {
         // Posters TrackTollywood serves directly from its own WordPress

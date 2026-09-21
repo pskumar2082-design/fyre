@@ -1,18 +1,24 @@
 import Link from 'next/link';
-import { supabase } from '@/lib/supabaseClient';
+import { getLiveMovies } from '@/lib/tracktollywood/scraper';
 import MovieCard from '@/components/MovieCard';
 import { SectionHeading, EmptyState } from '@/components/ui';
-import { isInTheaters } from '@/lib/movieStatus';
 
-export const revalidate = 30; // re-fetch from Supabase at most every 30s
+// TrackTollywood-backed, not Supabase -- see lib/tracktollywood/scraper.ts.
+// Cached 5 min there, so this page doesn't need its own revalidate window.
+export const dynamic = 'force-dynamic';
 
 export default async function NowShowingPage() {
-  // Fetched unlimited and filtered here rather than relying on a query
-  // limit -- see app/page.tsx for why a plain .limit() risks cutting off
-  // before reaching the still-running movies once the table has months of
-  // history sitting in it.
-  const { data } = await supabase.from('now_showing').select('*').order('release_date', { ascending: false }).limit(500);
-  const movies = (data ?? []).filter((m: any) => isInTheaters(m));
+  let movies: Awaited<ReturnType<typeof getLiveMovies>> = [];
+  let loadError: string | null = null;
+  try {
+    movies = await getLiveMovies();
+  } catch (err: any) {
+    loadError = err?.message ?? 'Could not reach TrackTollywood right now.';
+  }
+  // "Now showing" means actually released and running -- advance-booking
+  // and not-yet-released movies belong on /upcoming instead, even though
+  // TrackTollywood's own default listing mixes all three together.
+  const nowShowing = movies.filter((m) => m.state === 'live');
 
   return (
     <div className="px-5 md:px-10 py-8">
@@ -21,16 +27,17 @@ export default async function NowShowingPage() {
         action={<Link href="/box-office" className="text-gold text-sm font-semibold hover:underline">Full box office archive →</Link>}
       />
       <p className="text-textFaint text-sm mb-8 -mt-3">
-        Every movie fyre is tracking that&rsquo;s still within its theatrical run. A movie moves to the box office
-        archive once its run winds down, but its full collection history stays there.
+        Every movie currently running, tracked live day-wise, city-wise, state-wise, language-wise and format-wise.
       </p>
 
-      {movies.length === 0 ? (
-        <EmptyState>Nothing currently in theaters — add one from the admin panel.</EmptyState>
+      {loadError ? (
+        <EmptyState>Could not load right now ({loadError}). Try again shortly.</EmptyState>
+      ) : nowShowing.length === 0 ? (
+        <EmptyState>Nothing currently in theaters.</EmptyState>
       ) : (
         <div className="flex flex-wrap gap-4">
-          {movies.map((m: any, i: number) => (
-            <MovieCard key={m.id} movie={m} rank={i + 1} />
+          {nowShowing.map((m, i) => (
+            <MovieCard key={m.slug} movie={m} rank={i + 1} />
           ))}
         </div>
       )}

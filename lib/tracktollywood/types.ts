@@ -65,7 +65,5 @@ export type TTMovieDetails = {
   headlineLabel: string | null; // e.g. "India Gross · Day 4 running"
   stats: TTStat[];
   tables: TTTable[];
-  source: 'https://tracktollywood.com';
-  credit: 'Data sourced from TrackTollywood';
   fetchedAt: string; // ISO timestamp of this fetch (not cache-aware -- see cache.ts)
 };

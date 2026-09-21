@@ -13,8 +13,7 @@ import {
   CalendarRange,
   Search,
   Menu,
-  X,
-  Radio
+  X
 } from 'lucide-react';
 
 // BankDash-style app shell: a fixed 250px white sidebar with icon nav +
@@ -29,7 +28,6 @@ const NAV = [
   { href: '/news', label: 'Movie news', icon: Newspaper },
   { href: '/now-showing', label: 'Now showing', icon: Film },
   { href: '/box-office', label: 'Box office', icon: TrendingUp },
-  { href: '/tracktollywood', label: 'TrackTollywood', icon: Radio },
   { href: '/reviews', label: 'Reviews', icon: Star },
   { href: '/upcoming', label: 'Upcoming', icon: CalendarRange }
 ];

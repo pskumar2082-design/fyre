@@ -98,11 +98,15 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
   if (!details) notFound();
 
   const groups = groupTables(details.tables);
+  const backHref =
+    details.state === 'final' ? '/box-office' : details.state === 'live' ? '/now-showing' : '/upcoming';
+  const backLabel =
+    details.state === 'final' ? '← Box office archive' : details.state === 'live' ? '← Now showing' : '← Upcoming releases';
 
   return (
     <div className="px-5 md:px-10 py-8 max-w-4xl mx-auto">
-      <Link href="/tracktollywood" className="text-gold text-sm font-semibold hover:underline">
-        ← All TrackTollywood movies
+      <Link href={backHref} className="text-gold text-sm font-semibold hover:underline">
+        {backLabel}
       </Link>
 
       <div className="flex gap-5 mt-4 mb-8 flex-wrap sm:flex-nowrap">
@@ -150,7 +154,6 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
         </details>
       ))}
 
-      <p className="text-textFaint text-xs mt-8 italic">{details.credit}</p>
     </div>
   );
 }
