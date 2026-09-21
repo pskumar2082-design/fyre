@@ -1,8 +1,20 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Globe, Languages, LayoutGrid, Clock, MapPin, BarChart3, CalendarDays, Film, ListFilter } from 'lucide-react';
+import {
+  Globe,
+  Languages,
+  LayoutGrid,
+  Clock,
+  MapPin,
+  BarChart3,
+  CalendarDays,
+  Film,
+  ListFilter,
+  ChevronDown,
+  Layers
+} from 'lucide-react';
 import type { TTTable, TTTableRow } from '@/lib/tracktollywood/types';
 
 type Group = { heading: string; tables: TTTable[] };
@@ -34,34 +46,71 @@ function categoryIcon(category: string): LucideIcon {
 }
 
 function headingMeta(heading: string): { label: string; icon: LucideIcon } {
-  if (heading === 'Day-wise Collection') return { label: 'Day-wise', icon: BarChart3 };
-  if (heading === 'Cumulative') return { label: 'Cumulative', icon: BarChart3 };
+  if (heading === 'Day-wise Collection') return { label: 'Day-wise Collection', icon: BarChart3 };
+  if (heading === 'Cumulative') return { label: 'Cumulative — All Days', icon: Layers };
   if (heading.startsWith('Advance ')) {
     const raw = heading.slice('Advance '.length);
     const d = new Date(raw);
     const label = Number.isNaN(d.getTime())
       ? heading
-      : `Adv · ${d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}`;
+      : `Advance · ${d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}`;
     return { label, icon: CalendarDays };
   }
   return { label: heading, icon: Film };
 }
 
-// Preferred sub-category order within a day/date group -- matches the
-// order a person actually scans a box-office breakdown in.
-const CATEGORY_ORDER = ['state-wise', 'top cities', 'city-wise', 'language-wise', 'format-wise', 'time slots'];
+// The "Day-wise Collection" table always carries its own "Day" + "Date"
+// columns straight from TrackTollywood (e.g. row.Day === "Day 11",
+// row.Date === "21 Sep") -- real scraped dates, not a guess. Reading them
+// here (rather than inferring a date from "today minus N days", which
+// breaks the moment a day is skipped or a movie has finished its run)
+// keeps every date in the dropdown honest. Returns {} if that table
+// isn't present in this movie's tables yet (e.g. an advance-only title).
+function buildDayDateMap(groups: Group[]): Record<string, string> {
+  const daywise = groups.find((g) => g.heading === 'Day-wise Collection')?.tables[0];
+  const map: Record<string, string> = {};
+  if (!daywise) return map;
+  for (const row of daywise.rows as TTTableRow[]) {
+    if (row.__isTotal) continue;
+    const day = row['Day'];
+    const date = row['Date'];
+    if (day && date && /^Day \d+$/.test(day)) map[day] = date;
+  }
+  return map;
+}
+
+function dayNumber(heading: string): number | null {
+  const m = heading.match(/^Day (\d+)$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// The highest-numbered "Day N" group among the tabs actually available --
+// this is TrackTollywood's own most-recently-tracked day, used for the
+// dropdown's "LATEST" badge. Independent of which group is currently
+// selected (a person can browse back to an older day without the badge
+// jumping to follow them).
+function latestDayHeading(headings: string[]): string | null {
+  let best: { heading: string; n: number } | null = null;
+  for (const h of headings) {
+    const n = dayNumber(h);
+    if (n != null && (!best || n > best.n)) best = { heading: h, n };
+  }
+  return best?.heading ?? null;
+}
 
 function pickDefaultHeading(groups: Group[]): string {
   const headings = groups.map((g) => g.heading);
-  const dayHeadings = headings.filter((h) => /^Day \d+$/.test(h));
-  if (dayHeadings.length) {
-    return dayHeadings.slice().sort((a, b) => parseInt(b.slice(4), 10) - parseInt(a.slice(4), 10))[0];
-  }
+  const latest = latestDayHeading(headings);
+  if (latest) return latest;
   const advanceHeadings = headings.filter((h) => h.startsWith('Advance '));
   if (advanceHeadings.length) return advanceHeadings[advanceHeadings.length - 1];
   if (headings.includes('Day-wise Collection')) return 'Day-wise Collection';
   return headings[0] ?? '';
 }
+
+// Preferred sub-category order within a day/date group -- matches the
+// order a person actually scans a box-office breakdown in.
+const CATEGORY_ORDER = ['state-wise', 'top cities', 'city-wise', 'language-wise', 'format-wise', 'time slots'];
 
 function isMoneyColumn(header: string): boolean {
   return /gross|collection|coll\./i.test(header);
@@ -111,9 +160,227 @@ function TableView({ table }: { table: TTTable }) {
   );
 }
 
+// Shared open/close-on-outside-click/Escape behaviour for both dropdowns
+// below -- everything about a listbox-style filter control except what's
+// actually inside the panel.
+function useDropdown<T extends HTMLElement>() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<T>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(e: MouseEvent | TouchEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('touchstart', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('touchstart', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return { open, setOpen, ref };
+}
+
+// The primary "Breakdown for: Day 11 — 21 Sep ▾" selector -- full width
+// and stacked above the category dropdown on mobile (an overflow-x
+// scroll of 10+ day pills is what this replaces), inline and compact on
+// tablet/desktop. Non-day groups (Cumulative, Day-wise Collection,
+// Advance-booking dates) are pinned above a "TRACKED DATES" section that
+// lists every scraped day in order, oldest first, with its real date and
+// a LATEST badge on whichever day TrackTollywood most recently tracked.
+function HeadingDropdown({
+  groups,
+  heading,
+  dayDateMap,
+  onSelect
+}: {
+  groups: Group[];
+  heading: string;
+  dayDateMap: Record<string, string>;
+  onSelect: (h: string) => void;
+}) {
+  const { open, setOpen, ref } = useDropdown<HTMLDivElement>();
+
+  const otherGroups = groups.filter((g) => dayNumber(g.heading) == null);
+  const dayGroups = groups
+    .filter((g) => dayNumber(g.heading) != null)
+    .slice()
+    .sort((a, b) => (dayNumber(a.heading)! - dayNumber(b.heading)!));
+  const latest = latestDayHeading(groups.map((g) => g.heading));
+
+  const activeMeta = headingMeta(heading);
+  const activeDayDate = dayDateMap[heading];
+  const activeLabel = activeDayDate ? `${heading} — ${activeDayDate}` : activeMeta.label;
+
+  return (
+    <div ref={ref} className="relative w-full sm:w-auto">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2.5 text-sm bg-surface border border-border rounded-full h-[50px] pl-4 pr-3.5 hover:border-gold/30 transition"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <CalendarDays size={17} className="text-textFaint flex-none" />
+          <span className="text-textDim truncate">
+            Breakdown for: <span className="font-semibold text-gold">{activeLabel}</span>
+          </span>
+        </span>
+        <ChevronDown size={17} className={`text-textFaint flex-none transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute z-30 left-0 right-0 sm:right-auto mt-1.5 w-full sm:w-80 max-h-[22rem] overflow-y-auto bg-surface border border-border rounded-2xl shadow-card py-1.5"
+        >
+          {otherGroups.map((g) => {
+            const meta = headingMeta(g.heading);
+            const Icon = meta.icon;
+            const isActive = g.heading === heading;
+            return (
+              <button
+                key={g.heading}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                onClick={() => {
+                  onSelect(g.heading);
+                  setOpen(false);
+                }}
+                className={`w-full flex items-center gap-2.5 text-sm px-4 py-3 text-left transition ${
+                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-black/[0.03] hover:text-text'
+                }`}
+              >
+                <Icon size={16} strokeWidth={2.25} className="flex-none" />
+                {meta.label}
+              </button>
+            );
+          })}
+
+          {otherGroups.length > 0 && dayGroups.length > 0 && <div className="h-px bg-border my-1.5" />}
+
+          {dayGroups.length > 0 && (
+            <div className="mdtype-overline text-textFaint px-4 pt-1.5 pb-1">Tracked Dates</div>
+          )}
+          {dayGroups.map((g) => {
+            const isActive = g.heading === heading;
+            const isLatest = g.heading === latest;
+            const date = dayDateMap[g.heading];
+            return (
+              <button
+                key={g.heading}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                onClick={() => {
+                  onSelect(g.heading);
+                  setOpen(false);
+                }}
+                className={`w-full flex items-center justify-between gap-2.5 text-sm px-4 py-3 text-left transition ${
+                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-black/[0.03] hover:text-text'
+                }`}
+              >
+                <span className="flex items-center gap-2.5 min-w-0">
+                  <Film size={16} strokeWidth={2.25} className="flex-none" />
+                  <span className="truncate">
+                    {g.heading}
+                    {date && <span className="text-textFaint font-normal"> — {date}</span>}
+                  </span>
+                </span>
+                {isLatest && (
+                  <span className="flex-none flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wide bg-goldDim/10 text-goldDim border border-goldDim/20 px-2 py-0.5 rounded-full">
+                      Latest
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-goldDim" />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// The secondary "State-wise / Top Cities / Language-wise / ..." selector
+// for whichever day/date is active -- same dropdown mechanics, a flat
+// list instead of a sectioned one.
+function CategoryDropdown({
+  categories,
+  active,
+  onSelect
+}: {
+  categories: { table: TTTable; label: string }[];
+  active: string;
+  onSelect: (label: string) => void;
+}) {
+  const { open, setOpen, ref } = useDropdown<HTMLDivElement>();
+  const ActiveIcon = categoryIcon(active);
+
+  return (
+    <div ref={ref} className="relative w-full sm:w-auto">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2.5 text-sm bg-surface border border-border rounded-full h-[50px] pl-4 pr-3.5 hover:border-gold/30 transition"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <ActiveIcon size={17} className="text-gold flex-none" />
+          <span className="font-semibold text-text truncate">{active}</span>
+        </span>
+        <ChevronDown size={17} className={`text-textFaint flex-none transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute z-30 left-0 right-0 sm:right-auto mt-1.5 w-full sm:w-64 max-h-72 overflow-y-auto bg-surface border border-border rounded-2xl shadow-card py-1.5"
+        >
+          {categories.map(({ label }) => {
+            const Icon = categoryIcon(label);
+            const isActive = label === active;
+            return (
+              <button
+                key={label}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                onClick={() => {
+                  onSelect(label);
+                  setOpen(false);
+                }}
+                className={`w-full flex items-center gap-2.5 text-sm px-4 py-3 text-left transition ${
+                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-black/[0.03] hover:text-text'
+                }`}
+              >
+                <Icon size={16} strokeWidth={2.25} className="flex-none" />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TableGroups({ groups }: { groups: Group[] }) {
   const [heading, setHeading] = useState(() => pickDefaultHeading(groups));
   const activeGroup = groups.find((g) => g.heading === heading) ?? groups[0];
+  const dayDateMap = useMemo(() => buildDayDateMap(groups), [groups]);
 
   const categories = useMemo(() => {
     if (!activeGroup) return [];
@@ -122,8 +389,9 @@ export default function TableGroups({ groups }: { groups: Group[] }) {
 
   const [category, setCategory] = useState(() => defaultCategory(categories));
 
-  // Selected group changed under us (user clicked a different day pill) --
-  // re-resolve which category tab should be active for the new group.
+  // Selected group changed under us (user picked a different day from the
+  // dropdown) -- re-resolve which category tab should be active for the
+  // new group.
   const resolvedCategory = categories.some((c) => c.label === category) ? category : defaultCategory(categories);
   const activeTable = categories.find((c) => c.label === resolvedCategory)?.table;
 
@@ -138,52 +406,12 @@ export default function TableGroups({ groups }: { groups: Group[] }) {
 
   return (
     <div>
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 mb-4 -mx-1 px-1">
-        {groups.map((g) => {
-          const meta = headingMeta(g.heading);
-          const Icon = meta.icon;
-          const active = g.heading === heading;
-          return (
-            <button
-              key={g.heading}
-              type="button"
-              onClick={() => selectHeading(g.heading)}
-              className={`flex-none inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl border transition ${
-                active
-                  ? 'bg-gold text-white border-gold'
-                  : 'bg-surface text-textDim border-border hover:border-gold/30 hover:text-text'
-              }`}
-            >
-              <Icon size={14} strokeWidth={2.25} />
-              {meta.label}
-            </button>
-          );
-        })}
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5 mb-4">
+        <HeadingDropdown groups={groups} heading={heading} dayDateMap={dayDateMap} onSelect={selectHeading} />
+        {categories.length > 1 && (
+          <CategoryDropdown categories={categories} active={resolvedCategory} onSelect={setCategory} />
+        )}
       </div>
-
-      {categories.length > 1 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 mb-4 -mx-1 px-1">
-          {categories.map(({ label }) => {
-            const Icon = categoryIcon(label);
-            const active = label === resolvedCategory;
-            return (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setCategory(label)}
-                className={`flex-none inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
-                  active
-                    ? 'bg-gold text-white border-gold'
-                    : 'bg-transparent text-textFaint border-border hover:border-gold/30 hover:text-textDim'
-                }`}
-              >
-                <Icon size={13} strokeWidth={2.25} />
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {activeTable && <TableView table={activeTable} />}
     </div>
