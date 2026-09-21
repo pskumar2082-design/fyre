@@ -49,10 +49,24 @@ export type MappedMultiplexRow = {
 
 const MARKET = 'India'; // only market confirmed live on MovieMint's data pages during investigation
 
-// "Updated 1h 5m ago" / "Updated 4m ago" -> an ISO timestamp relative to now.
-// Best-effort: if the text doesn't match, returns null rather than a guess.
+// "Updated 1h 5m ago" / "Updated 4m ago" -> an ISO timestamp relative to
+// now, OR "Updated 2026-09-21 08:12 IST" (the Flight payload's own
+// `metadata.lastUpdated`, an absolute timestamp -- see
+// moviemintParser.ts's parseAdvanceStats/parseTrackedStats, which build
+// freshnessText from it directly now that both stat blocks prefer Flight
+// data over relative page text) -> that exact timestamp, converted from
+// IST. Best-effort: if the text matches neither shape, returns null
+// rather than a guess.
 export function parseFreshnessToTimestamp(text: string | null, now: Date = new Date()): string | null {
   if (!text) return null;
+
+  const abs = text.match(/Updated\s+(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})\s*IST/i);
+  if (abs) {
+    const [, y, mo, d, hh, mm] = abs;
+    const istMs = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mm)) - 5.5 * 3600 * 1000;
+    return new Date(istMs).toISOString();
+  }
+
   const m = text.match(/Updated\s+(?:(\d+)h\s*)?(?:(\d+)m\s*)?ago/i);
   if (!m) return null;
   const hours = m[1] ? Number(m[1]) : 0;

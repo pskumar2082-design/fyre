@@ -176,7 +176,129 @@ export function parsePct(text: string | null | undefined): number | null {
 // ---------------------------------------------------------------------------
 // Movie title / meta (top of a /movie/<slug> page).
 // ---------------------------------------------------------------------------
-export function parseMovieMeta(lines: string[]): ParsedMovieMeta {
+// ---------------------------------------------------------------------------
+// Movie detail pages (/movie/<slug>?kind=advance|tracked) ALSO embed their
+// real data via the same Next.js Flight payload parseListingSlugs() reads
+// -- confirmed live (2026-09-21): a `"data":{...}` object holding `config`
+// (movieId/title/tmdbId/poster/backdrop/releaseDate/language/genres/
+// region), `metadata` (source/lastUpdated), `summary` (today's/selected-
+// date top-line totals), `dailySeries` (tracked only -- one entry per
+// completed day since release), and `indiaStates` / `indiaLanguages` /
+// `indiaFormats` (the State/Language/Format Wise breakdown tables -- ALL
+// THREE at once, not just whichever tab a browser render happened to have
+// open, which is strictly more than the old DOM-table scrape below could
+// ever see in one render). Every function in this section prefers this
+// Flight data and only falls back to the original render/text-based
+// parsing when it isn't present (a page shape this investigation hasn't
+// seen, or a genuinely un-rendered shell).
+// ---------------------------------------------------------------------------
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+// "2026-09-17" -> "Release: September 17, 2026", matching the exact text
+// shape syncMovieMint.ts's parseReleaseDateText() regex already expects,
+// so downstream parsing keeps working unchanged regardless of which path
+// (Flight or DOM fallback) produced this string.
+function formatIsoDateToReleaseText(iso: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  const monthName = MONTH_NAMES[Number(m[2]) - 1];
+  if (!monthName) return null;
+  return `Release: ${monthName} ${Number(m[3])}, ${m[1]}`;
+}
+
+// "20260924" -> "September 24, 2026", for building dayLabelText strings
+// that still satisfy syncMovieMint.ts's parseDayLabelDate() regex (it only
+// looks for a "Month D, YYYY" substring -- the surrounding prefix text is
+// free-form).
+function formatCompactDateText(yyyymmdd: string): string | null {
+  const m = /^(\d{4})(\d{2})(\d{2})$/.exec(yyyymmdd);
+  if (!m) return null;
+  const monthName = MONTH_NAMES[Number(m[2]) - 1];
+  if (!monthName) return null;
+  return `${monthName} ${Number(m[3])}, ${m[1]}`;
+}
+
+type FlightPageData = {
+  config?: {
+    title?: unknown;
+    releaseDate?: unknown;
+    language?: unknown;
+    genres?: unknown;
+  };
+  metadata?: { lastUpdated?: unknown };
+  summary?: {
+    totalGross?: unknown;
+    totalShows?: unknown;
+    totalTicketsSold?: unknown;
+    totalSeats?: unknown;
+    totalLocations?: unknown;
+    avgOccupancy?: unknown;
+  };
+  indiaStates?: unknown;
+  indiaLanguages?: unknown;
+  indiaFormats?: unknown;
+  dailySeries?: unknown;
+  selectedDate?: unknown;
+  completedMode?: unknown;
+  completedAsOf?: unknown;
+};
+
+// Same quote/escape-aware balanced scan as extractBalancedArrayText, for a
+// JSON object value (`{...}`) instead of an array.
+function extractBalancedObjectText(text: string, startIdx: number): string {
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  let i = startIdx;
+  for (; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+    } else {
+      if (c === '"') inStr = true;
+      else if (c === '{') depth++;
+      else if (c === '}') {
+        depth--;
+        if (depth === 0) {
+          i++;
+          break;
+        }
+      }
+    }
+  }
+  return text.slice(startIdx, i);
+}
+
+// A movie detail page's whole Flight-embedded state lives under one
+// top-level `"data":{...}` key (both ?kind=advance and ?kind=tracked --
+// confirmed live for both). Returns null when that key isn't present at
+// all (not a movie detail page, or a genuinely un-rendered shell with no
+// embedded data yet), never when it's merely empty -- an explicit
+// `indiaStates: []` means "MovieMint has nothing to report for this
+// date", a real and different answer from "couldn't find any data".
+function extractFlightPageData(html: string): FlightPageData | null {
+  const flightText = extractFlightText(html);
+  const key = '"data":{';
+  const keyIdx = flightText.indexOf(key);
+  if (keyIdx === -1) return null;
+
+  const objStart = keyIdx + key.length - 1; // index of the '{'
+  const objText = extractBalancedObjectText(flightText, objStart);
+  try {
+    const parsed: unknown = JSON.parse(objText);
+    return parsed && typeof parsed === 'object' ? (parsed as FlightPageData) : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseMovieMetaFromLines(lines: string[]): ParsedMovieMeta {
   const releaseIdx = lines.findIndex((l) => /^Release:/i.test(l));
   const title = releaseIdx > 0 ? lines[releaseIdx - 1] : null;
   const releaseDateText = releaseIdx >= 0 ? lines[releaseIdx] : null;
@@ -193,6 +315,24 @@ export function parseMovieMeta(lines: string[]): ParsedMovieMeta {
     genre = metaLines[1] ?? null;
   }
   return { title, releaseDateText, language, genre };
+}
+
+export function parseMovieMeta(html: string): ParsedMovieMeta {
+  const data = extractFlightPageData(html);
+  const cfg = data?.config;
+  if (cfg && typeof cfg.title === 'string' && cfg.title) {
+    const releaseDateText = typeof cfg.releaseDate === 'string' ? formatIsoDateToReleaseText(cfg.releaseDate) : null;
+    const genres = Array.isArray(cfg.genres)
+      ? (cfg.genres as unknown[]).filter((g): g is string => typeof g === 'string' && g.length > 0)
+      : [];
+    return {
+      title: cfg.title,
+      releaseDateText,
+      language: typeof cfg.language === 'string' && cfg.language ? cfg.language : null,
+      genre: genres.length > 0 ? genres.join(', ') : null
+    };
+  }
+  return parseMovieMetaFromLines(htmlToLines(html));
 }
 
 // ---------------------------------------------------------------------------
@@ -247,7 +387,7 @@ export function parsePosterUrl(html: string): string | null {
   return found;
 }
 
-export function parseAdvanceStats(lines: string[]): ParsedAdvanceStats {
+function parseAdvanceStatsFromLines(lines: string[]): ParsedAdvanceStats {
   const dayLabelText = lines.find((l) => /^Advance data:/i.test(l)) ?? null;
   const freshnessText = lines.find((l) => /^Updated\b/i.test(l)) ?? null;
   return {
@@ -261,7 +401,33 @@ export function parseAdvanceStats(lines: string[]): ParsedAdvanceStats {
   };
 }
 
-export function parseTrackedStats(lines: string[]): ParsedTrackedStats {
+export function parseAdvanceStats(html: string): ParsedAdvanceStats {
+  const data = extractFlightPageData(html);
+  const s = data?.summary;
+  if (s && typeof s === 'object') {
+    const dayLabelText =
+      typeof data?.selectedDate === 'string'
+        ? (() => {
+            const d = formatCompactDateText(data.selectedDate as string);
+            return d ? `Advance data: ${d}` : null;
+          })()
+        : null;
+    const freshnessText =
+      data?.metadata && typeof data.metadata.lastUpdated === 'string' ? `Updated ${data.metadata.lastUpdated}` : null;
+    return {
+      gross: typeof s.totalGross === 'number' ? s.totalGross / 1e7 : null,
+      tickets: typeof s.totalTicketsSold === 'number' ? s.totalTicketsSold : null,
+      shows: typeof s.totalShows === 'number' ? s.totalShows : null,
+      cities: typeof s.totalLocations === 'number' ? s.totalLocations : null,
+      occupancyPct: typeof s.avgOccupancy === 'number' ? s.avgOccupancy : null,
+      dayLabelText,
+      freshnessText
+    };
+  }
+  return parseAdvanceStatsFromLines(htmlToLines(html));
+}
+
+function parseTrackedStatsFromLines(lines: string[]): ParsedTrackedStats {
   const dayLabelText = lines.find((l) => /^Breakdown for:/i.test(l)) ?? null;
   const freshnessText = lines.find((l) => /^Updated\b/i.test(l)) ?? null;
   const completedShowsText = lines.find((l) => /^Completed shows till/i.test(l)) ?? null;
@@ -276,6 +442,83 @@ export function parseTrackedStats(lines: string[]): ParsedTrackedStats {
     freshnessText,
     completedShowsText
   };
+}
+
+// Sums a numeric field across dailySeries entries -- tolerant of any entry
+// missing or mistyping the field (adds 0 for that entry rather than
+// throwing/NaN-ing the whole total).
+function sumSeriesField(series: unknown[], field: string): number {
+  let total = 0;
+  for (const entry of series) {
+    if (entry && typeof entry === 'object') {
+      const v = (entry as Record<string, unknown>)[field];
+      if (typeof v === 'number') total += v;
+    }
+  }
+  return total;
+}
+
+export function parseTrackedStats(html: string): ParsedTrackedStats {
+  const data = extractFlightPageData(html);
+  const s = data?.summary;
+  const series = data && Array.isArray(data.dailySeries) ? (data.dailySeries as unknown[]) : null;
+  if (s && typeof s === 'object' && series) {
+    // `summary` reflects only the currently *selected* date (today, by
+    // default) -- `dailySeries` is every day up to (but not necessarily
+    // including) that date, since a day only rolls into the series once
+    // it's complete. Add `summary` on top of the series sum for the true
+    // lifetime-to-date total, but only when today isn't already the
+    // series' own last entry, so a day that HAS rolled in is never
+    // double-counted.
+    const lastEntry = series.length > 0 ? (series[series.length - 1] as Record<string, unknown>) : null;
+    const lastSeriesDate = lastEntry && typeof lastEntry.date === 'string' ? lastEntry.date : null;
+    const includeSummary = typeof data?.selectedDate !== 'string' || data.selectedDate !== lastSeriesDate;
+
+    const seriesGross = sumSeriesField(series, 'gross');
+    const seriesTickets = sumSeriesField(series, 'ticketsSold');
+    const seriesShows = sumSeriesField(series, 'shows');
+    const seriesSeats = sumSeriesField(series, 'totalSeats');
+
+    const summaryGross = typeof s.totalGross === 'number' ? s.totalGross : 0;
+    const summaryTickets = typeof s.totalTicketsSold === 'number' ? s.totalTicketsSold : 0;
+    const summaryShows = typeof s.totalShows === 'number' ? s.totalShows : 0;
+    const summarySeats = typeof s.totalSeats === 'number' ? s.totalSeats : 0;
+
+    const lifetimeGrossRupees = seriesGross + (includeSummary ? summaryGross : 0);
+    const lifetimeTickets = seriesTickets + (includeSummary ? summaryTickets : 0);
+    const lifetimeShows = seriesShows + (includeSummary ? summaryShows : 0);
+    const lifetimeSeats = seriesSeats + (includeSummary ? summarySeats : 0);
+
+    const dayLabelText =
+      typeof data?.selectedDate === 'string'
+        ? (() => {
+            const d = formatCompactDateText(data.selectedDate as string);
+            return d ? `Breakdown for: ${d}` : null;
+          })()
+        : null;
+    const freshnessText =
+      data?.metadata && typeof data.metadata.lastUpdated === 'string' ? `Updated ${data.metadata.lastUpdated}` : null;
+    const completedShowsText =
+      data?.completedMode === true && typeof data.completedAsOf === 'string'
+        ? `Completed shows till ${data.completedAsOf}`
+        : null;
+
+    return {
+      todayGross: typeof s.totalGross === 'number' ? s.totalGross / 1e7 : null,
+      lifetimeGross: lifetimeGrossRupees / 1e7,
+      lifetimeTickets,
+      lifetimeShows,
+      cities: typeof s.totalLocations === 'number' ? s.totalLocations : null,
+      // Weighted (tickets/seats), not a plain mean of each day's
+      // avgOccupancy -- gives every ticket equal weight instead of every
+      // day equal weight, which is what "lifetime occupancy" should mean.
+      lifetimeOccupancyPct: lifetimeSeats > 0 ? Math.round((lifetimeTickets / lifetimeSeats) * 1000) / 10 : null,
+      dayLabelText,
+      freshnessText,
+      completedShowsText
+    };
+  }
+  return parseTrackedStatsFromLines(htmlToLines(html));
 }
 
 // ---------------------------------------------------------------------------
@@ -295,7 +538,7 @@ export function parseTrackedStats(lines: string[]): ParsedTrackedStats {
 // way. Recorded as a known gap in the implementation report, not silently
 // routed around.
 // ---------------------------------------------------------------------------
-export function parseBreakdownTable(html: string): ParsedBreakdownTable {
+function parseBreakdownTableFromDom(html: string): ParsedBreakdownTable {
   const $ = cheerio.load(html);
   const rows: ParsedBreakdownRow[] = [];
   let total: ParsedBreakdownRow | null = null;
@@ -355,6 +598,56 @@ export function parseBreakdownTable(html: string): ParsedBreakdownTable {
   });
 
   return { rows, total };
+}
+
+// Field names confirmed live in indiaStates/indiaLanguages/indiaFormats
+// (2026-09-21): indiaStates carries `fastFilling`/`houseFull`, which map
+// directly onto the DOM table's "FF" (see ParsedBreakdownRow.rawFf's own
+// comment -- previously unconfirmed, now confirmed: FF = fastFilling) and
+// "SOLD OUT" (-> houseFull) columns. indiaLanguages/indiaFormats don't
+// carry either of those two fields -- the DOM table version never exposed
+// a Language/Format Wise FF or Sold Out column either, so this isn't a
+// regression.
+function flightRowsFromArray(arr: unknown, breakdownType: BreakdownType, labelField: string): ParsedBreakdownRow[] {
+  if (!Array.isArray(arr)) return [];
+  const rows: ParsedBreakdownRow[] = [];
+  for (const raw of arr) {
+    if (!raw || typeof raw !== 'object') continue;
+    const r = raw as Record<string, unknown>;
+    const label = typeof r[labelField] === 'string' ? (r[labelField] as string) : null;
+    if (!label) continue;
+    rows.push({
+      breakdownType,
+      label,
+      gross: typeof r.gross === 'number' ? r.gross / 1e7 : null,
+      shows: typeof r.shows === 'number' ? r.shows : null,
+      ticketsSold: typeof r.ticketsSold === 'number' ? r.ticketsSold : null,
+      soldOut: typeof r.houseFull === 'number' ? r.houseFull : null,
+      occPct: typeof r.occupancy === 'number' ? r.occupancy : null,
+      rawFf: typeof r.fastFilling === 'number' ? r.fastFilling : null
+    });
+  }
+  return rows;
+}
+
+export function parseBreakdownTable(html: string): ParsedBreakdownTable {
+  const data = extractFlightPageData(html);
+  if (data && Array.isArray(data.indiaStates)) {
+    // Flight data offers State, Language AND Format Wise simultaneously --
+    // strictly more than a single DOM render could ever show (only
+    // whichever tab happened to be active by default). `total` is left
+    // null here, same as most DOM-parsed pages already produced in
+    // practice (syncMovieMint.ts never reads it): one summary-derived
+    // total wouldn't cleanly apply across three different breakdown
+    // dimensions at once the way a single DOM table's own TOTAL row did.
+    const rows = [
+      ...flightRowsFromArray(data.indiaStates, 'state', 'name'),
+      ...flightRowsFromArray(data.indiaLanguages, 'language', 'language'),
+      ...flightRowsFromArray(data.indiaFormats, 'format', 'format')
+    ];
+    return { rows, total: null };
+  }
+  return parseBreakdownTableFromDom(html);
 }
 
 // ---------------------------------------------------------------------------

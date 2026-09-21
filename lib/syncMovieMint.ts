@@ -2,7 +2,6 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { fetchMovieMintPage, type MovieMintFetchResult } from '@/lib/moviemintClient';
 import { closeSharedBrowser, NAVIGATION_TIMEOUT_MS, DATA_WAIT_TIMEOUT_MS } from '@/lib/moviemintBrowserRenderer';
 import {
-  htmlToLines,
   parseMovieMeta,
   parsePosterUrl,
   parseAdvanceStats,
@@ -494,8 +493,7 @@ async function syncOneMovieKind(
     return;
   }
 
-  const lines = htmlToLines(page.html);
-  const meta = parseMovieMeta(lines);
+  const meta = parseMovieMeta(page.html);
   if (!meta.title) {
     summary.errors.push({ context: `movie/${slug}?kind=${kind}`, message: 'could not parse a title from the page' });
     return;
@@ -509,7 +507,7 @@ async function syncOneMovieKind(
   }
   summary.matched++;
 
-  const stats = kind === 'advance' ? parseAdvanceStats(lines) : parseTrackedStats(lines);
+  const stats = kind === 'advance' ? parseAdvanceStats(page.html) : parseTrackedStats(page.html);
   const mappedSnapshot = kind === 'advance' ? mapAdvanceSnapshot(stats as any) : mapTrackedSnapshot(stats as any);
   await upsertSnapshotIfChanged(match.movieId, mappedSnapshot, summary);
   await updateNowShowingTopLine(match.movieId, kind, stats as any);

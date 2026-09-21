@@ -14,10 +14,21 @@ import {
 
 // ---------------------------------------------------------------------------
 // Fixtures below reconstruct the field layout and values actually observed
-// on moviemintbo.com during the investigation (a "Hanuman Ansh" movie page,
-// Sep 2026) -- reproduced structurally (label/value order, table columns),
-// not copied verbatim as a full page capture.
+// on moviemintbo.com during the investigation -- reproduced structurally
+// (label/value order, table columns, or the embedded Next.js Flight
+// payload's own JSON field names), not copied verbatim as a full page
+// capture.
+//
+// parseMovieMeta/parseAdvanceStats/parseTrackedStats/parseBreakdownTable
+// all prefer the Flight payload when present (confirmed live, 2026-09-21:
+// movie detail pages embed their real data there, the same way listing
+// pages do -- see parseListingSlugs' own fixtures below) and only fall
+// back to the original render/text-based parsing otherwise -- linesToHtml
+// exercises that fallback path honestly, by going through the real
+// htmlToLines() rather than calling a lines-shaped function directly.
 // ---------------------------------------------------------------------------
+
+const linesToHtml = (lines: string[]) => lines.map((l) => `<div>${l}</div>`).join('');
 
 describe('numeric parsing', () => {
   it('parses crore currency', () => {
@@ -58,33 +69,53 @@ describe('numeric parsing', () => {
 });
 
 describe('parseMovieMeta', () => {
-  const lines = [
-    'Back to Advance',
-    'Tracked',
-    'Hanuman Ansh',
-    'Release: August 7, 2026',
-    'Hindi',
-    'Family',
-    'Advance data: Day 45 — September 20, 2026'
-  ];
+  it('prefers the embedded Flight `config`, converting releaseDate/genres to the legacy text shape', () => {
+    const html = `<script>self.__next_f.push([1, "11:[\\"$\\",\\"$L12\\",null,{\\"data\\":{\\"config\\":{\\"movieId\\":\\"example-movie\\",\\"title\\":\\"Example Movie\\",\\"tmdbId\\":123,\\"poster\\":\\"https://image.tmdb.org/t/p/w342/example.jpg\\",\\"releaseDate\\":\\"2026-08-07\\",\\"language\\":\\"Hindi\\",\\"genres\\":[\\"Family\\",\\"Drama\\"],\\"region\\":\\"india\\"}}}]"])</script>`;
+    const meta = parseMovieMeta(html);
+    expect(meta.title).toBe('Example Movie');
+    expect(meta.releaseDateText).toBe('Release: August 7, 2026');
+    expect(meta.language).toBe('Hindi');
+    expect(meta.genre).toBe('Family, Drama');
+  });
 
-  it('extracts title, release date text, language and genre', () => {
-    const meta = parseMovieMeta(lines);
+  it('falls back to line-based extraction when no Flight config is present', () => {
+    const html = linesToHtml([
+      'Back to Advance',
+      'Tracked',
+      'Hanuman Ansh',
+      'Release: August 7, 2026',
+      'Hindi',
+      'Family',
+      'Advance data: Day 45 — September 20, 2026'
+    ]);
+    const meta = parseMovieMeta(html);
     expect(meta.title).toBe('Hanuman Ansh');
     expect(meta.releaseDateText).toBe('Release: August 7, 2026');
     expect(meta.language).toBe('Hindi');
     expect(meta.genre).toBe('Family');
   });
 
-  it('handles a movie with no genre line', () => {
-    const noGenre = ['Resident Evil', 'Release: September 18, 2026', 'English', 'ADVANCE GROSS'];
-    const meta = parseMovieMeta(noGenre);
+  it('handles a fallback movie page with no genre line', () => {
+    const html = linesToHtml(['Resident Evil', 'Release: September 18, 2026', 'English', 'ADVANCE GROSS']);
+    const meta = parseMovieMeta(html);
     expect(meta.title).toBe('Resident Evil');
     expect(meta.language).toBe('English');
   });
 });
 
 describe('parseAdvanceStats', () => {
+  it('prefers the embedded Flight `summary`, converting gross to Crores', () => {
+    const html = `<script>self.__next_f.push([1, "11:[\\"$\\",\\"$L12\\",null,{\\"data\\":{\\"config\\":{\\"title\\":\\"Example Movie\\"},\\"summary\\":{\\"totalGross\\":47800000,\\"totalShows\\":7300,\\"totalTicketsSold\\":185000,\\"totalSeats\\":1620000,\\"totalLocations\\":678,\\"avgOccupancy\\":11.42},\\"selectedDate\\":\\"20260920\\",\\"metadata\\":{\\"source\\":\\"BookMyShow\\",\\"lastUpdated\\":\\"2026-09-20 09:05 IST\\"}}}]"])</script>`;
+    const stats = parseAdvanceStats(html);
+    expect(stats.gross).toBeCloseTo(4.78, 5);
+    expect(stats.tickets).toBe(185000);
+    expect(stats.shows).toBe(7300);
+    expect(stats.cities).toBe(678);
+    expect(stats.occupancyPct).toBe(11.42);
+    expect(stats.dayLabelText).toBe('Advance data: September 20, 2026');
+    expect(stats.freshnessText).toBe('Updated 2026-09-20 09:05 IST');
+  });
+
   const lines = [
     'Hanuman Ansh',
     'Release: August 7, 2026',
@@ -107,8 +138,8 @@ describe('parseAdvanceStats', () => {
     'Updated 1h 5m ago'
   ];
 
-  it('parses every confirmed advance field', () => {
-    const stats = parseAdvanceStats(lines);
+  it('falls back to line-based extraction when no Flight summary is present', () => {
+    const stats = parseAdvanceStats(linesToHtml(lines));
     expect(stats.gross).toBeCloseTo(4.78, 5);
     expect(stats.tickets).toBe(185000);
     expect(stats.shows).toBe(7300);
@@ -118,47 +149,69 @@ describe('parseAdvanceStats', () => {
     expect(stats.freshnessText).toBe('Updated 1h 5m ago');
   });
 
-  it('skips the stray "%" icon line before OCCUPANCY', () => {
-    const stats = parseAdvanceStats(lines);
+  it('skips the stray "%" icon line before OCCUPANCY in the fallback path', () => {
+    const stats = parseAdvanceStats(linesToHtml(lines));
     expect(stats.occupancyPct).not.toBeNull();
   });
 
-  it('returns nulls (not zeros) for fields that never appear', () => {
+  it('returns nulls (not zeros) for fields that never appear, in the fallback path', () => {
     const missingCities = lines.filter((l) => l !== 'CITIES' && l !== '678');
-    const stats = parseAdvanceStats(missingCities);
+    const stats = parseAdvanceStats(linesToHtml(missingCities));
     expect(stats.cities).toBeNull();
     expect(stats.gross).not.toBeNull();
   });
 });
 
 describe('parseTrackedStats', () => {
-  const lines = [
-    'Hanuman Ansh',
-    'Release: August 7, 2026',
-    'Hindi',
-    'Family',
-    "TODAY'S GROSS",
-    '₹9.54Cr',
-    'LIFETIME GROSS',
-    '₹317.67Cr',
-    'LIFETIME TICKETS',
-    '1.34Cr',
-    'LIFETIME SHOWS',
-    '1.85L',
-    'CITIES',
-    '707',
-    '%',
-    'LIFETIME OCCUPANCY',
-    '36.7%',
-    'Performance Breakdown',
-    'INDIA',
-    'Updated 4m ago',
-    'Breakdown for: Day 44 — September 18, 2026',
-    'Completed shows till 20:43 IST'
-  ];
+  it('prefers the embedded Flight `summary`/`dailySeries`, summing lifetime totals', () => {
+    const html = `<script>self.__next_f.push([1, "11:[\\"$\\",\\"$L12\\",null,{\\"data\\":{\\"config\\":{\\"title\\":\\"Example Movie\\"},\\"summary\\":{\\"totalGross\\":0,\\"totalShows\\":0,\\"totalTicketsSold\\":0,\\"totalSeats\\":0,\\"totalLocations\\":707},\\"dailySeries\\":[{\\"date\\":\\"20260805\\",\\"gross\\":20000000,\\"ticketsSold\\":100000,\\"shows\\":5000,\\"totalSeats\\":300000,\\"avgOccupancy\\":33.3},{\\"date\\":\\"20260806\\",\\"gross\\":15000000,\\"ticketsSold\\":80000,\\"shows\\":4000,\\"totalSeats\\":250000,\\"avgOccupancy\\":32.0}],\\"selectedDate\\":\\"20260918\\",\\"metadata\\":{\\"source\\":\\"BookMyShow\\",\\"lastUpdated\\":\\"2026-09-18 20:43 IST\\"},\\"completedMode\\":true,\\"completedAsOf\\":\\"20:43 IST\\"}}]"])</script>`;
+    const stats = parseTrackedStats(html);
+    expect(stats.todayGross).toBe(0);
+    expect(stats.lifetimeGross).toBeCloseTo(3.5, 5);
+    expect(stats.lifetimeTickets).toBe(180000);
+    expect(stats.lifetimeShows).toBe(9000);
+    expect(stats.cities).toBe(707);
+    expect(stats.lifetimeOccupancyPct).toBeCloseTo(32.7, 5);
+    expect(stats.dayLabelText).toBe('Breakdown for: September 18, 2026');
+    expect(stats.freshnessText).toBe('Updated 2026-09-18 20:43 IST');
+    expect(stats.completedShowsText).toBe('Completed shows till 20:43 IST');
+  });
 
-  it('parses every confirmed tracked field', () => {
-    const stats = parseTrackedStats(lines);
+  it('does not double-count a day that has already rolled into dailySeries', () => {
+    const html = `<script>self.__next_f.push([1, "11:[\\"$\\",\\"$L12\\",null,{\\"data\\":{\\"summary\\":{\\"totalGross\\":5000000,\\"totalShows\\":1500,\\"totalTicketsSold\\":30000,\\"totalSeats\\":90000,\\"totalLocations\\":707},\\"dailySeries\\":[{\\"date\\":\\"20260805\\",\\"gross\\":20000000,\\"ticketsSold\\":100000,\\"shows\\":5000,\\"totalSeats\\":300000,\\"avgOccupancy\\":33.3},{\\"date\\":\\"20260806\\",\\"gross\\":15000000,\\"ticketsSold\\":80000,\\"shows\\":4000,\\"totalSeats\\":250000,\\"avgOccupancy\\":32.0},{\\"date\\":\\"20260918\\",\\"gross\\":5000000,\\"ticketsSold\\":30000,\\"shows\\":1500,\\"totalSeats\\":90000,\\"avgOccupancy\\":33.3}],\\"selectedDate\\":\\"20260918\\"}}]"])</script>`;
+    const stats = parseTrackedStats(html);
+    // Series alone: (20000000 + 15000000 + 5000000) / 1e7 = 4.0 -- NOT
+    // 4.5, which is what double-adding `summary` on top would produce.
+    expect(stats.lifetimeGross).toBeCloseTo(4.0, 5);
+    expect(stats.lifetimeTickets).toBe(210000);
+  });
+
+  it('falls back to line-based extraction when no Flight summary is present', () => {
+    const lines = [
+      'Hanuman Ansh',
+      'Release: August 7, 2026',
+      'Hindi',
+      'Family',
+      "TODAY'S GROSS",
+      '₹9.54Cr',
+      'LIFETIME GROSS',
+      '₹317.67Cr',
+      'LIFETIME TICKETS',
+      '1.34Cr',
+      'LIFETIME SHOWS',
+      '1.85L',
+      'CITIES',
+      '707',
+      '%',
+      'LIFETIME OCCUPANCY',
+      '36.7%',
+      'Performance Breakdown',
+      'INDIA',
+      'Updated 4m ago',
+      'Breakdown for: Day 44 — September 18, 2026',
+      'Completed shows till 20:43 IST'
+    ];
+    const stats = parseTrackedStats(linesToHtml(lines));
     expect(stats.todayGross).toBeCloseTo(9.54, 5);
     expect(stats.lifetimeGross).toBeCloseTo(317.67, 5);
     expect(stats.lifetimeTickets).toBe(13400000);
@@ -172,6 +225,32 @@ describe('parseTrackedStats', () => {
 });
 
 describe('parseBreakdownTable', () => {
+  it('prefers the embedded Flight india{States,Languages,Formats}, covering all three at once', () => {
+    const html = `<script>self.__next_f.push([1, "11:[\\"$\\",\\"$L12\\",null,{\\"data\\":{\\"indiaStates\\":[{\\"name\\":\\"Telangana\\",\\"gross\\":15540249,\\"ticketsSold\\":74766,\\"totalSeats\\":170916,\\"occupancy\\":43.74,\\"shows\\":269,\\"venues\\":57,\\"fastFilling\\":79,\\"houseFull\\":13}],\\"indiaLanguages\\":[{\\"language\\":\\"Telugu\\",\\"gross\\":16974633,\\"ticketsSold\\":82439,\\"shows\\":314,\\"cities\\":41,\\"occupancy\\":43.19}],\\"indiaFormats\\":[{\\"format\\":\\"Standard\\",\\"gross\\":17137183,\\"ticketsSold\\":83558,\\"shows\\":331,\\"cities\\":42,\\"occupancy\\":41.9}]}}]"])</script>`;
+    const result = parseBreakdownTable(html);
+    expect(result.rows).toHaveLength(3);
+    expect(result.total).toBeNull();
+
+    const state = result.rows.find((r) => r.breakdownType === 'state');
+    expect(state?.label).toBe('Telangana');
+    expect(state?.gross).toBeCloseTo(1.5540249, 5);
+    expect(state?.shows).toBe(269);
+    expect(state?.ticketsSold).toBe(74766);
+    expect(state?.occPct).toBe(43.74);
+    expect(state?.rawFf).toBe(79);
+    expect(state?.soldOut).toBe(13);
+
+    const language = result.rows.find((r) => r.breakdownType === 'language');
+    expect(language?.label).toBe('Telugu');
+    expect(language?.gross).toBeCloseTo(1.6974633, 5);
+    expect(language?.rawFf).toBeNull();
+    expect(language?.soldOut).toBeNull();
+
+    const format = result.rows.find((r) => r.breakdownType === 'format');
+    expect(format?.label).toBe('Standard');
+    expect(format?.gross).toBeCloseTo(1.7137183, 5);
+  });
+
   const stateTableHtml = `
     <table>
       <thead>
@@ -185,7 +264,7 @@ describe('parseBreakdownTable', () => {
     </table>
   `;
 
-  it('tags rows with breakdownType from the header (STATE -> state)', () => {
+  it('falls back to DOM parsing and tags rows with breakdownType from the header (STATE -> state)', () => {
     const result = parseBreakdownTable(stateTableHtml);
     expect(result.rows).toHaveLength(2);
     expect(result.rows[0].breakdownType).toBe('state');
@@ -198,27 +277,27 @@ describe('parseBreakdownTable', () => {
     expect(result.rows[0].occPct).toBe(14.89);
   });
 
-  it('separates the TOTAL row instead of treating it as a normal entry', () => {
+  it('separates the TOTAL row instead of treating it as a normal entry, in the DOM fallback', () => {
     const result = parseBreakdownTable(stateTableHtml);
     expect(result.rows.find((r) => r.label.toUpperCase() === 'TOTAL')).toBeUndefined();
     expect(result.total).not.toBeNull();
     expect(result.total?.gross).toBeCloseTo(4.78, 5);
   });
 
-  it('tags LANGUAGE and FORMAT headers correctly', () => {
+  it('tags LANGUAGE and FORMAT headers correctly, in the DOM fallback', () => {
     const langHtml = `<table><tr><th>LANGUAGE</th><th>GROSS</th></tr><tr><td>Hindi</td><td>₹1.00Cr</td></tr></table>`;
     const formatHtml = `<table><tr><th>FORMAT</th><th>GROSS</th></tr><tr><td>IMAX</td><td>₹1.00Cr</td></tr></table>`;
     expect(parseBreakdownTable(langHtml).rows[0].breakdownType).toBe('language');
     expect(parseBreakdownTable(formatHtml).rows[0].breakdownType).toBe('format');
   });
 
-  it('returns an empty result for a page with no breakdown table', () => {
+  it('returns an empty result for a page with no Flight data and no breakdown table', () => {
     const result = parseBreakdownTable('<div>no table here</div>');
     expect(result.rows).toEqual([]);
     expect(result.total).toBeNull();
   });
 
-  it('never invents a value for a missing column', () => {
+  it('never invents a value for a missing column, in the DOM fallback', () => {
     const noFf = `<table><tr><th>STATE</th><th>GROSS</th></tr><tr><td>Kerala</td><td>₹1.00Cr</td></tr></table>`;
     const result = parseBreakdownTable(noFf);
     expect(result.rows[0].rawFf).toBeNull();
