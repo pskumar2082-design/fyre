@@ -1,0 +1,260 @@
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import type { TTListedMovie, TTMovieDetails, TTMovieState, TTStat, TTTable, TTTableRow } from './types';
+import { cachedFetch } from './cache';
+
+const ORIGIN = 'https://tracktollywood.com';
+const HUB_PATH = '/box-office-collection/';
+
+// A real browser UA -- TrackTollywood's own WordPress/Cloudflare stack
+// didn't challenge a bare `curl` during investigation (confirmed live
+// 2026-09-21, and robots.txt only disallows /wp-admin/), but a
+// plausible UA is still cheap politeness and avoids being lumped in
+// with generic bot traffic by any WAF rule that keys off it.
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+
+const CREDIT = 'Data sourced from TrackTollywood' as const;
+
+async function fetchHtml(path: string): Promise<string> {
+  const res = await axios.get<string>(`${ORIGIN}${path}`, {
+    headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' },
+    timeout: 15000,
+    responseType: 'text',
+    // Only 200 counts as success -- a 404 on a movie slug is a real,
+    // expected "not tracked" outcome the caller needs to see, not an
+    // exception to catch.
+    validateStatus: (status) => status === 200
+  });
+  return res.data;
+}
+
+function slugFromUrl(url: string): string {
+  const path = url.replace(ORIGIN, '');
+  const parts = path.split('/').filter(Boolean); // ["box-office-collection", "daayra"]
+  return parts[parts.length - 1] ?? '';
+}
+
+function stateFromBadgeClass(className: string | undefined): TTMovieState {
+  const c = className ?? '';
+  if (c.includes('--live')) return 'live';
+  if (c.includes('--advance')) return 'advance';
+  if (c.includes('--upcoming')) return 'upcoming';
+  if (c.includes('--final')) return 'final';
+  return 'unknown';
+}
+
+// "₹5.41Cr" / "₹5.41 Cr" / "₹84.53Cr" -> 5.41 / 84.53. Returns null for
+// values in Lakhs ("₹42.40L") or anything unparsable -- callers that
+// want a cross-magnitude number can normalize further; this only
+// promises "the number MovieMint-style Cr figures already are in".
+function parseGrossCr(text: string | null | undefined): number | null {
+  if (!text) return null;
+  const m = text.replace(/,/g, '').match(/([\d.]+)\s*Cr/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function cleanText($el: cheerio.Cheerio<any>): string {
+  return $el.text().replace(/\s+/g, ' ').trim();
+}
+
+// ---------------------------------------------------------------------------
+// Hub listing (/box-office-collection/)
+// ---------------------------------------------------------------------------
+
+export function parseLiveMovies(html: string): TTListedMovie[] {
+  const $ = cheerio.load(html);
+  const movies: TTListedMovie[] = [];
+
+  $('a.tt-hub-card').each((_, el) => {
+    const $card = $(el);
+    const href = $card.attr('href');
+    if (!href) return;
+
+    const title = cleanText($card.find('.tt-hub-card-title').first());
+    if (!title) return; // no title -- not a real movie card, skip rather than emit junk
+
+    const badgeClass = $card.find('.tt-hub-card-badge').first().attr('class');
+    const grossText = cleanText($card.find('.tt-hub-card-gross').first()) || null;
+    const posterSrc =
+      $card.find('img.tt-hub-card-poster-fg').first().attr('data-lazy-src') ||
+      $card.find('img.tt-hub-card-poster-fg').first().attr('src') ||
+      null;
+
+    movies.push({
+      slug: slugFromUrl(href),
+      title,
+      url: href,
+      state: stateFromBadgeClass(badgeClass),
+      dayLabel: cleanText($card.find('.tt-hub-card-daybadge').first()) || null,
+      releaseText: cleanText($card.find('.tt-hub-card-release').first()) || null,
+      genre: cleanText($card.find('.tt-hub-card-genre').first()) || null,
+      poster: posterSrc && posterSrc.startsWith('data:') ? null : posterSrc,
+      grossLabel: cleanText($card.find('.tt-hub-card-grosslab').first()) || null,
+      gross: grossText,
+      grossCr: parseGrossCr(grossText),
+      todayText: cleanText($card.find('.tt-hub-card-today').first()) || null,
+      updatedText: cleanText($card.find('.tt-hub-card-footer').first()) || null
+    });
+  });
+
+  return movies;
+}
+
+// The hub paginates (plain WordPress /page/N/ links, not JS/AJAX --
+// confirmed live 2026-09-21: 24 live/advance/upcoming movies spread
+// across 2 pages via a real `.tt-hub-pagination a.next` link). This
+// follows that link until it disappears so callers get the whole set,
+// not just page 1. The separate 67-movie "completed" archive
+// (.../box-office-collection/completed/) is intentionally not included
+// here -- the brief asks for the live list, not the historical archive.
+const MAX_HUB_PAGES = 10; // safety cap, not a real expected page count
+
+function findNextPageUrl(html: string): string | null {
+  const $ = cheerio.load(html);
+  const href = $('.tt-hub-pagination a.next.page-numbers').first().attr('href');
+  return href ?? null;
+}
+
+export async function getLiveMovies(): Promise<TTListedMovie[]> {
+  return cachedFetch('tt:live', 300, async () => {
+    const movies: TTListedMovie[] = [];
+    const seenSlugs = new Set<string>();
+    let path: string | null = HUB_PATH;
+    let pagesFetched = 0;
+
+    while (path && pagesFetched < MAX_HUB_PAGES) {
+      const html = await fetchHtml(path);
+      for (const m of parseLiveMovies(html)) {
+        // The hub can legitimately repeat a movie across a "featured"
+        // strip and the paginated grid -- de-dupe by slug so callers
+        // never see the same movie twice.
+        if (seenSlugs.has(m.slug)) continue;
+        seenSlugs.add(m.slug);
+        movies.push(m);
+      }
+      pagesFetched++;
+      const nextUrl = findNextPageUrl(html);
+      path = nextUrl ? nextUrl.replace(ORIGIN, '') : null;
+    }
+
+    return movies;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Movie detail page (/box-office-collection/<slug>/)
+// ---------------------------------------------------------------------------
+
+function parseStats($: cheerio.CheerioAPI): TTStat[] {
+  const stats: TTStat[] = [];
+  $('.tt-mv-stat').each((_, el) => {
+    const $stat = $(el);
+    const value = cleanText($stat.find('.tt-mv-stat-value').first());
+    const label = cleanText($stat.find('.tt-mv-stat-label').first());
+    if (!label && !value) return;
+    // "Best Day · Day 3" -> label "Best Day", note "Day 3". Most labels
+    // have no "· " suffix and just get note: null.
+    const [baseLabel, note] = label.split(' · ');
+    stats.push({ label: baseLabel || label, value, note: note ?? null });
+  });
+  return stats;
+}
+
+// Every breakdown table on a movie page (day-wise, top cities,
+// state-wise, language-wise, format-wise, time slots, per-advance-date,
+// cumulative) is rendered the same way: a `.tt-ac-table-wrap
+// [data-snapshot="<label>"]` wrapping one `table.tt-ac-table` with a
+// real <thead> and <tbody>. One generic parser covers all of them, so
+// this keeps working if TrackTollywood adds another breakdown kind or
+// another day without any code change here.
+function parseTables($: cheerio.CheerioAPI): TTTable[] {
+  const tables: TTTable[] = [];
+
+  $('.tt-ac-table-wrap[data-snapshot]').each((_, wrapEl) => {
+    const $wrap = $(wrapEl);
+    const label = $wrap.attr('data-snapshot')?.trim();
+    if (!label) return;
+
+    const $table = $wrap.find('table.tt-ac-table').first();
+    if ($table.length === 0) return;
+
+    const headers = $table
+      .find('thead th')
+      .map((_, th) => cleanText($(th)))
+      .get();
+    if (headers.length === 0) return;
+
+    const rows: TTTableRow[] = [];
+    $table.find('tbody tr').each((_, tr) => {
+      const $tr = $(tr);
+      const row: TTTableRow = {};
+      // Walk cells with a colspan-aware header pointer -- the sheet's
+      // own "TOTAL" row uses colspan to merge its first few columns
+      // (e.g. Day+Date+Weekday) into one "TOTAL" cell, so naive
+      // index-by-position alignment would shift every column after it.
+      let headerIdx = 0;
+      $tr.find('th, td').each((_, cell) => {
+        const $cell = $(cell);
+        const span = parseInt($cell.attr('colspan') ?? '1', 10) || 1;
+        const key = headers[headerIdx] ?? `col${headerIdx}`;
+        row[key] = cleanText($cell);
+        headerIdx += span;
+      });
+      if ($tr.hasClass('tt-ac-totals')) row.__isTotal = true;
+      rows.push(row);
+    });
+
+    tables.push({ label, headers, rows });
+  });
+
+  return tables;
+}
+
+export function parseMovieDetails(html: string, slug: string): TTMovieDetails {
+  const $ = cheerio.load(html);
+
+  const title = cleanText($('.tt-mv-title').first()) || slug;
+  const badgeEl = $('.tt-mv-badge').first();
+  const badgeText = cleanText(badgeEl) || null;
+  const state = stateFromBadgeClass(badgeEl.attr('class'));
+
+  const posterSrc =
+    $('img.tt-mv-poster-fg').first().attr('src') || $('img.tt-mv-poster-fg').first().attr('data-lazy-src') || null;
+
+  return {
+    slug,
+    title,
+    url: `${ORIGIN}${HUB_PATH}${slug}/`,
+    state,
+    poster: posterSrc && posterSrc.startsWith('data:') ? null : posterSrc,
+    badgeText,
+    headlineGross: cleanText($('.tt-mv-big').first()) || null,
+    headlineLabel: cleanText($('.tt-mv-headline-label').first()) || null,
+    stats: parseStats($),
+    tables: parseTables($),
+    source: ORIGIN as 'https://tracktollywood.com',
+    credit: CREDIT,
+    fetchedAt: new Date().toISOString()
+  };
+}
+
+// Returns null for a slug TrackTollywood doesn't have (a real 404, not
+// an error) -- the caller (the API route) turns that into a 404
+// response rather than a 500.
+export async function getMovieDetails(slug: string): Promise<TTMovieDetails | null> {
+  const safeSlug = slug.trim().toLowerCase();
+  if (!safeSlug || !/^[a-z0-9-]+$/.test(safeSlug)) return null;
+
+  return cachedFetch(`tt:movie:${safeSlug}`, 300, async () => {
+    try {
+      const html = await fetchHtml(`${HUB_PATH}${safeSlug}/`);
+      return parseMovieDetails(html, safeSlug);
+    } catch (err: any) {
+      if (err?.response?.status === 404) return null;
+      throw err;
+    }
+  });
+}

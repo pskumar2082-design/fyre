@@ -44,6 +44,17 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'image.tmdb.org',
         pathname: '/t/p/**'
+      },
+      {
+        // Posters TrackTollywood serves directly from its own WordPress
+        // media library (see lib/tracktollywood/scraper.ts), e.g.
+        // https://tracktollywood.com/wp-content/smush-webp/2026/09/....jpg.webp
+        // -- registered for completeness even though the TrackTollywood
+        // pages currently render with `unoptimized` (an external site's
+        // images, no need to route them through Vercel's optimizer).
+        protocol: 'https',
+        hostname: 'tracktollywood.com',
+        pathname: '/wp-content/**'
       }
     ]
   }
