@@ -4,11 +4,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* BankDash's flat, light dashboard canvas -- plain #F5F7FA, no grid, no
-   glow. Cards (bg-surface = white) sit on top of this everywhere. */
+/* Near-black canvas -- MovieMint's own tracker pages sit on #0A0A0A with
+   zinc-toned cards on top (bg-surface / bg-surface2), never plain black
+   panels, so depth reads from tone + a hairline border rather than a
+   drop shadow (which doesn't show on a dark background anyway). */
 body {
-  background-color: #F5F7FA;
-  color: #343C6A;
+  background-color: #0A0A0A;
+  color: #FFFFFF;
 }
 
 .hdisplay {
@@ -16,38 +18,49 @@ body {
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.05;
-  /* No color here on purpose: body already sets #343C6A as the inherited
-     default, and leaving color off this class lets a per-use text-* utility
-     (e.g. text-white on the gradient featured card) win instead of losing
-     to this same-specificity class rule later in the stylesheet. */
+  /* No color here on purpose: body already sets white as the inherited
+     default, and leaving color off this class lets a per-use text-*
+     utility win instead of losing to this same-specificity rule later. */
 }
 
-/* Two-stop accent gradient text -- blue -> teal -- for the accent half of
-   headlines, kept inside BankDash's own palette. */
+/* Deep green -> bright mint accent text, used for the "days to go" /
+   headline numbers that want a touch of shine without leaving the
+   tracker-green palette. */
 .gtext {
-  background: linear-gradient(90deg, #1814F3 0%, #2D60FF 55%, #16DBCC 100%);
+  background: linear-gradient(90deg, #00B673 0%, #00E18C 55%, #6FFFC0 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-/* Soft blurred color blobs, kept for any section that still wants a touch
-   of depth behind a header -- much lower-opacity by default now that the
-   canvas is light. Size/position/color set per-use via Tailwind utilities. */
+/* Soft blurred color blobs behind a hero/header for depth -- opacity
+   kept low so they read as ambient glow, not a visible shape. */
 .glow-spot {
   position: absolute;
   border-radius: 9999px;
   filter: blur(90px);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.5;
+  opacity: 0.35;
 }
 
-/* BankDash's gradient "bank card" surface -- used for the primary/secondary
-   card-style widgets (see components/ui/GradientCard.tsx). */
+/* MovieMint's faint background grid, reproduced as a tileable gradient
+   instead of an image -- applied to the app shell's main content well so
+   it reads as one continuous canvas behind every page. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 34px 34px;
+  background-position: -1px -1px;
+}
+
+/* Featured-movie banner (homepage) -- a moody near-black -> deep-green
+   sweep instead of the old blue "bank card" gradient, so a poster image
+   laid on top still reads clearly. */
 .card-gradient-primary {
-  background: linear-gradient(115deg, #4C49ED 2.6%, #0A06F4 101.2%);
+  background: linear-gradient(120deg, #0A0A0A 0%, #0C1F17 55%, #04150F 100%);
 }
 .card-gradient-secondary {
-  background: linear-gradient(115deg, #2D60FF 2.6%, #539BFF 101.2%);
+  background: linear-gradient(115deg, #0F2B20 2.6%, #00E18C 140%);
 }

@@ -59,7 +59,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
             autoFocus
             className="flex-1 bg-transparent outline-none text-sm text-text placeholder:text-textFaint"
           />
-          <button type="submit" className="bg-gold text-white font-semibold rounded-full px-5 py-2 text-sm flex-none">
+          <button type="submit" className="bg-gold text-black font-semibold rounded-full px-5 py-2 text-sm flex-none">
             Search
           </button>
         </div>

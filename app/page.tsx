@@ -80,7 +80,10 @@ export default async function HomePage() {
           <div className="relative flex flex-col md:flex-row items-stretch min-h-[220px]">
             <div className="flex-1 p-8 flex flex-col justify-center">
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-white/80 mb-3">
-                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Featured &amp; tracked live
+                <span className="relative flex w-1.5 h-1.5">
+                  <span className="absolute inline-flex w-full h-full rounded-full bg-gold animate-ping" />
+                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-gold" />
+                </span> Featured &amp; tracked live
               </span>
               <h1 className="hdisplay text-3xl md:text-4xl text-white mb-2">{featured.title}</h1>
               <p className="text-white/70 text-sm max-w-md mb-4">
@@ -99,7 +102,7 @@ export default async function HomePage() {
                   unoptimized
                   className="object-cover object-top transition duration-300 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#0A06F4] md:from-transparent via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-bg md:from-transparent via-transparent to-transparent" />
               </div>
             )}
           </div>
@@ -167,7 +170,7 @@ export default async function HomePage() {
                 <Card className="p-5 hover:-translate-y-0.5 transition">
                   <div className="flex justify-between mb-2">
                     <span className="text-[#F6A609]">★★★★★</span>
-                    <span className="bg-gold text-white text-sm font-bold px-2.5 py-1 rounded-lg">{r.rating} / 5</span>
+                    <span className="bg-gold text-black text-sm font-bold px-2.5 py-1 rounded-lg">{r.rating} / 5</span>
                   </div>
                   <h3 className="font-semibold mb-2 group-hover:text-gold transition">{r.title}</h3>
                   <p className="text-sm text-textDim line-clamp-3">{r.excerpt}</p>

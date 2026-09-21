@@ -1,19 +1,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { getMovieDetails } from '@/lib/tracktollywood/scraper';
 import type { TTTable } from '@/lib/tracktollywood/types';
+import { STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
 import { Card } from '@/components/ui';
+import TableGroups from '@/components/TableGroups';
 
 export const dynamic = 'force-dynamic';
-
-const STATE_LABEL: Record<string, string> = {
-  live: 'Live',
-  advance: 'Advance',
-  upcoming: 'Upcoming',
-  final: 'Final',
-  unknown: ''
-};
 
 // Groups TrackTollywood's flat table list (54+ tables for a well-into-its-run
 // movie) into sections a person can actually scan: one per release day, one
@@ -21,8 +16,10 @@ const STATE_LABEL: Record<string, string> = {
 // unlabeled list. Pure string matching on the site's own data-snapshot
 // labels (e.g. "Top Cities — Day 2", "Advance 2026-09-18 — State-wise",
 // "Cumulative Language-wise") -- no hard-coded day count, so this keeps
-// working as a movie's run gets longer or an advance window changes.
-function groupTables(tables: TTTable[]): { heading: string; tables: TTTable[]; defaultOpen: boolean }[] {
+// working as a movie's run gets longer or an advance window changes. See
+// components/TableGroups.tsx for the interactive filter UI built on top of
+// this grouping.
+function groupTables(tables: TTTable[]): { heading: string; tables: TTTable[] }[] {
   const groups = new Map<string, TTTable[]>();
   const order: string[] = [];
 
@@ -42,50 +39,7 @@ function groupTables(tables: TTTable[]): { heading: string; tables: TTTable[]; d
     groups.get(heading)!.push(t);
   }
 
-  return order.map((heading) => ({
-    heading,
-    tables: groups.get(heading)!,
-    // Day-wise Collection (the headline summary table) and the most
-    // recent release day open by default; everything else stays
-    // collapsed behind <details> so the page isn't a wall of tables.
-    defaultOpen: heading === 'Day-wise Collection'
-  }));
-}
-
-function TableView({ table }: { table: TTTable }) {
-  return (
-    <div className="mb-4 last:mb-0">
-      {table.label.includes('—') && (
-        <div className="text-textFaint text-xs font-semibold uppercase tracking-wide mb-1">
-          {table.label.split('—').slice(1).join('—').trim() || table.label}
-        </div>
-      )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-black/10">
-              {table.headers.map((h) => (
-                <th key={h} className="text-left font-semibold py-1.5 pr-4 whitespace-nowrap text-textFaint">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {table.rows.map((row, i) => (
-              <tr key={i} className={`border-b border-black/5 ${row.__isTotal ? 'font-bold' : ''}`}>
-                {table.headers.map((h) => (
-                  <td key={h} className="py-1.5 pr-4 whitespace-nowrap">
-                    {row[h] ?? ''}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return order.map((heading) => ({ heading, tables: groups.get(heading)! }));
 }
 
 export default async function TrackTollywoodMoviePage({ params }: { params: { slug: string } }) {
@@ -101,59 +55,88 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
   const backHref =
     details.state === 'final' ? '/box-office' : details.state === 'live' ? '/now-showing' : '/upcoming';
   const backLabel =
-    details.state === 'final' ? '← Box office archive' : details.state === 'live' ? '← Now showing' : '← Upcoming releases';
+    details.state === 'final' ? 'Box office archive' : details.state === 'live' ? 'Now showing' : 'Upcoming releases';
 
   return (
-    <div className="px-5 md:px-10 py-8 max-w-4xl mx-auto">
-      <Link href={backHref} className="text-gold text-sm font-semibold hover:underline">
-        {backLabel}
+    <div className="px-5 md:px-10 py-8 max-w-5xl mx-auto">
+      <Link href={backHref} className="inline-flex items-center gap-1.5 text-gold text-sm font-semibold hover:text-goldBright transition mb-5">
+        <ArrowLeft size={15} /> {backLabel}
       </Link>
 
-      <div className="flex gap-5 mt-4 mb-8 flex-wrap sm:flex-nowrap">
-        <div className="relative w-[120px] aspect-[2/3] flex-none rounded-xl overflow-hidden bg-tintBlue">
-          {details.poster ? (
-            <Image src={details.poster} alt={details.title} fill className="object-cover" unoptimized />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-textFaint text-xs">No poster</div>
-          )}
-        </div>
-        <div>
-          <h1 className="hdisplay text-2xl">{details.title}</h1>
-          {details.badgeText && <div className="text-textFaint text-sm mt-1">{details.badgeText}</div>}
-          {details.headlineGross && (
-            <div className="mt-3">
-              <div className="text-gold font-bold text-3xl">{details.headlineGross}</div>
-              {details.headlineLabel && <div className="text-textFaint text-xs mt-0.5">{details.headlineLabel}</div>}
-            </div>
-          )}
+      {/* HERO — blurred poster backdrop behind the title block, sharp
+          poster thumbnail + state badge + headline gross on top. */}
+      <div className="relative rounded-2xl overflow-hidden border border-white/5 mb-6">
+        {details.poster && (
+          <>
+            <Image src={details.poster} alt="" fill unoptimized className="object-cover object-top scale-110 blur-2xl opacity-30" />
+            <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/85 to-bg/40" />
+          </>
+        )}
+        {!details.poster && <div className="absolute inset-0 bg-bgAlt" />}
+
+        <div className="relative flex gap-5 p-5 sm:p-7 flex-wrap sm:flex-nowrap">
+          <div className="relative w-[104px] sm:w-[130px] aspect-[2/3] flex-none rounded-xl overflow-hidden bg-surface2 border border-white/10 shadow-card">
+            {details.poster ? (
+              <Image src={details.poster} alt={details.title} fill className="object-cover" unoptimized />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-textFaint text-xs">No poster</div>
+            )}
+          </div>
+          <div className="min-w-0 flex flex-col justify-center">
+            {details.state !== 'unknown' && (
+              <span className={`inline-flex items-center gap-1.5 w-fit text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-lg mb-2.5 ${STATE_BADGE[details.state]}`}>
+                {details.state === 'live' && (
+                  <span className="relative flex w-1.5 h-1.5">
+                    <span className="absolute inline-flex w-full h-full rounded-full bg-black/50 animate-ping" />
+                    <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-black" />
+                  </span>
+                )}
+                {details.badgeText || details.state}
+              </span>
+            )}
+            <h1 className="hdisplay text-2xl sm:text-3xl text-text">{details.title}</h1>
+            {details.headlineGross && (
+              <div className="mt-3">
+                <div className="text-gold font-bold text-3xl sm:text-4xl">{details.headlineGross}</div>
+                {details.headlineLabel && <div className="text-textFaint text-xs mt-1">{details.headlineLabel}</div>}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* STAT CARDS — the label matching /gross/i gets the accent
+          treatment, same restraint as the rest of the site: green means
+          "this is the money number", everything else stays neutral. */}
       {details.stats.length > 0 && (
-        <Card className="p-5 mb-6 grid grid-cols-2 sm:grid-cols-5 gap-4">
-          {details.stats.map((s, i) => (
-            <div key={i}>
-              <div className="font-bold text-sm">{s.value}</div>
-              <div className="text-textFaint text-[10px] uppercase tracking-wide">
-                {s.label}
-                {s.note ? ` · ${s.note}` : ''}
-              </div>
-            </div>
-          ))}
-        </Card>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+          {details.stats.map((s, i) => {
+            const highlight = /gross/i.test(s.label);
+            return (
+              <Card
+                key={i}
+                className={`p-4 ${highlight ? 'bg-gold/5 border-gold/25' : ''}`}
+              >
+                <div className="text-textFaint text-[10px] font-semibold uppercase tracking-wide truncate">{s.label}</div>
+                <div className={`hdisplay text-lg mt-1 truncate ${highlight ? 'text-gold' : 'text-text'}`}>{s.value}</div>
+                {s.note && <div className="text-textFaint text-[10px] mt-0.5">{s.note}</div>}
+              </Card>
+            );
+          })}
+        </div>
       )}
 
-      {groups.map((group) => (
-        <details key={group.heading} open={group.defaultOpen} className="mb-3">
-          <summary className="cursor-pointer font-semibold text-sm py-2 select-none">{group.heading}</summary>
-          <Card className="p-4 mt-2">
-            {group.tables.map((t, i) => (
-              <TableView key={i} table={t} />
-            ))}
+      {groups.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles size={16} className="text-gold" />
+            <h2 className="hdisplay text-lg">Performance breakdown</h2>
+          </div>
+          <Card className="p-4 sm:p-5">
+            <TableGroups groups={groups} />
           </Card>
-        </details>
-      ))}
-
+        </div>
+      )}
     </div>
   );
 }

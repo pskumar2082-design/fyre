@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import {
-  Flame,
   Home,
   Newspaper,
   Film,
@@ -16,12 +16,13 @@ import {
   X
 } from 'lucide-react';
 
-// BankDash-style app shell: a fixed 250px white sidebar with icon nav +
-// active accent bar, a 100px white header with a page title / search pill,
-// and a #F5F7FA content well -- replacing fyre's old horizontal pill-nav
-// top bar. Wraps every public route via app/layout.tsx. /admin is reachable
-// directly by URL but intentionally left off the public nav -- it's not a
-// section a visitor should be browsing to.
+// Dark app shell: a fixed 250px near-black sidebar with icon nav + a
+// green active accent bar, a matching header with a page title / search
+// pill, and a #0A0A0A content well (see .bg-grid in globals.css for the
+// faint grid texture behind every page). Wraps every public route via
+// app/layout.tsx. /admin is reachable directly by URL but intentionally
+// left off the public nav -- it's not a section a visitor should be
+// browsing to.
 
 const NAV = [
   { href: '/', label: 'Home', icon: Home, exact: true },
@@ -48,13 +49,16 @@ function SidebarLinks({ pathname, onNavigate }: { pathname: string; onNavigate?:
             key={item.href}
             href={item.href}
             onClick={onNavigate}
-            className="relative flex items-center gap-4 h-[60px] px-8 text-[15px] font-medium transition"
+            className="relative flex items-center gap-4 h-[60px] px-8 text-[15px] font-medium transition hover:text-text"
           >
             {active && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-[60px] bg-gold rounded-r-[10px]" />
+              <>
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-[60px] bg-gold rounded-r-[10px] shadow-[0_0_16px_rgba(0,225,140,0.6)]" />
+                <span className="absolute inset-y-1 left-2 right-2 bg-gold/10 rounded-xl" />
+              </>
             )}
-            <Icon size={22} strokeWidth={2} className={active ? 'text-gold' : 'text-textFaint'} />
-            <span className={active ? 'text-gold' : 'text-textFaint'}>{item.label}</span>
+            <Icon size={22} strokeWidth={2} className={`relative ${active ? 'text-gold' : 'text-textFaint'}`} />
+            <span className={`relative ${active ? 'text-text' : 'text-textFaint'}`}>{item.label}</span>
           </Link>
         );
       })}
@@ -62,11 +66,15 @@ function SidebarLinks({ pathname, onNavigate }: { pathname: string; onNavigate?:
   );
 }
 
-function Logo() {
+// The real fyre wordmark -- a white flame + "fyre" PNG designed to sit on
+// a dark surface (public/logo.png). It was invisible under the site's
+// previous light theme, which is why the shell used a placeholder icon
+// instead; now that the shell is dark again, the actual purchased asset
+// is what renders here.
+function Logo({ height = 34 }: { height?: number }) {
   return (
-    <Link href="/" className="flex items-center gap-2 px-8 h-[100px] flex-none flex-shrink-0">
-      <Flame size={26} className="text-gold flex-none" fill="currentColor" />
-      <span className="hdisplay text-2xl text-gold">fyre</span>
+    <Link href="/" className="flex items-center px-8 h-[100px] flex-none flex-shrink-0">
+      <Image src="/logo.png" alt="fyre" width={height * 2.43} height={height} className="flex-none" priority />
     </Link>
   );
 }
@@ -79,7 +87,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex bg-bg">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col w-[250px] flex-none bg-surface border-r border-border sticky top-0 h-screen overflow-y-auto">
+      <aside className="hidden md:flex md:flex-col w-[250px] flex-none bg-bgAlt border-r border-border sticky top-0 h-screen overflow-y-auto">
         <Logo />
         <SidebarLinks pathname={pathname} />
         <div className="px-8 py-6 text-[11px] text-textFaint border-t border-border mt-auto">
@@ -94,19 +102,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             aria-label="Close menu"
             onClick={() => setMobileOpen(false)}
-            className="absolute inset-0 bg-text/30 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
           />
-          <aside className="absolute left-0 top-0 h-full w-[250px] bg-surface flex flex-col shadow-card">
+          <aside className="absolute left-0 top-0 h-full w-[250px] bg-bgAlt flex flex-col shadow-card">
             <div className="flex items-center justify-between px-6 h-[100px] flex-none border-b border-border">
-              <span className="flex items-center gap-2">
-                <Flame size={24} className="text-gold flex-none" fill="currentColor" />
-                <span className="hdisplay text-xl text-gold">fyre</span>
-              </span>
+              <Link href="/" className="flex items-center">
+                <Image src="/logo.png" alt="fyre" width={78} height={32} />
+              </Link>
               <button
                 type="button"
                 aria-label="Close menu"
                 onClick={() => setMobileOpen(false)}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-bg text-textDim"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-surface text-textDim border border-border"
               >
                 <X size={18} />
               </button>
@@ -118,13 +125,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="sticky top-0 z-30 h-[100px] flex-none bg-surface border-b border-border flex items-center justify-between gap-4 px-5 md:px-10">
+        <header className="sticky top-0 z-30 h-[100px] flex-none bg-bgAlt/95 backdrop-blur border-b border-border flex items-center justify-between gap-4 px-5 md:px-10">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               aria-label="Open menu"
               onClick={() => setMobileOpen(true)}
-              className="md:hidden flex items-center justify-center w-9 h-9 rounded-full bg-bg text-textDim flex-none"
+              className="md:hidden flex items-center justify-center w-9 h-9 rounded-full bg-surface text-textDim border border-border flex-none"
             >
               <Menu size={18} />
             </button>
@@ -133,7 +140,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-3 flex-none">
             <form action="/search" className="hidden lg:block">
-              <div className="flex items-center gap-2 bg-bg rounded-full h-[50px] w-[255px] px-5">
+              <div className="flex items-center gap-2 bg-surface border border-border rounded-full h-[50px] w-[255px] px-5 focus-within:border-gold/50 transition">
                 <Search size={17} className="text-textFaint flex-none" />
                 <input
                   type="text"
@@ -146,14 +153,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/search"
               aria-label="Search"
-              className="lg:hidden flex items-center justify-center w-10 h-10 rounded-full bg-bg text-textDim"
+              className="lg:hidden flex items-center justify-center w-10 h-10 rounded-full bg-surface text-textDim border border-border"
             >
               <Search size={18} />
             </Link>
           </div>
         </header>
 
-        <main className="flex-1 bg-bg">{children}</main>
+        <main className="flex-1 bg-bg bg-grid">{children}</main>
       </div>
     </div>
   );

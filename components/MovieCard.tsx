@@ -1,26 +1,19 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { TTListedMovie } from '@/lib/tracktollywood/types';
-
-const STATE_LABEL: Record<string, string> = {
-  live: 'Live',
-  advance: 'Advance',
-  upcoming: 'Upcoming',
-  final: 'Final',
-  unknown: ''
-};
+import { STATE_LABEL, STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
 
 // The poster card used for a TrackTollywood movie everywhere one appears --
-// the homepage's featured carousel, /now-showing, /upcoming, and
-// /box-office -- so all four stay visually identical and only need to
-// change in one place. Links to /tracktollywood/[slug], the shared detail
-// page every one of those sections points at.
+// the homepage's featured carousel, /now-showing, and /upcoming -- so all
+// three stay visually identical and only need to change in one place.
+// Links to /tracktollywood/[slug], the shared detail page every one of
+// those sections points at.
 export default function MovieCard({ movie, rank }: { movie: TTListedMovie; rank?: number }) {
-  const badge = movie.dayLabel ? `${STATE_LABEL[movie.state]} · ${movie.dayLabel}` : STATE_LABEL[movie.state];
+  const badgeLabel = movie.dayLabel ? `${STATE_LABEL[movie.state]} · ${movie.dayLabel}` : STATE_LABEL[movie.state];
   return (
     <Link href={`/tracktollywood/${movie.slug}`} className="flex-none w-40 group">
-      <div className="w-40 h-56 rounded-2xl bg-surface2 shadow-card relative overflow-hidden flex items-end p-2.5">
-        {movie.poster && (
+      <div className="w-40 h-56 rounded-2xl bg-surface2 border border-white/5 shadow-card relative overflow-hidden flex items-end p-2.5 transition group-hover:border-gold/30">
+        {movie.poster ? (
           <Image
             src={movie.poster}
             alt=""
@@ -28,19 +21,31 @@ export default function MovieCard({ movie, rank }: { movie: TTListedMovie; rank?
             unoptimized
             className="object-cover object-top transition duration-300 group-hover:scale-105"
           />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-textFaint text-[11px]">No poster</div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
         {rank != null && (
-          <span className="absolute top-2.5 left-2.5 text-[11px] font-bold bg-white/90 backdrop-blur text-text px-2 py-1 rounded-lg">
+          <span className="absolute top-2.5 left-2.5 text-[11px] font-bold bg-black/70 backdrop-blur border border-white/10 text-white px-2 py-1 rounded-lg">
             #{rank}
           </span>
         )}
-        {badge && (
-          <span className="relative text-xs font-bold bg-gold text-white px-2 py-1 rounded-lg">{badge}</span>
+        {badgeLabel && (
+          <span
+            className={`relative inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-1 rounded-lg ${STATE_BADGE[movie.state]}`}
+          >
+            {movie.state === 'live' && (
+              <span className="relative flex w-1.5 h-1.5">
+                <span className="absolute inline-flex w-full h-full rounded-full bg-black/50 animate-ping" />
+                <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-black" />
+              </span>
+            )}
+            {badgeLabel}
+          </span>
         )}
       </div>
-      <div className="text-sm font-medium mt-2.5 truncate group-hover:text-gold transition">{movie.title}</div>
-      {movie.gross && <div className="text-xs text-goldBright font-semibold mt-0.5">{movie.gross}</div>}
+      <div className="text-sm font-medium mt-2.5 truncate text-text group-hover:text-gold transition">{movie.title}</div>
+      {movie.gross && <div className="text-xs text-gold font-semibold mt-0.5">{movie.gross}</div>}
     </Link>
   );
 }
