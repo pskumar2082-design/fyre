@@ -247,4 +247,23 @@ describe('parseListingSlugs', () => {
     expect(entries).toHaveLength(2);
     expect(entries.map((e) => e.slug)).toEqual(['hanuman-ansh', 'mandaadi']);
   });
+
+  it('prefers the embedded Next.js Flight payload when present, converting gross to Crores', () => {
+    const html = `<script>self.__next_f.push([1, "11:[\\"$\\",\\"$L21\\",null,{\\"movies\\":[{\\"boxOfficeId\\": \\"example-one\\", \\"title\\": \\"Example One\\", \\"poster\\": \\"https://image.tmdb.org/t/p/w780/example1.jpg\\", \\"releaseDate\\": \\"2026-09-10\\", \\"language\\": \\"Telugu\\", \\"genres\\": [], \\"href\\": \\"/movie/example-one?date=20260920\\", \\"gross\\": 50000000, \\"ticketsSold\\": 200000, \\"totalSeats\\": 900000, \\"shows\\": 4000, \\"avgOccupancy\\": 22.2, \\"topState\\": \\"Telangana\\", \\"sourceDate\\": \\"20260920\\"},{\\"boxOfficeId\\": \\"example-two\\", \\"title\\": \\"Example Two\\", \\"poster\\": \\"https://image.tmdb.org/t/p/w780/example2.jpg\\", \\"releaseDate\\": \\"2026-09-05\\", \\"language\\": \\"Hindi\\", \\"genres\\": [], \\"href\\": \\"/movie/example-two?date=20260921\\", \\"gross\\": 25000000, \\"ticketsSold\\": 100000, \\"totalSeats\\": 450000, \\"shows\\": 2000, \\"avgOccupancy\\": 18.5, \\"topState\\": \\"Maharashtra\\", \\"sourceDate\\": \\"20260921\\"}]}]"])</script>`;
+    const entries = parseListingSlugs(html);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toEqual({ rank: 1, slug: 'example-one', title: 'Example One', gross: 5 });
+    expect(entries[1]).toEqual({ rank: 2, slug: 'example-two', title: 'Example Two', gross: 2.5 });
+  });
+
+  it('falls back to DOM scraping when no Flight "movies" array is present (e.g. /advance)', () => {
+    const html = `
+      <script>self.__next_f.push([1,"11:[\\"$\\",\\"$L1e\\",null,{\\"recentTracked\\":[]}]"])</script>
+      <a href="/movie/hanuman-ansh"><h3>Hanuman Ansh</h3></a>
+    `;
+    const entries = parseListingSlugs(html);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].slug).toBe('hanuman-ansh');
+    expect(entries[0].gross).toBeNull();
+  });
 });

@@ -1,4 +1,4 @@
-import { DATA_MARKERS, INTERACTIVE_CHALLENGE_MARKERS } from '@/lib/moviemintChallengeMarkers';
+import { DATA_MARKERS, RAW_HTML_DATA_MARKERS, INTERACTIVE_CHALLENGE_MARKERS } from '@/lib/moviemintChallengeMarkers';
 import { renderMovieMintPage } from '@/lib/moviemintBrowserRenderer';
 
 // ---------------------------------------------------------------------------
@@ -100,6 +100,16 @@ function looksLikeRealData(html: string): boolean {
   return containsAny(html, DATA_MARKERS);
 }
 
+// Tier 1 (plain HTTP) specifically -- see RAW_HTML_DATA_MARKERS's own
+// comment in moviemintChallengeMarkers.ts for why this needs a stronger
+// signal than looksLikeRealData()'s bare-word check, which false-positives
+// on ordinary meta-description prose in MovieMint's raw, un-rendered SSR
+// response (confirmed live on /advance and a movie detail page,
+// 2026-09-21).
+function looksLikeRealRawData(html: string): boolean {
+  return containsAny(html, RAW_HTML_DATA_MARKERS);
+}
+
 function looksLikeLoadingShell(html: string): boolean {
   return containsAny(html, LOADING_SHELL_MARKERS) && !looksLikeRealData(html);
 }
@@ -172,7 +182,7 @@ export async function fetchMovieMintPage(
     if (looksLikeInteractiveChallenge(plain.html)) {
       return { status: 'blocked', path, reason: 'interactive challenge detected on plain HTTP response' };
     }
-    if (looksLikeRealData(plain.html)) {
+    if (looksLikeRealRawData(plain.html)) {
       return { status: 'ok', html: plain.html, via: 'http' };
     }
     if (!looksLikeLoadingShell(plain.html)) {

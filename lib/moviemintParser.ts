@@ -369,7 +369,159 @@ export type ParsedListingEntry = {
   gross: number | null;
 };
 
+// ---------------------------------------------------------------------------
+// Next.js (App Router) embeds each page's server-fetched data directly in
+// the initial HTML response as React's "Flight" payload: a series of
+// self.__next_f.push([id, "<chunk>"]) calls whose string chunks
+// concatenate into one stream containing plain JSON fragments (e.g.
+// `11:["$","$L21",null,{"movies":[{...}, ...]}]`).
+//
+// Confirmed live (2026-09-21): /tracked's ENTIRE "movies" array --
+// boxOfficeId, title, poster, releaseDate, language, gross, ticketsSold,
+// shows, avgOccupancy, topState, every field this project needs -- is
+// present this way in a single plain HTTP response, no browser render
+// required. /advance does NOT embed its Top 10 this way (confirmed: zero
+// "gross" keys anywhere in its payload) -- that listing is genuinely
+// client-fetched after mount, so extractFlightMovies() correctly returns
+// null there and the caller below falls back to DOM scraping (which also
+// then legitimately finds nothing from a pre-render shell -- the correct
+// "not real data yet" signal, see moviemintClient.ts's
+// looksLikeRealRawData).
+// ---------------------------------------------------------------------------
+
+// Scans for every self.__next_f.push([id, "chunk"]) call via a
+// quote/escape-aware balanced-paren scan (not a regex -- a chunk's own
+// string content can contain arbitrary nested quotes/backslashes), parses
+// each call's `[id, "chunk"]` array as JSON (valid JSON syntax -- React
+// writes it with JSON.stringify), and concatenates the chunks in order.
+function extractFlightText(html: string): string {
+  const marker = 'self.__next_f.push(';
+  const chunks: string[] = [];
+  let searchFrom = 0;
+
+  while (true) {
+    const pushIdx = html.indexOf(marker, searchFrom);
+    if (pushIdx === -1) break;
+    const openParen = pushIdx + marker.length - 1;
+
+    let i = openParen;
+    let depth = 0;
+    let inStr = false;
+    let esc = false;
+    for (; i < html.length; i++) {
+      const c = html[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (c === '\\') esc = true;
+        else if (c === '"') inStr = false;
+      } else {
+        if (c === '"') inStr = true;
+        else if (c === '(') depth++;
+        else if (c === ')') {
+          depth--;
+          if (depth === 0) {
+            i++;
+            break;
+          }
+        }
+      }
+    }
+
+    const call = html.slice(openParen + 1, i - 1);
+    try {
+      const parsed = JSON.parse(call);
+      if (Array.isArray(parsed) && typeof parsed[1] === 'string') chunks.push(parsed[1]);
+    } catch {
+      // Not a well-formed [id, "chunk"] pair -- skip it rather than fail
+      // the whole extraction over one malformed push() call.
+    }
+    searchFrom = i;
+  }
+
+  return chunks.join('');
+}
+
+// Same quote/escape-aware balanced scan, this time for a JSON array value
+// (`[...]`) starting at a known index within already-concatenated flight
+// text.
+function extractBalancedArrayText(text: string, startIdx: number): string {
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  let i = startIdx;
+  for (; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+    } else {
+      if (c === '"') inStr = true;
+      else if (c === '[') depth++;
+      else if (c === ']') {
+        depth--;
+        if (depth === 0) {
+          i++;
+          break;
+        }
+      }
+    }
+  }
+  return text.slice(startIdx, i);
+}
+
+type FlightMovieRecord = {
+  boxOfficeId?: unknown;
+  title?: unknown;
+  href?: unknown;
+  gross?: unknown;
+};
+
+function extractFlightMovies(html: string): FlightMovieRecord[] | null {
+  const flightText = extractFlightText(html);
+  const key = '"movies":[';
+  const keyIdx = flightText.indexOf(key);
+  if (keyIdx === -1) return null;
+
+  const arrStart = keyIdx + key.length - 1; // index of the '['
+  const arrText = extractBalancedArrayText(flightText, arrStart);
+  try {
+    const parsed: unknown = JSON.parse(arrText);
+    return Array.isArray(parsed) ? (parsed as FlightMovieRecord[]) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function parseListingSlugs(html: string): ParsedListingEntry[] {
+  const flightMovies = extractFlightMovies(html);
+  if (flightMovies && flightMovies.length > 0) {
+    const entries: ParsedListingEntry[] = [];
+    flightMovies.forEach((m, i) => {
+      const title = typeof m.title === 'string' ? m.title : '';
+      const slug =
+        typeof m.boxOfficeId === 'string'
+          ? m.boxOfficeId
+          : typeof m.href === 'string'
+            ? m.href.replace(/^\/movie\//, '').split(/[?#]/)[0]
+            : null;
+      if (!slug || !title) return;
+      // MovieMint's embedded gross is a raw rupee amount (e.g.
+      // 129985597.46); every other gross figure in this codebase is in
+      // Crores (see parseGrossCr), so convert here to keep that
+      // convention consistent for anything comparing/displaying this
+      // value later.
+      const gross = typeof m.gross === 'number' ? m.gross / 1e7 : null;
+      entries.push({ rank: i + 1, slug, title, gross });
+    });
+    if (entries.length > 0) return entries;
+  }
+
+  // Fallback: DOM-based scraping. What runs for a listing page that
+  // doesn't embed its data via the Flight payload (e.g. /advance) -- and
+  // correctly returns empty there, since a pre-render loading shell has
+  // no real <a href="/movie/..."> links either. Also the path for any
+  // future page shape this investigation hasn't seen.
   const $ = cheerio.load(html);
   const bySlug = new Map<string, ParsedListingEntry>();
 
