@@ -95,7 +95,48 @@ export type BrowserRenderResult =
 
 let sharedBrowserPromise: Promise<Browser> | null = null;
 
+// MovieMint's Cloudflare protection challenges Vercel's own outbound IP
+// specifically -- confirmed by comparing a Vercel-run sync (blocked with
+// an actual interactive interstitial on /tracked) against the exact same
+// page loading cleanly over an ordinary residential connection, same day.
+// scripts/sync-moviemint-local.ts exists to run this whole module from a
+// developer's own machine instead, over that unflagged network -- but
+// @sparticuz/chromium's binary is built specifically for Amazon Linux/
+// Lambda and simply does not run on a developer's own OS (macOS, most
+// Linux desktops, Windows). So locally, this launches an ordinary full
+// Puppeteer-managed Chromium (downloaded for the current platform when
+// the optional `puppeteer` devDependency is installed) instead -- same
+// puppeteer-core driving it either way, just a different browser binary
+// source. Never used on Vercel: VERCEL is set in every Vercel environment
+// (build and runtime, including `vercel dev`), so production behavior
+// here is byte-for-byte unchanged.
+async function launchLocalBrowser(): Promise<Browser | null> {
+  try {
+    // Optional: only ever imported when VERCEL is unset (see
+    // launchBrowser below), so this can never affect what ships to
+    // Vercel even though `puppeteer` (full) is a fairly large package.
+    const mod: any = await import('puppeteer');
+    const puppeteerFull = mod.default ?? mod;
+    const browser = await puppeteerFull.launch({
+      defaultViewport: { width: 1280, height: 1024 },
+      headless: true
+    });
+    return browser as unknown as Browser;
+  } catch {
+    // `puppeteer` isn't installed (npm install hasn't picked up the new
+    // devDependency yet) -- caller falls back to the @sparticuz/chromium
+    // path below, which will fail with a clear "couldn't launch" message
+    // on most local machines rather than silently doing nothing.
+    return null;
+  }
+}
+
 async function launchBrowser(): Promise<Browser> {
+  if (!process.env.VERCEL) {
+    const local = await launchLocalBrowser();
+    if (local) return local;
+  }
+
   // Dynamically imported so merely importing this module (or anything
   // that transitively imports it, e.g. in a test file) never tries to
   // load native Chromium bindings unless a render is actually attempted.
