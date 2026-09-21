@@ -4,16 +4,21 @@ import { Film, TrendingUp, CalendarRange, Star, ArrowRight } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient';
 import MovieCard from '@/components/MovieCard';
 import { Card, StatCard, SectionHeading, EmptyState } from '@/components/ui';
-import { isInTheaters, titleWithYear } from '@/lib/movieStatus';
+import { isInTheaters, titleWithYear, collectionCr } from '@/lib/movieStatus';
 
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
 
 async function getData() {
-  const [{ data: news }, { data: reviews }, { data: liveBoxOffice }, { data: nowShowingRaw }, { data: upcoming }] =
+  // live_box_office used to back the "top live" stat card, but nothing
+  // has written to it since Sacnilk was discontinued (2026-09) -- it's
+  // permanently empty now regardless of how current the MovieMint sync
+  // is. Fixed 2026-09-21: derive "top live" from now_showing itself
+  // (MovieMint's own collection figures), the same source every other
+  // stat/card on this page already uses.
+  const [{ data: news }, { data: reviews }, { data: nowShowingRaw }, { data: upcoming }] =
     await Promise.all([
       supabase.from('news').select('*').order('created_at', { ascending: false }).limit(12),
       supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(9),
-      supabase.from('live_box_office').select('*').order('created_at', { ascending: false }).limit(10),
       // Fetched unlimited (well past what any "in theaters" set will ever
       // hold) and filtered below to movies still within their theatrical
       // window -- a plain .limit() here could easily cut off before we'd
@@ -22,20 +27,24 @@ async function getData() {
       supabase.from('now_showing').select('*').order('release_date', { ascending: false }).limit(200),
       supabase.from('upcoming').select('*').order('release_date', { ascending: true }).limit(8)
     ]);
-  const nowShowing = (nowShowingRaw ?? []).filter((m: any) => isInTheaters(m)).slice(0, 10);
+  const nowShowingActive = (nowShowingRaw ?? []).filter((m: any) => isInTheaters(m));
+  // Ranked across every currently-showing movie, not just the 10 shown in
+  // the carousel below -- the top earner overall might not be among the
+  // most recently released.
+  const topLive =
+    [...nowShowingActive].filter((m: any) => collectionCr(m) > 0).sort((a: any, b: any) => collectionCr(b) - collectionCr(a))[0] ?? null;
   return {
     news: news ?? [],
     reviews: reviews ?? [],
-    liveBoxOffice: liveBoxOffice ?? [],
-    nowShowing,
+    nowShowing: nowShowingActive.slice(0, 10),
+    topLive,
     upcoming: upcoming ?? []
   };
 }
 
 export default async function HomePage() {
-  const { news, reviews, liveBoxOffice, nowShowing, upcoming } = await getData();
+  const { news, reviews, nowShowing, topLive, upcoming } = await getData();
   const featured = nowShowing[0];
-  const topLive = [...liveBoxOffice].sort((a, b) => Number(b.amt) - Number(a.amt))[0] ?? null;
   const nearestUpcoming = upcoming[0] ?? null;
   const nearestDays = nearestUpcoming
     ? Math.max(0, Math.ceil((new Date(nearestUpcoming.release_date).getTime() - Date.now()) / 86400000))
@@ -52,7 +61,7 @@ export default async function HomePage() {
           icon={TrendingUp}
           tint="teal"
           label={topLive ? topLive.title : 'No live tracking yet'}
-          value={topLive ? `₹${Number(topLive.amt).toFixed(1)} Cr` : '—'}
+          value={topLive ? `₹${collectionCr(topLive).toFixed(1)} Cr` : '—'}
         />
         <StatCard
           icon={CalendarRange}
