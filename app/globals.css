@@ -4,12 +4,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Near-black canvas -- MovieMint's own tracker pages sit on #0A0A0A with
-   zinc-toned cards on top (bg-surface / bg-surface2), never plain black
-   panels, so depth reads from tone + a hairline border rather than a
-   drop shadow (which doesn't show on a dark background anyway). */
+/* Near-black canvas with a whisper of warmth (not a flat, cold #0A0A0A)
+   -- zinc-toned cards sit on top (bg-surface / bg-surface2), depth comes
+   from tone + a hairline border rather than a drop shadow. */
 body {
-  background-color: #0A0A0A;
+  background-color: #0C0B0A;
   color: #FFFFFF;
 }
 
@@ -23,11 +22,11 @@ body {
      utility win instead of losing to this same-specificity rule later. */
 }
 
-/* Deep green -> bright mint accent text, used for the "days to go" /
-   headline numbers that want a touch of shine without leaving the
-   tracker-green palette. */
+/* Ember red -> orange -> gold: an actual flame gradient for fyre's own
+   mark, used on the "days to go" / headline numbers that want a touch
+   of shine. */
 .gtext {
-  background: linear-gradient(90deg, #00B673 0%, #00E18C 55%, #6FFFC0 100%);
+  background: linear-gradient(90deg, #E8460F 0%, #FF7A1A 55%, #FFC94D 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -44,23 +43,11 @@ body {
   opacity: 0.35;
 }
 
-/* MovieMint's faint background grid, reproduced as a tileable gradient
-   instead of an image -- applied to the app shell's main content well so
-   it reads as one continuous canvas behind every page. */
-.bg-grid {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: 34px 34px;
-  background-position: -1px -1px;
-}
-
-/* Featured-movie banner (homepage) -- a moody near-black -> deep-green
-   sweep instead of the old blue "bank card" gradient, so a poster image
-   laid on top still reads clearly. */
+/* Featured-movie banner (homepage) -- a moody near-black -> ember glow
+   sweep, so a poster image laid on top still reads clearly. */
 .card-gradient-primary {
-  background: linear-gradient(120deg, #0A0A0A 0%, #0C1F17 55%, #04150F 100%);
+  background: linear-gradient(120deg, #0C0B0A 0%, #2A130A 55%, #170A06 100%);
 }
 .card-gradient-secondary {
-  background: linear-gradient(115deg, #0F2B20 2.6%, #00E18C 140%);
+  background: linear-gradient(115deg, #3A160A 2.6%, #FF7A1A 140%);
 }

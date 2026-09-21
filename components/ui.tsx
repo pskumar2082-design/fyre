@@ -17,7 +17,10 @@ import Link from 'next/link';
 const TINTS = {
   blue: 'bg-white/5 text-textDim border border-white/5',
   teal: 'bg-gold/10 text-gold border border-gold/20',
-  yellow: 'bg-amber-400/10 text-amber-400 border border-amber-400/20',
+  // Cool blue rather than another warm/amber tone -- keeps the calendar
+  // "days to go" cards from reading as a duller copy of the primary
+  // ember-orange accent used for money figures.
+  yellow: 'bg-sky-400/10 text-sky-400 border border-sky-400/20',
   pink: 'bg-coral/10 text-coral border border-coral/20'
 } as const;
 

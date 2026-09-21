@@ -8,40 +8,38 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Premium dark theme inspired by MovieMint's own tracker UI
-        // (moviemintbo.com) -- near-black canvas, zinc-toned cards, one
-        // disciplined accent color (mint green) reserved for money
-        // figures, live status and primary actions. Every existing
-        // className (bg-surface, text-textDim, border-border, bg-gold,
-        // ...) picks up the new look automatically, no per-file renames
-        // needed -- this file is the single place the whole site's
-        // palette lives.
-        bg: '#0A0A0A',
-        bgAlt: '#111113',
-        surface: '#141416',
-        surface2: '#1A1B1E',
-        border: '#27272A', // zinc-800
-        gold: '#00E18C',       // primary accent -- MovieMint's exact tracker green
-        goldBright: '#34F5A8', // brighter green for hover/emphasis states
-        goldDim: '#00E18C',    // same hue -- always used at low opacity (bg-goldDim/10) for tints
+        // Dark theme built around fyre's own mark -- a flame -- instead
+        // of borrowing another tracker's exact brand color. Near-black
+        // canvas, neutral zinc-toned cards, and one accent: ember
+        // orange, reserved for money figures, live status and primary
+        // actions. Every existing className (bg-surface, text-textDim,
+        // border-border, bg-gold, ...) picks up the new palette
+        // automatically -- this file is the single place it all lives.
+        bg: '#0C0B0A',
+        bgAlt: '#131210',
+        surface: '#161513',
+        surface2: '#1C1B18',
+        border: '#2A2825', // warm-tinted zinc-800
+        gold: '#FF7A1A',       // primary accent -- ember/flame orange
+        goldBright: '#FFA245', // brighter amber for hover/emphasis states
+        goldDim: '#FF7A1A',    // same hue -- always used at low opacity (bg-goldDim/10) for tints
         red: '#F65A5A',        // negative / error
         text: '#FFFFFF',       // headings
-        textDim: '#A1A1AA',    // zinc-400 -- body / secondary text
-        textFaint: '#71717A',  // zinc-500 -- muted labels, placeholders
-        // Gradient-text stops (.gtext) -- deep green -> bright mint,
-        // staying inside the tracker-green palette instead of the old
-        // blue/teal run.
-        brandPurple: '#00B673',
-        brandPink: '#00E18C',
-        brandOrange: '#6FFFC0',
-        positive: '#00E18C',
+        textDim: '#A8A29A',    // warm-tinted gray -- body / secondary text
+        textFaint: '#78726A',  // muted labels, placeholders
+        // Gradient-text stops (.gtext) -- ember red -> orange -> gold,
+        // an actual flame gradient instead of a cool blue/teal run.
+        brandPurple: '#E8460F',
+        brandPink: '#FF7A1A',
+        brandOrange: '#FFC94D',
+        positive: '#FF7A1A',
         coral: '#FF6B8B',
-        chartBlue: '#00E18C',
-        chartTeal: '#34F5A8',
-        tintBlue: '#141416',
+        chartBlue: '#FF7A1A',
+        chartTeal: '#FFC94D',
+        tintBlue: '#161513',
         tintPink: '#1A1416',
         tintYellow: '#1A1712',
-        tintTeal: '#0F1A17'
+        tintTeal: '#171310'
       },
       // Keep the same radius scale the app already uses everywhere.
       borderRadius: {

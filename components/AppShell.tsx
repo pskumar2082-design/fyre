@@ -18,8 +18,7 @@ import {
 
 // Dark app shell: a fixed 250px near-black sidebar with icon nav + a
 // green active accent bar, a matching header with a page title / search
-// pill, and a #0A0A0A content well (see .bg-grid in globals.css for the
-// faint grid texture behind every page). Wraps every public route via
+// pill, and a #0C0B0A content well. Wraps every public route via
 // app/layout.tsx. /admin is reachable directly by URL but intentionally
 // left off the public nav -- it's not a section a visitor should be
 // browsing to.
@@ -160,7 +159,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 bg-bg bg-grid">{children}</main>
+        <main className="flex-1 bg-bg">{children}</main>
       </div>
     </div>
   );
