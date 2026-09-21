@@ -78,7 +78,7 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
           </div>
           <div className="min-w-0 flex flex-col justify-center">
             {details.state !== 'unknown' && (
-              <span className={`inline-flex items-center gap-1.5 w-fit text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-lg mb-2.5 ${STATE_BADGE[details.state]}`}>
+              <span className={`inline-flex items-center gap-1.5 w-fit text-[11px] font-bold uppercase px-2.5 py-1 rounded-lg mb-2.5 ${STATE_BADGE[details.state]}`}>
                 {details.state === 'live' && (
                   <span className="relative flex w-1.5 h-1.5">
                     <span className="absolute inline-flex w-full h-full rounded-full bg-white/60 animate-ping" />
@@ -91,7 +91,7 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
             <h1 className="hdisplay text-2xl sm:text-3xl text-text">{details.title}</h1>
             {details.headlineGross && (
               <div className="mt-3">
-                <div className="text-gold font-stat font-bold text-5xl sm:text-6xl tracking-wide leading-none">{details.headlineGross}</div>
+                <div className="text-gold font-stat font-bold text-5xl sm:text-6xl leading-none">{details.headlineGross}</div>
                 {details.headlineLabel && <div className="text-textFaint text-xs mt-1">{details.headlineLabel}</div>}
               </div>
             )}
@@ -112,7 +112,7 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
                 className={`p-4 ${highlight ? 'bg-gold/5 border-gold/25' : ''}`}
               >
                 <div className="mdtype-overline text-textFaint truncate">{s.label}</div>
-                <div className={`font-stat text-2xl tracking-wide mt-1 truncate ${highlight ? 'font-bold text-gold' : 'font-semibold text-textDim'}`}>{s.value}</div>
+                <div className={`font-stat text-2xl mt-1 truncate ${highlight ? 'font-bold text-gold' : 'font-semibold text-textDim'}`}>{s.value}</div>
                 {s.note && <div className="text-textFaint text-[10px] mt-0.5">{s.note}</div>}
               </Card>
             );

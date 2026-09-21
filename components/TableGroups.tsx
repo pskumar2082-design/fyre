@@ -116,6 +116,17 @@ function isMoneyColumn(header: string): boolean {
   return /gross|collection|coll\./i.test(header);
 }
 
+// Everything else genuinely numeric in these sheets (tickets, shows,
+// screens, occupancy/share percentages, day-over-day change) is
+// Walmart's "Data + Code" tier -- a monospace face at Regular weight so
+// digits line up column-to-column, which is the whole reason that tier
+// exists. Only fires on a recognized numeric header; an unmatched column
+// (state, city, language, weekday, date) renders as plain text exactly
+// as before.
+function isDataColumn(header: string): boolean {
+  return /ticket|show|screen|occupancy|share|change|%/i.test(header);
+}
+
 function TableView({ table }: { table: TTTable }) {
   return (
     <div className="overflow-x-auto -mx-1">
@@ -125,7 +136,9 @@ function TableView({ table }: { table: TTTable }) {
             {table.headers.map((h) => (
               <th
                 key={h}
-                className={`text-left mdtype-overline py-2.5 px-3 whitespace-nowrap text-textFaint ${isMoneyColumn(h) ? 'text-right' : ''}`}
+                className={`text-left mdtype-overline py-2.5 px-3 whitespace-nowrap text-textFaint ${
+                  isMoneyColumn(h) || isDataColumn(h) ? 'text-right' : ''
+                }`}
               >
                 {h}
               </th>
@@ -146,7 +159,11 @@ function TableView({ table }: { table: TTTable }) {
                 <td
                   key={h}
                   className={`py-2.5 px-3 whitespace-nowrap ${
-                    isMoneyColumn(h) ? 'text-right font-stat font-bold text-base tracking-wide text-gold' : 'text-textDim'
+                    isMoneyColumn(h)
+                      ? 'text-right font-stat font-bold text-base text-gold'
+                      : isDataColumn(h)
+                        ? 'text-right font-mono text-[13px] leading-[1.3] tabular-nums text-textDim'
+                        : 'text-textDim'
                   } ${row.__isTotal ? 'text-text' : ''}`}
                 >
                   {row[h] ?? ''}
@@ -298,7 +315,7 @@ function HeadingDropdown({
                 </span>
                 {isLatest && (
                   <span className="flex-none flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wide bg-goldDim/10 text-goldDim border border-goldDim/20 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold uppercase bg-goldDim/10 text-goldDim border border-goldDim/20 px-2 py-0.5 rounded-full">
                       Latest
                     </span>
                     <span className="w-1.5 h-1.5 rounded-full bg-goldDim" />

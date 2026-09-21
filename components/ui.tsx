@@ -75,7 +75,7 @@ export function StatCard({
       <IconBadge icon={icon} tint={tint} size={56} />
       <div className="min-w-0">
         <div className="mdtype-overline text-textFaint truncate">{label}</div>
-        <div className={`font-stat font-bold text-3xl sm:text-4xl tracking-wide truncate mt-0.5 ${TINT_TEXT[tint]}`}>
+        <div className={`font-stat font-bold text-3xl sm:text-4xl truncate mt-0.5 ${TINT_TEXT[tint]}`}>
           {value}
         </div>
       </div>

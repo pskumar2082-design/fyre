@@ -79,7 +79,7 @@ export default async function HomePage() {
             <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
           </div>
           <div className="text-textFaint text-xs mb-1">Today's Gross</div>
-          <div className="font-stat font-bold text-5xl tracking-wide text-gold leading-none">{formatCr(todaysGrossCr)}</div>
+          <div className="font-stat font-bold text-5xl text-gold leading-none">{formatCr(todaysGrossCr)}</div>
           <div className="text-textFaint text-xs mt-2.5">across {nowShowing.length} movie{nowShowing.length === 1 ? '' : 's'} live right now</div>
         </Card>
 
@@ -89,7 +89,7 @@ export default async function HomePage() {
             <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
           </div>
           <div className="text-textFaint text-xs mb-1">Live Now</div>
-          <div className="font-stat font-bold text-5xl tracking-wide text-red leading-none">{nowShowing.length}</div>
+          <div className="font-stat font-bold text-5xl text-red leading-none">{nowShowing.length}</div>
           <div className="text-textFaint text-xs mt-2.5">{upcoming.length} upcoming · {completedCount} completed archive</div>
         </Card>
 
@@ -171,7 +171,7 @@ export default async function HomePage() {
                         </Link>
                       </td>
                       <td className="py-3 px-3">
-                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${
+                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold uppercase px-2.5 py-1 rounded-full ${
                           m.state === 'live' ? 'bg-red/10 text-red border border-red/20' : 'bg-black/[0.03] text-textFaint border border-black/5'
                         }`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${m.state === 'live' ? 'bg-red' : 'bg-textFaint'}`} />
