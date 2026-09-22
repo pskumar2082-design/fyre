@@ -290,9 +290,11 @@ function SignIn() {
   );
 }
 
+const REPORT_CARD_KEY = 'report-card';
+
 function AdminShell() {
-  const [activeKey, setActiveKey] = useState(SECTIONS[0].key);
-  const active = SECTIONS.find((s) => s.key === activeKey)!;
+  const [activeKey, setActiveKey] = useState<string>(SECTIONS[0].key);
+  const active = SECTIONS.find((s) => s.key === activeKey) ?? null;
 
   return (
     <div className="px-5 md:px-10 py-8 max-w-4xl">
@@ -320,11 +322,99 @@ function AdminShell() {
             {s.label}
           </button>
         ))}
+        {/* Not a Supabase table like the tabs above -- generates a shareable
+            image on demand from a TrackTollywood movie's own live data,
+            for posting on X/etc. See app/api/report-card/[slug]/route.tsx. */}
+        <button
+          onClick={() => setActiveKey(REPORT_CARD_KEY)}
+          className={`text-sm font-medium pb-3 border-b-[3px] -mb-px transition whitespace-nowrap ${
+            activeKey === REPORT_CARD_KEY
+              ? 'text-gold border-gold'
+              : 'text-textFaint border-transparent hover:text-gold'
+          }`}
+        >
+          Report card
+        </button>
       </div>
 
       {/* key={active.key} remounts the Dashboard on tab switch, which resets
           all its form/list state for free instead of a manual reset effect. */}
-      <Dashboard key={active.key} section={active} />
+      {active ? <Dashboard key={active.key} section={active} /> : <ReportCardTool />}
+    </div>
+  );
+}
+
+// Turns any TrackTollywood-tracked movie's live data into a branded,
+// downloadable image (app/api/report-card/[slug]/route.tsx does the actual
+// rendering via next/og) -- built for posting a daily box-office update on
+// X without hand-designing a graphic every time. Just a slug input + an
+// <img> preview; the route itself does the real work and can be hit
+// directly too (e.g. /api/report-card/the-paradise).
+function ReportCardTool() {
+  const [slug, setSlug] = useState('');
+  const [submitted, setSubmitted] = useState<{ slug: string; cacheBust: number } | null>(null);
+  const [imageError, setImageError] = useState(false);
+
+  function generate(e: FormEvent) {
+    e.preventDefault();
+    const clean = slug.trim().toLowerCase();
+    if (!clean) return;
+    setImageError(false);
+    // cacheBust forces a fresh <img> load even when generating the same
+    // slug twice in a row (TrackTollywood's own numbers can move between
+    // the two clicks, and the browser would otherwise just show the first
+    // request's cached image).
+    setSubmitted({ slug: clean, cacheBust: Date.now() });
+  }
+
+  const imageUrl = submitted ? `/api/report-card/${submitted.slug}?t=${submitted.cacheBust}` : null;
+
+  return (
+    <div className="max-w-2xl">
+      <p className="text-sm text-textDim mb-4">
+        Enter a movie's TrackTollywood slug (the last part of its URL, e.g. <code>the-paradise</code> from{' '}
+        <code>/tracktollywood/the-paradise</code>) to generate a shareable report card image from its current live
+        data.
+      </p>
+      <form onSubmit={generate} className="flex gap-3 mb-6">
+        <input
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+          placeholder="the-paradise"
+          className="bg-bg rounded-lg px-4 py-3 text-sm flex-1"
+        />
+        <button type="submit" className="bg-gold text-white font-semibold rounded-lg px-6 py-2.5 text-sm">
+          Generate
+        </button>
+      </form>
+
+      {submitted && (
+        <Card className="p-4">
+          {imageError ? (
+            <div className="text-sm text-red">
+              Couldn't generate a report card for "{submitted.slug}" -- TrackTollywood may not have a movie at that
+              slug, or it has no breakdown data tracked yet.
+            </div>
+          ) : (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl!}
+                alt={`${submitted.slug} report card`}
+                onError={() => setImageError(true)}
+                className="w-full rounded-xl border border-border"
+              />
+              <a
+                href={imageUrl!}
+                download={`fyre-${submitted.slug}-report.png`}
+                className="inline-block mt-3 text-xs font-semibold text-goldBright"
+              >
+                Download image →
+              </a>
+            </>
+          )}
+        </Card>
+      )}
     </div>
   );
 }
