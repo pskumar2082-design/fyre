@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Search, TrendingUp, Film, ListFilter, IndianRupee } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
-import { getLiveMovies, getCompletedMovies, parseReleaseDate, parseAmountToCr } from '@/lib/tracktollywood/scraper';
+import { getLiveMovies, getCompletedMovies, getMovieDetails, parseReleaseDate, parseAmountToCr } from '@/lib/tracktollywood/scraper';
 import { getDailyTotals } from '@/lib/tracktollywood/aggregate';
 import { STATE_LABEL, STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
 import { Card, IconBadge, SectionHeading, EmptyState, Pill } from '@/components/ui';
@@ -33,6 +33,32 @@ async function getData() {
     .map((m) => ({ ...m, _date: parseReleaseDate(m.releaseText) }))
     .sort((a, b) => (a._date?.getTime() ?? Infinity) - (b._date?.getTime() ?? Infinity));
 
+  // The homepage's own Upcoming row shows each movie's full headline
+  // figure (e.g. "₹24.18Cr — India Advance", the same number the
+  // movie's own detail page leads with) rather than the lighter "Advance
+  // Gross" figure the hub listing page carries (e.g. "₹18.61Cr") -- both
+  // are genuinely different, correctly-scraped TrackTollywood metrics,
+  // and the detail page's headline is the one the user wants surfaced
+  // here. That means one extra fetch per card, so this only runs for the
+  // ~10 movies actually shown in the row, in parallel, and falls back to
+  // the hub listing's own gross/grossLabel for any movie whose detail
+  // fetch fails -- a slower or broken detail page for one title should
+  // never blank out its card.
+  const upcomingPreview = upcoming.slice(0, 10);
+  const upcomingRow = await Promise.all(
+    upcomingPreview.map(async (m) => {
+      try {
+        const details = await getMovieDetails(m.slug);
+        if (details?.headlineGross) {
+          return { ...m, gross: details.headlineGross, grossLabel: details.headlineLabel ?? m.grossLabel };
+        }
+      } catch {
+        // fall through to the hub-listing figure already on `m`
+      }
+      return m;
+    })
+  );
+
   // Today's aggregate gross -- summed live from each live movie's own
   // "today" figure (todayText), not from the snapshot table, so this is
   // always accurate to the minute rather than lagging a day behind.
@@ -43,6 +69,7 @@ async function getData() {
     reviews: reviews ?? [],
     nowShowing,
     upcoming,
+    upcomingRow,
     completed,
     completedCount: completed.length,
     todaysGrossCr,
@@ -56,10 +83,9 @@ function formatCr(cr: number): string {
 }
 
 export default async function HomePage() {
-  const { news, reviews, nowShowing, upcoming, completed, completedCount, todaysGrossCr, dailyTotals } = await getData();
+  const { news, reviews, nowShowing, upcoming, upcomingRow, completed, completedCount, todaysGrossCr, dailyTotals } = await getData();
   const liveTable = [...nowShowing].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
   const boxOfficeRow = [...completed].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
-  const upcomingRow = upcoming.slice(0, 10);
 
   return (
     <div className="px-5 md:px-8 py-8 flex flex-col lg:flex-row gap-6">
