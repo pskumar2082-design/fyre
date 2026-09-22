@@ -10,10 +10,17 @@ import { Donut, TrendChart } from '@/components/charts';
 import MovieCard from '@/components/MovieCard';
 
 export const dynamic = 'force-dynamic';
+// Belt-and-braces alongside force-dynamic above: without this, supabase-js's own
+// fetch() calls can still get picked up by Next's Data Cache independently of
+// the page's rendering mode, which is why newly-added news/reviews could take a
+// while to show up on the homepage. This forces every fetch in this route
+// segment -- including third-party ones like supabase-js's -- to always hit
+// the network.
+export const fetchCache = 'force-no-store';
 
 async function getData() {
   const [{ data: news }, { data: reviews }, allMovies, completed, dailyTotals] = await Promise.all([
-    supabase.from('news').select('*').order('created_at', { ascending: false }).limit(6),
+    supabase.from('news').select('*').order('created_at', { ascending: false }).limit(10),
     supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(3),
     getLiveMovies().catch(() => [] as Awaited<ReturnType<typeof getLiveMovies>>),
     getCompletedMovies().catch(() => [] as Awaited<ReturnType<typeof getCompletedMovies>>),
@@ -141,18 +148,18 @@ export default async function HomePage() {
         {news.length > 0 && (
           <section className="mb-10">
             <SectionHeading title="Latest from the industry" action={<Link href="/news" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
               {news.map((n: any) => (
                 <Link key={n.id} href={`/news/${n.id}`} className="block group">
                   <Card className="overflow-hidden hover:-translate-y-0.5 transition">
                     {n.image_url && (
-                      <div className="relative h-36 w-full">
+                      <div className="relative h-20 sm:h-36 w-full">
                         <Image src={n.image_url} alt="" fill className="object-cover object-top" />
                       </div>
                     )}
-                    <div className="p-4">
-                      <h3 className="font-semibold mb-2 text-text group-hover:text-gold transition">{n.title}</h3>
-                      <p className="text-sm text-textDim line-clamp-2">{n.excerpt}</p>
+                    <div className="p-2.5 sm:p-4">
+                      <h3 className="text-sm sm:text-base font-semibold mb-1 sm:mb-2 text-text group-hover:text-gold transition line-clamp-2">{n.title}</h3>
+                      <p className="hidden sm:block text-sm text-textDim line-clamp-2">{n.excerpt}</p>
                     </div>
                   </Card>
                 </Link>
