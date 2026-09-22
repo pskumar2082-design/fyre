@@ -2,9 +2,42 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import type { Metadata } from 'next';
 import { supabase } from '@/lib/supabaseClient';
+import { SITE_URL } from '@/lib/siteConfig';
 
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
+
+// Per-review <title>/description/Open Graph card -- see the matching
+// comment in app/news/[id]/page.tsx for why this was missing and why it
+// matters for shared links.
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const { data: r } = await supabase.from('reviews').select('*').eq('id', params.id).single();
+  if (!r) return {};
+
+  const description = (r.excerpt || r.content || '').slice(0, 200);
+  const url = `${SITE_URL}/reviews/${params.id}`;
+  const title = `${r.title} — ${r.rating}/5 Review`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'article',
+      url,
+      title,
+      description,
+      images: r.image_url ? [{ url: r.image_url }] : undefined
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: r.image_url ? [r.image_url] : undefined
+    }
+  };
+}
 
 export default async function ReviewDetailPage({ params }: { params: { id: string } }) {
   const { data: r } = await supabase.from('reviews').select('*').eq('id', params.id).single();

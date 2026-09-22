@@ -27,12 +27,14 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: 'fyre — Telugu Box Office Collections, News & Reviews',
     description: SITE_DESCRIPTION,
-    locale: 'en_IN'
+    locale: 'en_IN',
+    images: [{ url: '/logo.png', width: 584, height: 240, alt: SITE_NAME }]
   },
   twitter: {
     card: 'summary_large_image',
     title: 'fyre — Telugu Box Office Collections, News & Reviews',
-    description: SITE_DESCRIPTION
+    description: SITE_DESCRIPTION,
+    images: ['/logo.png']
   }
 };
 

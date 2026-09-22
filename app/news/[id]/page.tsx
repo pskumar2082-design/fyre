@@ -2,9 +2,43 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import type { Metadata } from 'next';
 import { supabase } from '@/lib/supabaseClient';
+import { SITE_URL } from '@/lib/siteConfig';
 
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
+
+// Per-article <title>/description/Open Graph card -- without this, every
+// shared news link fell back to the site-wide homepage title/description
+// (and, before the root layout got a fallback image, no image at all),
+// so a link pasted into X/WhatsApp/etc. couldn't tell one article's card
+// apart from another's or from the homepage's.
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const { data: n } = await supabase.from('news').select('*').eq('id', params.id).single();
+  if (!n) return {};
+
+  const description = (n.excerpt || n.content || '').slice(0, 200);
+  const url = `${SITE_URL}/news/${params.id}`;
+
+  return {
+    title: n.title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'article',
+      url,
+      title: n.title,
+      description,
+      images: n.image_url ? [{ url: n.image_url }] : undefined
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: n.title,
+      description,
+      images: n.image_url ? [n.image_url] : undefined
+    }
+  };
+}
 
 export default async function NewsDetailPage({ params }: { params: { id: string } }) {
   const { data: n } = await supabase.from('news').select('*').eq('id', params.id).single();
