@@ -71,7 +71,7 @@ export default async function BoxOfficePage({ searchParams }: { searchParams: { 
                 <tr key={m.slug} className="border-b border-border last:border-0 hover:bg-black/[0.02] transition">
                   <td className="py-3 px-5 text-textFaint font-semibold">{i + 1}</td>
                   <td className="py-3 px-5">
-                    <Link href={`/tracktollywood/${m.slug}`} className="flex items-center gap-3 group">
+                    <Link href={`/movie/${m.slug}`} className="flex items-center gap-3 group">
                       <div className="w-10 h-14 flex-none rounded-lg overflow-hidden bg-surface2 border border-black/[0.04] relative">
                         {m.poster && <Image src={m.poster} alt="" fill unoptimized className="object-cover object-top" />}
                       </div>

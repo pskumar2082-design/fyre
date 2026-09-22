@@ -254,7 +254,7 @@ export default async function HomePage() {
                     <tr key={m.slug} className="border-b border-border last:border-0 hover:bg-black/[0.02] transition">
                       <td className="py-3 px-3 text-textFaint font-semibold">{String(i + 1).padStart(2, '0')}</td>
                       <td className="py-3 px-3">
-                        <Link href={`/tracktollywood/${m.slug}`} className="flex items-center gap-3 group">
+                        <Link href={`/movie/${m.slug}`} className="flex items-center gap-3 group">
                           <div className="w-9 h-9 flex-none rounded-full overflow-hidden bg-surface2 border border-black/[0.04] relative">
                             {m.poster && <Image src={m.poster} alt="" fill unoptimized className="object-cover object-top" />}
                           </div>
@@ -271,7 +271,7 @@ export default async function HomePage() {
                       </td>
                       <td className="py-3 px-3 text-right font-stat font-bold text-base text-gold">{m.gross || '—'}</td>
                       <td className="py-3 px-3 text-right">
-                        <Pill href={`/tracktollywood/${m.slug}`} variant="primary" className="!text-xs !px-4 !py-1.5">
+                        <Pill href={`/movie/${m.slug}`} variant="primary" className="!text-xs !px-4 !py-1.5">
                           Details
                         </Pill>
                       </td>

@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   ]
     .filter(Boolean)
     .join(' ');
-  const url = `${SITE_URL}/tracktollywood/${params.slug}`;
+  const url = `${SITE_URL}/movie/${params.slug}`;
 
   return {
     title,
@@ -130,7 +130,7 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
     '@context': 'https://schema.org',
     '@type': 'Movie',
     name: details.title,
-    url: `${SITE_URL}/tracktollywood/${params.slug}`,
+    url: `${SITE_URL}/movie/${params.slug}`,
     image: details.poster || undefined,
     genre: genre ? genre.split(',').map((g) => g.trim()) : undefined,
     director: director ? director.split(',').map((d) => ({ '@type': 'Person', name: d.trim() })) : undefined,

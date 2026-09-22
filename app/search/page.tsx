@@ -89,7 +89,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           {results.movies.map((m) => (
             <ResultRow
               key={m.slug}
-              href={`/tracktollywood/${m.slug}`}
+              href={`/movie/${m.slug}`}
               title={m.title}
               meta={[STATE_LABEL[m.state], m.gross].filter(Boolean).join(' · ')}
             />

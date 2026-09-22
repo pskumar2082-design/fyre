@@ -373,7 +373,7 @@ function ReportCardTool() {
     <div className="max-w-2xl">
       <p className="text-sm text-textDim mb-4">
         Enter a movie's TrackTollywood slug (the last part of its URL, e.g. <code>the-paradise</code> from{' '}
-        <code>/tracktollywood/the-paradise</code>) to generate a shareable report card image from its current live
+        <code>/movie/the-paradise</code>) to generate a shareable report card image from its current live
         data.
       </p>
       <form onSubmit={generate} className="flex gap-3 mb-6">

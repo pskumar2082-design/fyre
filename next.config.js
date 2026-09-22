@@ -29,6 +29,22 @@ const nextConfig = {
         pathname: '/wp-content/**'
       }
     ]
+  },
+  // The per-movie page used to live at /tracktollywood/[slug] -- the data
+  // source's own name, not fyre's, and it showed up right in the browser
+  // address bar. It moved to /movie/[slug] (see app/movie/[slug]/page.tsx);
+  // this keeps any link to the old path -- already-shared messages, a
+  // browser bookmark, whatever Google indexed off the old sitemap -- landing
+  // on the right page instead of a 404, permanently (308) so search engines
+  // update their index to the new URL too.
+  async redirects() {
+    return [
+      {
+        source: '/tracktollywood/:slug',
+        destination: '/movie/:slug',
+        permanent: true
+      }
+    ];
   }
 };
 

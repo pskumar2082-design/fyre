@@ -33,7 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // de-dupe so the sitemap never lists the same URL twice.
   const slugs = new Set([...live.map((m) => m.slug), ...completed.map((m) => m.slug)]);
   const movieRoutes: MetadataRoute.Sitemap = [...slugs].map((slug) => ({
-    url: `${SITE_URL}/tracktollywood/${slug}`,
+    url: `${SITE_URL}/movie/${slug}`,
     changeFrequency: 'hourly',
     priority: 0.85
   }));

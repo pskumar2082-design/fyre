@@ -60,7 +60,7 @@ export default async function UpcomingPage({ searchParams }: { searchParams: { s
           {upcoming.map((u) => {
             const days = u._date ? Math.max(0, Math.ceil((u._date.getTime() - Date.now()) / 86400000)) : null;
             return (
-              <Link key={u.slug} href={`/tracktollywood/${u.slug}`}>
+              <Link key={u.slug} href={`/movie/${u.slug}`}>
                 <Card className="p-5 h-full hover:-translate-y-0.5 hover:border-gold/20 transition">
                   <IconBadge icon={CalendarRange} tint="yellow" size={44} />
                   {days == null ? (
