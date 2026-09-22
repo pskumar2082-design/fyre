@@ -106,7 +106,7 @@ export function TrendChart({ points, height = 220 }: { points: TrendPoint[]; hei
       {points.map((p, i) =>
         i % labelEvery === 0 || i === points.length - 1 ? (
           <text key={i} x={x(i)} y={height - 6} textAnchor="middle" fontSize={11} fill="#9CA3AF">
-            {new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
           </text>
         ) : null
       )}

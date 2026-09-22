@@ -51,9 +51,18 @@ function headingMeta(heading: string): { label: string; icon: LucideIcon } {
   if (heading.startsWith('Advance ')) {
     const raw = heading.slice('Advance '.length);
     const d = new Date(raw);
+    // TrackTollywood's snapshot date ("2026-09-25") parses as UTC
+    // midnight -- formatting it in the VIEWER's own local timezone (the
+    // default when no `timeZone` is passed) shifts the printed day
+    // backwards by one for anyone whose clock sits behind UTC (most of
+    // the US, for instance), so a viewer there would see this exact
+    // table's real, correctly-scraped 25th-of-the-month data displayed
+    // under a "24 Sept" label. Pinning to UTC keeps the label matching
+    // the same calendar date the raw string -- and every row inside
+    // this table -- actually refers to, for every viewer everywhere.
     const label = Number.isNaN(d.getTime())
       ? heading
-      : `Advance · ${d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}`;
+      : `Advance · ${d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`;
     return { label, icon: CalendarDays };
   }
   return { label: heading, icon: Film };
