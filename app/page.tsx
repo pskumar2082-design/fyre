@@ -7,6 +7,7 @@ import { getDailyTotals } from '@/lib/tracktollywood/aggregate';
 import { STATE_LABEL, STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
 import { Card, IconBadge, SectionHeading, EmptyState, Pill } from '@/components/ui';
 import { Donut, TrendChart } from '@/components/charts';
+import MovieCard from '@/components/MovieCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,7 @@ async function getData() {
     reviews: reviews ?? [],
     nowShowing,
     upcoming,
+    completed,
     completedCount: completed.length,
     todaysGrossCr,
     dailyTotals
@@ -47,7 +49,7 @@ function formatCr(cr: number): string {
 }
 
 export default async function HomePage() {
-  const { news, reviews, nowShowing, upcoming, completedCount, todaysGrossCr, dailyTotals } = await getData();
+  const { news, reviews, nowShowing, upcoming, completed, completedCount, todaysGrossCr, dailyTotals } = await getData();
   const asOf = new Date().toLocaleString('en-IN', {
     timeZone: 'Asia/Kolkata',
     weekday: 'short',
@@ -59,6 +61,8 @@ export default async function HomePage() {
   });
 
   const liveTable = [...nowShowing].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
+  const boxOfficeRow = [...completed].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
+  const upcomingRow = upcoming.slice(0, 10);
 
   return (
     <div className="px-5 md:px-8 py-8 flex flex-col lg:flex-row gap-6">
@@ -113,12 +117,12 @@ export default async function HomePage() {
         </Card>
       </aside>
 
-      {/* RIGHT — the white main column: a movie search/filter bar (this
-          reference had no real fyre equivalent for "Car Availability",
-          so it's rebuilt as an actual search), the Live Movies table
-          ("Live Car Status" equivalent), and the Earning Summary trend
-          chart, which reads real accumulated data and says so plainly
-          when there isn't much of it yet. */}
+      {/* RIGHT — the white main column. Order follows how users actually
+          want to browse on mobile: what's new (News, Reviews) and what's
+          coming (Upcoming) first, then what's playing right now (Now
+          Showing) and the full completed archive (Box Office), with the
+          Earning Summary trend chart last since it's the most
+          data-dense/least glanceable block. */}
       <div className="flex-1 min-w-0">
         <Card className="p-5 mb-6">
           <h2 className="hdisplay text-lg text-text mb-4">Find a movie</h2>
@@ -144,9 +148,69 @@ export default async function HomePage() {
           </form>
         </Card>
 
+        {/* Existing content, kept above the dashboard tables and restyled light. */}
+        {news.length > 0 && (
+          <section className="mb-10">
+            <SectionHeading title="Latest from the industry" action={<Link href="/news" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {news.map((n: any) => (
+                <Link key={n.id} href={`/news/${n.id}`} className="block group">
+                  <Card className="overflow-hidden hover:-translate-y-0.5 transition">
+                    {n.image_url && (
+                      <div className="relative h-36 w-full">
+                        <Image src={n.image_url} alt="" fill className="object-cover object-top" />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <h3 className="font-semibold mb-2 text-text group-hover:text-gold transition">{n.title}</h3>
+                      <p className="text-sm text-textDim line-clamp-2">{n.excerpt}</p>
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {reviews.length > 0 && (
+          <section className="mb-10">
+            <SectionHeading title="Fresh reviews" action={<Link href="/reviews" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {reviews.map((r: any) => (
+                <Link key={r.id} href={`/reviews/${r.id}`} className="block group">
+                  <Card className="p-5 hover:-translate-y-0.5 transition">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-[#F6A609]">★★★★★</span>
+                      <span className="bg-gold text-white text-sm font-bold px-2.5 py-1 rounded-lg">{r.rating} / 5</span>
+                    </div>
+                    <h3 className="font-semibold mb-2 text-text group-hover:text-gold transition">{r.title}</h3>
+                    <p className="text-sm text-textDim line-clamp-3">{r.excerpt}</p>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         <Card className="p-5 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="hdisplay text-lg text-text">Live Movies</h2>
+            <h2 className="hdisplay text-lg text-text">Upcoming</h2>
+            <Link href="/upcoming" className="text-xs font-semibold text-gold hover:underline">See all →</Link>
+          </div>
+          {upcomingRow.length === 0 ? (
+            <EmptyState>No upcoming releases yet.</EmptyState>
+          ) : (
+            <div className="flex items-start gap-4 overflow-x-auto -mx-1 px-1 pb-1">
+              {upcomingRow.map((m) => (
+                <MovieCard key={m.slug} movie={m} />
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="hdisplay text-lg text-text">Now showing</h2>
             <Link href="/now-showing" className="text-xs font-semibold text-gold hover:underline">See all →</Link>
           </div>
           {liveTable.length === 0 ? (
@@ -197,6 +261,22 @@ export default async function HomePage() {
           )}
         </Card>
 
+        <Card className="p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="hdisplay text-lg text-text">Box office</h2>
+            <Link href="/box-office" className="text-xs font-semibold text-gold hover:underline">See all →</Link>
+          </div>
+          {boxOfficeRow.length === 0 ? (
+            <EmptyState>Nothing in the archive yet.</EmptyState>
+          ) : (
+            <div className="flex items-start gap-4 overflow-x-auto -mx-1 px-1 pb-1">
+              {boxOfficeRow.map((m, i) => (
+                <MovieCard key={m.slug} movie={m} rank={i + 1} />
+              ))}
+            </div>
+          )}
+        </Card>
+
         <Card className="p-5 mb-10">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <h2 className="hdisplay text-lg text-text">Earning Summary</h2>
@@ -213,50 +293,6 @@ export default async function HomePage() {
             <TrendChart points={dailyTotals.map((d) => ({ date: d.date, value: Math.round(d.totalCr * 100) / 100 }))} />
           )}
         </Card>
-
-        {/* Existing content, kept below the dashboard and restyled light. */}
-        {news.length > 0 && (
-          <section className="mb-10">
-            <SectionHeading title="Latest from the industry" action={<Link href="/news" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {news.map((n: any) => (
-                <Link key={n.id} href={`/news/${n.id}`} className="block group">
-                  <Card className="overflow-hidden hover:-translate-y-0.5 transition">
-                    {n.image_url && (
-                      <div className="relative h-36 w-full">
-                        <Image src={n.image_url} alt="" fill className="object-cover object-top" />
-                      </div>
-                    )}
-                    <div className="p-4">
-                      <h3 className="font-semibold mb-2 text-text group-hover:text-gold transition">{n.title}</h3>
-                      <p className="text-sm text-textDim line-clamp-2">{n.excerpt}</p>
-                    </div>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {reviews.length > 0 && (
-          <section className="mb-6">
-            <SectionHeading title="Fresh reviews" action={<Link href="/reviews" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {reviews.map((r: any) => (
-                <Link key={r.id} href={`/reviews/${r.id}`} className="block group">
-                  <Card className="p-5 hover:-translate-y-0.5 transition">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-[#F6A609]">★★★★★</span>
-                      <span className="bg-gold text-white text-sm font-bold px-2.5 py-1 rounded-lg">{r.rating} / 5</span>
-                    </div>
-                    <h3 className="font-semibold mb-2 text-text group-hover:text-gold transition">{r.title}</h3>
-                    <p className="text-sm text-textDim line-clamp-3">{r.excerpt}</p>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );

@@ -66,9 +66,9 @@ function SidebarLinks({ pathname, onNavigate }: { pathname: string; onNavigate?:
 // The real fyre wordmark -- a white flame + "fyre" PNG, designed to sit
 // on a dark surface (public/logo.png), which is exactly what the
 // permanent navy sidebar still is in this theme.
-function Logo({ height = 34 }: { height?: number }) {
+function Logo({ height = 34, className = 'px-8 h-[100px]' }: { height?: number; className?: string }) {
   return (
-    <Link href="/" className="flex items-center px-8 h-[100px] flex-none flex-shrink-0">
+    <Link href="/" aria-label="fyre home" className={`flex items-center flex-none flex-shrink-0 ${className}`}>
       <Image src="/logo.png" alt="fyre" width={height * 2.43} height={height} className="flex-none" priority />
     </Link>
   );
@@ -130,6 +130,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Menu size={18} />
             </button>
+            <Logo height={20} className="md:hidden h-9 px-3 rounded-full bg-navy" />
             <h1 className="hdisplay text-xl md:text-[28px] truncate text-text">{current?.label ?? 'fyre'}</h1>
           </div>
 
