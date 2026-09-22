@@ -117,12 +117,12 @@ function isMoneyColumn(header: string): boolean {
 }
 
 // Everything else genuinely numeric in these sheets (tickets, shows,
-// screens, occupancy/share percentages, day-over-day change) is
-// Walmart's "Data + Code" tier -- a monospace face at Regular weight so
-// digits line up column-to-column, which is the whole reason that tier
-// exists. Only fires on a recognized numeric header; an unmatched column
-// (state, city, language, weekday, date) renders as plain text exactly
-// as before.
+// screens, occupancy/share percentages, day-over-day change) gets
+// right-aligned tabular figures in our own body face -- not a borrowed
+// monospace look -- so the numbers line up column-to-column while
+// still reading as fyre, not the source site. Only fires on a
+// recognized numeric header; an unmatched column (state, city,
+// language, weekday, date) renders as plain text exactly as before.
 function isDataColumn(header: string): boolean {
   return /ticket|show|screen|occupancy|share|change|%/i.test(header);
 }
@@ -162,7 +162,7 @@ function TableView({ table }: { table: TTTable }) {
                     isMoneyColumn(h)
                       ? 'text-right font-stat font-bold text-base text-gold'
                       : isDataColumn(h)
-                        ? 'text-right font-mono text-[13px] leading-[1.3] tabular-nums text-textDim'
+                        ? 'text-right font-body text-[13px] leading-[1.3] tabular-nums text-textDim'
                         : 'text-textDim'
                   } ${row.__isTotal ? 'text-text' : ''}`}
                 >

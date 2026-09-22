@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, Clock } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getMovieDetails, parseReleaseDate } from '@/lib/tracktollywood/scraper';
@@ -198,12 +198,6 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
               </div>
             ))}
           </div>
-          {details.metaUpdatedText && (
-            <div className="flex items-center gap-1.5 text-textFaint text-xs mt-5 pt-5 border-t border-border">
-              <Clock size={14} className="flex-none" />
-              {details.metaUpdatedText}
-            </div>
-          )}
         </Card>
       )}
 

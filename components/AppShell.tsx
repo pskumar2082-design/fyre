@@ -157,6 +157,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="flex-1 bg-bg">{children}</main>
+
+        <footer className="bg-bg border-t border-border px-5 md:px-10 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
+          <span className="text-xs text-textFaint">&copy; {new Date().getFullYear()} fyre. All rights reserved.</span>
+          <nav className="flex items-center flex-wrap justify-center gap-x-4 gap-y-1">
+            {NAV.map((item) => (
+              <Link key={item.href} href={item.href} className="text-xs text-textFaint hover:text-text transition">
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </footer>
       </div>
     </div>
   );

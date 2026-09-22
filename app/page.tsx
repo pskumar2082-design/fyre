@@ -50,16 +50,6 @@ function formatCr(cr: number): string {
 
 export default async function HomePage() {
   const { news, reviews, nowShowing, upcoming, completed, completedCount, todaysGrossCr, dailyTotals } = await getData();
-  const asOf = new Date().toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  });
-
   const liveTable = [...nowShowing].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
   const boxOfficeRow = [...completed].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
   const upcomingRow = upcoming.slice(0, 10);
@@ -73,9 +63,8 @@ export default async function HomePage() {
           history to back that number honestly (see
           lib/tracktollywood/snapshot.ts for what now collects it going
           forward for the trend chart on the right). */}
-      <aside className="lg:w-[300px] flex-none bg-bgAlt -mx-5 -mt-8 px-5 pt-8 pb-8 md:-mx-8 md:px-8 lg:mx-0 lg:px-5 lg:py-6 lg:rounded-2xl">
-        <h2 className="hdisplay text-lg text-text mb-1">Live Snapshot</h2>
-        <p className="text-textFaint text-xs mb-5">{asOf} IST</p>
+      <aside className="order-2 lg:order-1 lg:w-[300px] flex-none bg-bgAlt -mx-5 px-5 pt-8 pb-8 md:-mx-8 md:px-8 mt-6 lg:mt-0 lg:mx-0 lg:px-5 lg:py-6 lg:rounded-2xl">
+        <h2 className="hdisplay text-lg text-text mb-5">Live Snapshot</h2>
 
         <Card className="p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
@@ -123,7 +112,7 @@ export default async function HomePage() {
           Showing) and the full completed archive (Box Office), with the
           Earning Summary trend chart last since it's the most
           data-dense/least glanceable block. */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 order-1 lg:order-2">
         <Card className="p-5 mb-6">
           <h2 className="hdisplay text-lg text-text mb-4">Find a movie</h2>
           <form action="/search" className="flex flex-wrap items-center gap-3">
