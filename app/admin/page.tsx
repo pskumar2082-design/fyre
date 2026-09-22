@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useRef, useState, FormEvent } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 import { Card } from '@/components/ui';
+import TableBuilder from '@/components/admin/TableBuilder';
 
 // ---------------------------------------------------------------------------
 // Section config: this is "the News admin pattern" generalized so the same
@@ -15,7 +16,20 @@ import { Card } from '@/components/ui';
 
 type Field =
   | { key: string; label: string; kind: 'text'; required?: boolean; placeholder: string }
-  | { key: string; label: string; kind: 'textarea'; required?: boolean; placeholder: string; rows: number }
+  | {
+      key: string;
+      label: string;
+      kind: 'textarea';
+      required?: boolean;
+      placeholder: string;
+      rows: number;
+      // shows a "+ Insert table" button under this field that opens a small
+      // grid builder (components/admin/TableBuilder.tsx) and drops the
+      // resulting markdown table in at the cursor -- for a field whose
+      // rendered page (ArticleBody) knows how to turn a pipe-table block
+      // back into a styled table, i.e. news/reviews' `content`.
+      allowTableInsert?: boolean;
+    }
   | { key: string; label: string; kind: 'select'; required?: boolean; options: { value: string; label: string }[] }
   | { key: string; label: string; kind: 'number'; required?: boolean; placeholder: string; step?: string }
   | { key: string; label: string; kind: 'date'; required?: boolean }
@@ -67,7 +81,8 @@ const SECTIONS: SectionConfig[] = [
         label: 'Full article',
         kind: 'textarea',
         rows: 6,
-        placeholder: 'Full article text (optional) — separate paragraphs with a blank line'
+        placeholder: 'Full article text (optional) — separate paragraphs with a blank line',
+        allowTableInsert: true
       }
     ],
     primary: (n) => n.title,
@@ -93,7 +108,8 @@ const SECTIONS: SectionConfig[] = [
         label: 'Full review',
         kind: 'textarea',
         rows: 6,
-        placeholder: 'Full review text (optional) — separate paragraphs with a blank line'
+        placeholder: 'Full review text (optional) — separate paragraphs with a blank line',
+        allowTableInsert: true
       },
       {
         key: 'rating',
@@ -440,6 +456,11 @@ function Dashboard({ section }: { section: SectionConfig }) {
   const [error, setError] = useState('');
   // options for any 'reference' fields (e.g. Movie picker), keyed by field.key
   const [refOptions, setRefOptions] = useState<Record<string, { id: string; label: string }[]>>({});
+  // which allowTableInsert textarea currently has the table builder open
+  // (null = closed); the ref map lets the builder insert its markdown at
+  // that field's actual cursor position rather than always appending.
+  const [tableBuilderFor, setTableBuilderFor] = useState<string | null>(null);
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   const referenceFields = section.fields.filter((f): f is Extract<Field, { kind: 'reference' }> => f.kind === 'reference');
 
@@ -511,6 +532,32 @@ function Dashboard({ section }: { section: SectionConfig }) {
 
   function setField(key: string, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  // Drops `markdown` into the given textarea field at wherever the cursor
+  // currently is (falls back to appending at the end if the textarea hasn't
+  // mounted yet), wrapped in blank lines on each side so it lands as its own
+  // block -- exactly what ArticleBody's paragraph split expects, whether the
+  // cursor was mid-paragraph, at the very start, or at the end of existing
+  // text.
+  function insertAtCursor(fieldKey: string, markdown: string) {
+    const current = form[fieldKey] ?? '';
+    const el = textareaRefs.current[fieldKey];
+    if (!el) {
+      setField(fieldKey, current ? `${current}\n\n${markdown}\n\n` : `${markdown}\n\n`);
+      return;
+    }
+    const start = el.selectionStart ?? current.length;
+    const end = el.selectionEnd ?? current.length;
+    const before = current.slice(0, start);
+    const after = current.slice(end);
+    const next = `${before}\n\n${markdown}\n\n${after}`;
+    setField(fieldKey, next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = (before + `\n\n${markdown}\n\n`).length;
+      el.setSelectionRange(pos, pos);
+    });
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -609,14 +656,27 @@ function Dashboard({ section }: { section: SectionConfig }) {
           }
           if (field.kind === 'textarea') {
             return (
-              <textarea
-                key={field.key}
-                value={form[field.key]}
-                onChange={(e) => setField(field.key, e.target.value)}
-                placeholder={field.required ? `${field.placeholder} *` : field.placeholder}
-                rows={field.rows}
-                className="bg-bg rounded-lg px-4 py-3 text-sm"
-              />
+              <div key={field.key} className="flex flex-col gap-1.5">
+                <textarea
+                  ref={(el) => {
+                    textareaRefs.current[field.key] = el;
+                  }}
+                  value={form[field.key]}
+                  onChange={(e) => setField(field.key, e.target.value)}
+                  placeholder={field.required ? `${field.placeholder} *` : field.placeholder}
+                  rows={field.rows}
+                  className="bg-bg rounded-lg px-4 py-3 text-sm"
+                />
+                {field.allowTableInsert && (
+                  <button
+                    type="button"
+                    onClick={() => setTableBuilderFor(field.key)}
+                    className="text-xs font-semibold text-goldBright hover:text-gold transition self-start"
+                  >
+                    + Insert table
+                  </button>
+                )}
+              </div>
             );
           }
           if (field.kind === 'number') {
@@ -707,6 +767,16 @@ function Dashboard({ section }: { section: SectionConfig }) {
           </div>
         ))}
       </div>
+
+      {tableBuilderFor && (
+        <TableBuilder
+          onInsert={(markdown) => {
+            insertAtCursor(tableBuilderFor, markdown);
+            setTableBuilderFor(null);
+          }}
+          onClose={() => setTableBuilderFor(null)}
+        />
+      )}
     </Card>
   );
 }

@@ -16,6 +16,7 @@ import {
   Layers
 } from 'lucide-react';
 import type { TTTable, TTTableRow } from '@/lib/tracktollywood/types';
+import { isMoneyColumn, isDataColumn } from '@/lib/tableFormat';
 
 type Group = { heading: string; tables: TTTable[] };
 
@@ -120,21 +121,6 @@ function pickDefaultHeading(groups: Group[]): string {
 // Preferred sub-category order within a day/date group -- matches the
 // order a person actually scans a box-office breakdown in.
 const CATEGORY_ORDER = ['state-wise', 'top cities', 'city-wise', 'language-wise', 'format-wise', 'time slots'];
-
-function isMoneyColumn(header: string): boolean {
-  return /gross|collection|coll\./i.test(header);
-}
-
-// Everything else genuinely numeric in these sheets (tickets, shows,
-// screens, occupancy/share percentages, day-over-day change) gets
-// right-aligned tabular figures in our own body face -- not a borrowed
-// monospace look -- so the numbers line up column-to-column while
-// still reading as fyre, not the source site. Only fires on a
-// recognized numeric header; an unmatched column (state, city,
-// language, weekday, date) renders as plain text exactly as before.
-function isDataColumn(header: string): boolean {
-  return /ticket|show|screen|occupancy|share|change|%/i.test(header);
-}
 
 function TableView({ table }: { table: TTTable }) {
   return (

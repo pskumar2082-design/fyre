@@ -5,6 +5,8 @@ import { ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import { supabase } from '@/lib/supabaseClient';
 import { SITE_URL } from '@/lib/siteConfig';
+import { stripTables } from '@/lib/articleTable';
+import ArticleBody from '@/components/ArticleBody';
 
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
 
@@ -15,7 +17,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const { data: r } = await supabase.from('reviews').select('*').eq('id', params.id).single();
   if (!r) return {};
 
-  const description = (r.excerpt || r.content || '').slice(0, 200);
+  const description = (r.excerpt || stripTables(r.content || '')).slice(0, 200);
   const url = `${SITE_URL}/reviews/${params.id}`;
   const title = `${r.title} — ${r.rating}/5 Review`;
 
@@ -43,7 +45,7 @@ export default async function ReviewDetailPage({ params }: { params: { id: strin
   const { data: r } = await supabase.from('reviews').select('*').eq('id', params.id).single();
   if (!r) return notFound();
 
-  const body = (r.content || r.excerpt || '').split(/\n\s*\n/).filter(Boolean);
+  const bodyText = r.content || r.excerpt || '';
 
   return (
     <div className="px-5 md:px-10 py-8 max-w-3xl">
@@ -67,11 +69,7 @@ export default async function ReviewDetailPage({ params }: { params: { id: strin
       <div className="text-textFaint text-sm mt-6 pb-5 border-b border-border">{r.date}</div>
 
       <div className="mt-6 text-[16px] leading-[1.85] max-w-[66ch] text-text">
-        {body.map((p: string, i: number) => (
-          <p key={i} className="mb-5">
-            {p}
-          </p>
-        ))}
+        <ArticleBody content={bodyText} />
       </div>
     </div>
   );

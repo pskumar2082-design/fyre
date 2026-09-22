@@ -5,6 +5,8 @@ import { ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import { supabase } from '@/lib/supabaseClient';
 import { SITE_URL } from '@/lib/siteConfig';
+import { stripTables } from '@/lib/articleTable';
+import ArticleBody from '@/components/ArticleBody';
 
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
 
@@ -17,7 +19,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const { data: n } = await supabase.from('news').select('*').eq('id', params.id).single();
   if (!n) return {};
 
-  const description = (n.excerpt || n.content || '').slice(0, 200);
+  const description = (n.excerpt || stripTables(n.content || '')).slice(0, 200);
   const url = `${SITE_URL}/news/${params.id}`;
 
   return {
@@ -44,8 +46,8 @@ export default async function NewsDetailPage({ params }: { params: { id: string 
   const { data: n } = await supabase.from('news').select('*').eq('id', params.id).single();
   if (!n) return notFound();
 
-  const body = (n.content || n.excerpt || '').split(/\n\s*\n/).filter(Boolean);
-  const words = (n.content || n.excerpt || '').trim().split(/\s+/).filter(Boolean).length;
+  const bodyText = n.content || n.excerpt || '';
+  const words = bodyText.trim().split(/\s+/).filter(Boolean).length;
   const readMins = Math.max(1, Math.round(words / 200));
 
   return (
@@ -72,11 +74,7 @@ export default async function NewsDetailPage({ params }: { params: { id: string 
       </div>
 
       <div className="mt-6 text-[16px] leading-[1.85] max-w-[66ch] text-text">
-        {body.map((p: string, i: number) => (
-          <p key={i} className="mb-5">
-            {p}
-          </p>
-        ))}
+        <ArticleBody content={bodyText} />
       </div>
     </div>
   );
