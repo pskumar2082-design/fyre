@@ -16,7 +16,7 @@ import {
   Layers
 } from 'lucide-react';
 import type { TTTable, TTTableRow } from '@/lib/tracktollywood/types';
-import { isMoneyColumn, isDataColumn } from '@/lib/tableFormat';
+import { isMoneyColumn, isDataColumn, isPercentColumn, isOccupancyColumn, occupancyColorClass } from '@/lib/tableFormat';
 import { headingLabel, categoryLabel as sharedCategoryLabel } from '@/lib/tracktollywood/tableGroups';
 
 type Group = { heading: string; tables: TTTable[] };
@@ -108,15 +108,15 @@ const CATEGORY_ORDER = ['state-wise', 'top cities', 'city-wise', 'language-wise'
 
 function TableView({ table }: { table: TTTable }) {
   return (
-    <div className="overflow-x-auto -mx-1">
+    <div className="overflow-x-auto -mx-1 rounded-xl border border-border">
       <table className="w-full text-xs border-collapse min-w-[480px]">
         <thead>
-          <tr className="bg-white/[0.03] border-b border-border">
+          <tr className="bg-white/[0.03] border-b-2 border-gold">
             {table.headers.map((h) => (
               <th
                 key={h}
                 className={`text-left mdtype-overline py-2.5 px-3 whitespace-nowrap text-textFaint ${
-                  isMoneyColumn(h) || isDataColumn(h) ? 'text-right' : ''
+                  isMoneyColumn(h) || isDataColumn(h) || isPercentColumn(h) || isOccupancyColumn(h) ? 'text-right' : ''
                 }`}
               >
                 {h}
@@ -131,23 +131,45 @@ function TableView({ table }: { table: TTTable }) {
               className={
                 row.__isTotal
                   ? 'bg-gold/[0.06] border-t-2 border-gold/20 font-bold'
-                  : `border-b border-border hover:bg-white/[0.03] transition ${i % 2 === 1 ? 'bg-white/[0.015]' : ''}`
+                  : `border-b border-border last:border-b-0 hover:bg-white/[0.03] transition ${i % 2 === 1 ? 'bg-white/[0.015]' : ''}`
               }
             >
-              {table.headers.map((h) => (
-                <td
-                  key={h}
-                  className={`py-2.5 px-3 whitespace-nowrap ${
-                    isMoneyColumn(h)
-                      ? 'text-right font-stat font-bold text-base text-gold'
-                      : isDataColumn(h)
-                        ? 'text-right font-body text-[13px] leading-[1.3] tabular-nums text-textDim'
-                        : 'text-textDim'
-                  } ${row.__isTotal ? 'text-text' : ''}`}
-                >
-                  {row[h] ?? ''}
-                </td>
-              ))}
+              {table.headers.map((h) => {
+                const value = String(row[h] ?? '');
+                if (isPercentColumn(h)) {
+                  return (
+                    <td key={h} className="py-2.5 px-3 whitespace-nowrap text-right">
+                      <span className="inline-flex font-stat font-bold text-[13px] tabular-nums bg-gold/[0.14] text-gold px-2.5 py-1 rounded-full">
+                        {value}
+                      </span>
+                    </td>
+                  );
+                }
+                if (isOccupancyColumn(h)) {
+                  return (
+                    <td
+                      key={h}
+                      className={`py-2.5 px-3 whitespace-nowrap text-right font-stat font-bold text-[13px] tabular-nums ${occupancyColorClass(value)}`}
+                    >
+                      {value}
+                    </td>
+                  );
+                }
+                return (
+                  <td
+                    key={h}
+                    className={`py-2.5 px-3 whitespace-nowrap ${
+                      isMoneyColumn(h)
+                        ? 'text-right font-stat font-bold text-base text-gold'
+                        : isDataColumn(h)
+                          ? 'text-right font-body text-[13px] leading-[1.3] tabular-nums text-textDim'
+                          : 'text-textDim'
+                    } ${row.__isTotal ? 'text-text' : ''}`}
+                  >
+                    {value}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
