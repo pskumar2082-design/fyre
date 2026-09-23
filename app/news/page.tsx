@@ -15,7 +15,8 @@ import { Card, SectionHeading, EmptyState } from '@/components/ui';
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
 
 export default async function NewsPage() {
-  const { data } = await supabase.from('news').select('*').order('created_at', { ascending: false }).limit(200);
+  const { data, error } = await supabase.from('news').select('*').order('created_at', { ascending: false }).limit(200);
+  if (error) console.error('NewsPage: failed to fetch news list from Supabase', error);
   const news = data ?? [];
 
   return (

@@ -14,8 +14,11 @@ export const revalidate = 30; // re-fetch from Supabase at most every 30s
 // comment in app/news/[id]/page.tsx for why this was missing and why it
 // matters for shared links.
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const { data: r } = await supabase.from('reviews').select('*').eq('id', params.id).single();
-  if (!r) return {};
+  const { data: r, error } = await supabase.from('reviews').select('*').eq('id', params.id).single();
+  if (!r) {
+    if (error) console.error('generateMetadata(reviews): failed to fetch review from Supabase', params.id, error);
+    return {};
+  }
 
   const description = (r.excerpt || stripTables(r.content || '')).slice(0, 200);
   const url = `${SITE_URL}/reviews/${params.id}`;
@@ -42,8 +45,11 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 }
 
 export default async function ReviewDetailPage({ params }: { params: { id: string } }) {
-  const { data: r } = await supabase.from('reviews').select('*').eq('id', params.id).single();
-  if (!r) return notFound();
+  const { data: r, error } = await supabase.from('reviews').select('*').eq('id', params.id).single();
+  if (!r) {
+    if (error) console.error('ReviewDetailPage: failed to fetch review from Supabase', params.id, error);
+    return notFound();
+  }
 
   const bodyText = r.content || r.excerpt || '';
 

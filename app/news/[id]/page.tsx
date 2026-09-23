@@ -16,8 +16,11 @@ export const revalidate = 30; // re-fetch from Supabase at most every 30s
 // so a link pasted into X/WhatsApp/etc. couldn't tell one article's card
 // apart from another's or from the homepage's.
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const { data: n } = await supabase.from('news').select('*').eq('id', params.id).single();
-  if (!n) return {};
+  const { data: n, error } = await supabase.from('news').select('*').eq('id', params.id).single();
+  if (!n) {
+    if (error) console.error('generateMetadata(news): failed to fetch article from Supabase', params.id, error);
+    return {};
+  }
 
   const description = (n.excerpt || stripTables(n.content || '')).slice(0, 200);
   const url = `${SITE_URL}/news/${params.id}`;
@@ -43,8 +46,11 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 }
 
 export default async function NewsDetailPage({ params }: { params: { id: string } }) {
-  const { data: n } = await supabase.from('news').select('*').eq('id', params.id).single();
-  if (!n) return notFound();
+  const { data: n, error } = await supabase.from('news').select('*').eq('id', params.id).single();
+  if (!n) {
+    if (error) console.error('NewsDetailPage: failed to fetch article from Supabase', params.id, error);
+    return notFound();
+  }
 
   const bodyText = n.content || n.excerpt || '';
   const words = bodyText.trim().split(/\s+/).filter(Boolean).length;

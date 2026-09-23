@@ -14,7 +14,8 @@ export const metadata: Metadata = {
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
 
 export default async function ReviewsPage() {
-  const { data } = await supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(200);
+  const { data, error } = await supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(200);
+  if (error) console.error('ReviewsPage: failed to fetch reviews list from Supabase', error);
   const reviews = data ?? [];
 
   return (
