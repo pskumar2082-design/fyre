@@ -59,6 +59,48 @@ const ALLOWED_STYLE_PROPS: Record<string, readonly string[]> = {
   'text-align': ['left', 'center', 'right', 'justify']
 };
 
+// TipTap's own getHTML() never emits the exact color strings in
+// tokens.ts back out -- the browser/jsdom DOM it builds the HTML from
+// normalizes every color through its own CSSOM on the way out:
+// `#2F6FED` comes back as `rgb(47, 111, 237)`, and even an
+// already-rgba() token like `rgba(255,255,255,0.62)` comes back with
+// spaces added after each comma. Confirmed directly (a headless TipTap
+// editor in this same sanitize path): every single curated color in
+// tokens.ts round-trips through editor.getHTML() into a DIFFERENT
+// string than the one in ALLOWED_STYLE_PROPS, so a plain `===`/
+// `includes()` check here never matched anything -- not one color or
+// highlight from the toolbar has ever actually survived sanitization,
+// which is why picking any of them never visibly did anything. Parsing
+// both sides down to r/g/b/a numbers before comparing is what actually
+// makes "is this one of our curated colors" format-independent.
+function parseColor(value: string): [number, number, number, number] | null {
+  const v = value.trim().toLowerCase();
+  let m = v.match(/^#([0-9a-f]{6})$/);
+  if (m) {
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 1];
+  }
+  m = v.match(/^#([0-9a-f]{3})$/);
+  if (m) {
+    const [r, g, b] = m[1].split('').map((c) => parseInt(c + c, 16));
+    return [r, g, b, 1];
+  }
+  m = v.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
+  if (m) {
+    return [Number(m[1]), Number(m[2]), Number(m[3]), m[4] !== undefined ? Number(m[4]) : 1];
+  }
+  return null;
+}
+
+function colorValuesMatch(a: string, b: string): boolean {
+  const pa = parseColor(a);
+  const pb = parseColor(b);
+  if (!pa || !pb) return a.trim() === b.trim();
+  return pa[0] === pb[0] && pa[1] === pb[1] && pa[2] === pb[2] && Math.abs(pa[3] - pb[3]) < 0.001;
+}
+
+const COLOR_PROPS = new Set(['color', 'background-color']);
+
 function sanitizeStyleAttr(value: string): string {
   const kept: string[] = [];
   for (const declaration of value.split(';')) {
@@ -67,8 +109,16 @@ function sanitizeStyleAttr(value: string): string {
     const prop = declaration.slice(0, idx).trim().toLowerCase();
     const val = declaration.slice(idx + 1).trim();
     const allowedValues = ALLOWED_STYLE_PROPS[prop];
-    if (allowedValues && (allowedValues as readonly string[]).includes(val)) {
-      kept.push(`${prop}: ${val}`);
+    if (!allowedValues) continue;
+    // Store the curated token's own canonical spelling, not whatever
+    // format the browser handed back -- keeps everything written to
+    // Supabase in one consistent representation regardless of which
+    // browser (or a future editor version) produced it.
+    const match = COLOR_PROPS.has(prop)
+      ? (allowedValues as readonly string[]).find((allowed) => colorValuesMatch(allowed, val))
+      : (allowedValues as readonly string[]).find((allowed) => allowed === val);
+    if (match) {
+      kept.push(`${prop}: ${match}`);
     }
   }
   return kept.join('; ');

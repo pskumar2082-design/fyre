@@ -192,7 +192,15 @@ textarea:focus-visible {
 }
 .fyre-article strong {
   font-weight: 700;
-  color: #F2F3F5;
+  /* Deliberately no color here (was `color: #F2F3F5` -- same value the
+     surrounding text already has by inheritance, so dropping it changes
+     nothing for a plain bold word). TipTap always wraps a colored+bold
+     selection as <span style="color:...">, but bold's own element is
+     the <strong> INSIDE that span; an explicit color rule here would
+     win over the inherited inline color (an element's own explicit
+     value always beats an inherited one, regardless of the inherited
+     source's specificity), silently turning "bold and blue" back into
+     plain white the moment both were applied together. */
 }
 .fyre-article a {
   color: #2F6FED;

@@ -143,3 +143,61 @@ describe('sanitizeArticleHtml -- links', () => {
     expect(out).toContain('href="mailto:tips@fyre.co.in"');
   });
 });
+
+describe('sanitizeArticleHtml -- color matching is format-tolerant (TipTap serialization)', () => {
+  // TipTap's editor.getHTML() never emits the exact color strings stored
+  // in tokens.ts -- the DOM it serializes from normalizes every color
+  // through the CSSOM on the way out (hex -> rgb(), and spacing added
+  // inside rgba()). Real admin-produced HTML looks like the rgb()/spaced
+  // forms below, never the curated hex/no-space forms -- so these are the
+  // cases that actually matter, not just a formatting nicety.
+
+  it('matches a curated hex text color when TipTap serializes it as rgb()', () => {
+    // #2F6FED (Fyre blue) -> rgb(47, 111, 237)
+    const out = sanitizeArticleHtml('<p><span style="color: rgb(47, 111, 237);">text</span></p>');
+    expect(out).toContain('color: #2F6FED');
+  });
+
+  it('normalizes the surviving color to the curated token spelling, not the input spelling', () => {
+    const out = sanitizeArticleHtml('<p><span style="color: rgb(47, 111, 237);">text</span></p>');
+    expect(out).not.toContain('rgb(47, 111, 237)');
+  });
+
+  it('matches a curated rgba() text color when TipTap adds comma spacing', () => {
+    // rgba(255,255,255,0.62) (Secondary gray) -> rgba(255, 255, 255, 0.62)
+    const out = sanitizeArticleHtml('<p><span style="color: rgba(255, 255, 255, 0.62);">text</span></p>');
+    expect(out).toContain('color: rgba(255,255,255,0.62)');
+  });
+
+  it('matches a curated highlight background-color regardless of comma spacing', () => {
+    // rgba(47,111,237,0.25) (Blue highlight) -> rgba(47, 111, 237, 0.25)
+    const out = sanitizeArticleHtml(
+      '<p><mark data-color="rgba(47,111,237,0.25)" style="background-color: rgba(47, 111, 237, 0.25); color: inherit;">text</mark></p>'
+    );
+    expect(out).toContain('background-color: rgba(47,111,237,0.25)');
+  });
+
+  it('tolerates minor floating-point drift in an rgba() alpha channel', () => {
+    // Same Blue highlight, alpha off by a hair the way some browsers round it.
+    const out = sanitizeArticleHtml('<p><mark style="background-color: rgba(47, 111, 237, 0.2500001);">text</mark></p>');
+    expect(out).toContain('background-color: rgba(47,111,237,0.25)');
+  });
+
+  it('preserves an inline color through a bold+color combination (TipTap nests <strong> inside the color <span>)', () => {
+    const out = sanitizeArticleHtml('<p><span style="color: rgb(47, 111, 237);"><strong>text</strong></span></p>');
+    expect(out).toContain('color: #2F6FED');
+    expect(out).toContain('<strong>text</strong>');
+  });
+
+  it('still rejects a color that is NOT in the curated palette, even in rgb() form', () => {
+    // #123456 -> rgb(18, 52, 86), not one of the curated TEXT_COLORS
+    const out = sanitizeArticleHtml('<p><span style="color: rgb(18, 52, 86);">text</span></p>');
+    expect(out).not.toContain('color:');
+    expect(out).not.toContain('rgb(18, 52, 86)');
+  });
+
+  it('is case-insensitive on hex color input', () => {
+    const out = sanitizeArticleHtml('<p><span style="color: #2f6fed;">text</span></p>');
+    expect(out).toContain('color: #2F6FED');
+  });
+});
