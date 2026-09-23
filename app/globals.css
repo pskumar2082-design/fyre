@@ -136,3 +136,161 @@ textarea:focus-visible {
   outline-offset: 0;
   border-color: #2f6fed;
 }
+
+/* ============================================================
+   .fyre-article -- shared rich-text content styling, used by BOTH the
+   admin FyreRichTextEditor's own contentEditable area (components/admin/
+   FyreRichTextEditor.tsx) and the public article renderer
+   (components/ArticleBody.tsx). One class, one set of rules: what an
+   admin sees while writing a Heading 2 or a table is what a reader
+   later sees on the article page -- centralized here rather than
+   duplicated between an editor stylesheet and a public-page stylesheet,
+   per the redesign's own "reuse tokens, don't fork a second theme" rule.
+   Only semantic tags this system's sanitizer allows through
+   (lib/richText/sanitize.ts) are styled below; nothing here assumes an
+   inline style did the work, since most of the visual language (dark
+   surfaces, borders, blue accents) is intentionally NOT something the
+   editor's toolbar can override per-element.
+   ============================================================ */
+/* Deliberately no font-size/line-height/color here: both the public
+   article pages (app/news/[id]/page.tsx, app/reviews/[id]/page.tsx) and
+   the admin editor already set those on this element's own container
+   (the page's own text-[16px] leading-[1.85] text-text wrapper, or the
+   editor toolbar's own text-sm), so this class only needs to style the
+   specific child elements below -- a plain paragraph in either old
+   plain-text articles or new rich-text ones simply inherits its
+   container's type, keeping old and new content visually identical
+   outside of whatever formatting an admin actually applied. */
+.fyre-article p {
+  margin: 0 0 1.1em;
+}
+.fyre-article p:last-child {
+  margin-bottom: 0;
+}
+.fyre-article h2,
+.fyre-article h3,
+.fyre-article h4 {
+  font-family: 'Public Sans', sans-serif;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #F2F3F5;
+  margin: 1.4em 0 0.6em;
+}
+.fyre-article h2:first-child,
+.fyre-article h3:first-child,
+.fyre-article h4:first-child {
+  margin-top: 0;
+}
+.fyre-article h2 {
+  font-size: 1.5rem;
+}
+.fyre-article h3 {
+  font-size: 1.25rem;
+}
+.fyre-article h4 {
+  font-size: 1.0625rem;
+}
+.fyre-article strong {
+  font-weight: 700;
+  color: #F2F3F5;
+}
+.fyre-article a {
+  color: #2F6FED;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(47, 111, 237, 0.4);
+}
+.fyre-article a:hover {
+  color: #5B93FF;
+}
+.fyre-article blockquote {
+  margin: 1.2em 0;
+  padding: 0.2em 0 0.2em 1em;
+  border-left: 3px solid #2F6FED;
+  color: rgba(255, 255, 255, 0.62);
+  font-style: italic;
+}
+.fyre-article ul,
+.fyre-article ol {
+  margin: 0 0 1.1em;
+  padding-left: 1.4em;
+}
+.fyre-article li {
+  margin: 0.35em 0;
+}
+.fyre-article ul {
+  list-style-type: disc;
+}
+.fyre-article ol {
+  list-style-type: decimal;
+}
+.fyre-article hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 2em 0;
+}
+.fyre-article mark {
+  border-radius: 4px;
+  padding: 0.05em 0.2em;
+  color: inherit;
+}
+.fyre-article table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  /* No `width: 100%` -- with `display: block` (needed for the overflow-x
+     scroll below) a table no longer sizes its own columns from a real
+     <table> layout, so forcing the outer box to 100% just stretches
+     empty space past a narrow table's actual columns. Letting it size
+     to its content (still capped at max-width: 100%, still scrollable
+     past that) is what actually reads right for both a 3-column table
+     and one wide enough to need the scroll. */
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-size: 0.8125rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+}
+.fyre-article th,
+.fyre-article td {
+  padding: 0.6em 0.9em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
+  white-space: nowrap;
+}
+.fyre-article th {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 2px solid #2F6FED;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+.fyre-article td {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* Editor-only chrome (never present on the public render, since it only
+   applies to the live contentEditable surface). */
+.fyre-editor-content .ProseMirror {
+  outline: none;
+}
+.fyre-editor-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: rgba(255, 255, 255, 0.38);
+  pointer-events: none;
+}
+.fyre-editor-content .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(47, 111, 237, 0.15);
+  pointer-events: none;
+}
+.fyre-editor-content td,
+.fyre-editor-content th {
+  position: relative;
+}

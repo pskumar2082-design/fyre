@@ -6,6 +6,10 @@ import type { Session } from '@supabase/supabase-js';
 import { Card } from '@/components/ui';
 import TableBuilder from '@/components/admin/TableBuilder';
 import SocialPosterTool from '@/components/admin/SocialPosterTool';
+import FyreRichTextEditor from '@/components/admin/FyreRichTextEditor';
+import ArticleBody from '@/components/ArticleBody';
+import { sanitizeArticleHtml } from '@/lib/richText/sanitize';
+import { legacyContentToHtml } from '@/lib/richText/legacyToHtml';
 
 // ---------------------------------------------------------------------------
 // Section config: this is "the News admin pattern" generalized so the same
@@ -31,6 +35,15 @@ type Field =
       // back into a styled table, i.e. news/reviews' `content`.
       allowTableInsert?: boolean;
     }
+  // A full FyreRichTextEditor (components/admin/FyreRichTextEditor.tsx)
+  // instead of a plain textarea -- for news/reviews' `content`, the one
+  // field that needed real formatting. Sanitized (lib/richText/sanitize.ts)
+  // on every edit inside the editor itself, again in handleSubmit right
+  // before it's written to Supabase, and a third time in ArticleBody right
+  // before it's ever rendered on the public site -- see that file's own
+  // comment for why a third, render-time pass matters even though the
+  // first two already ran.
+  | { key: string; label: string; kind: 'richtext'; required?: boolean; placeholder?: string }
   | { key: string; label: string; kind: 'select'; required?: boolean; options: { value: string; label: string }[] }
   | { key: string; label: string; kind: 'number'; required?: boolean; placeholder: string; step?: string }
   | { key: string; label: string; kind: 'date'; required?: boolean }
@@ -80,10 +93,8 @@ const SECTIONS: SectionConfig[] = [
       {
         key: 'content',
         label: 'Full article',
-        kind: 'textarea',
-        rows: 6,
-        placeholder: 'Full article text (optional) — separate paragraphs with a blank line',
-        allowTableInsert: true
+        kind: 'richtext',
+        placeholder: 'Write the full article…'
       }
     ],
     primary: (n) => n.title,
@@ -107,10 +118,8 @@ const SECTIONS: SectionConfig[] = [
       {
         key: 'content',
         label: 'Full review',
-        kind: 'textarea',
-        rows: 6,
-        placeholder: 'Full review text (optional) — separate paragraphs with a blank line',
-        allowTableInsert: true
+        kind: 'richtext',
+        placeholder: 'Write the full review…'
       },
       {
         key: 'rating',
@@ -388,6 +397,13 @@ function Dashboard({ section }: { section: SectionConfig }) {
   // (null = closed); the ref map lets the builder insert its markdown at
   // that field's actual cursor position rather than always appending.
   const [tableBuilderFor, setTableBuilderFor] = useState<string | null>(null);
+
+  // Which richtext fields currently show the rendered public preview
+  // instead of the live editor (see the Preview button below --
+  // section 21 asks that Preview reuse the actual public article
+  // styles rather than approximate them, so this literally renders
+  // the same <ArticleBody> the public site uses).
+  const [previewFields, setPreviewFields] = useState<Set<string>>(new Set());
   const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   const referenceFields = section.fields.filter((f): f is Extract<Field, { kind: 'reference' }> => f.kind === 'reference');
@@ -451,8 +467,27 @@ function Dashboard({ section }: { section: SectionConfig }) {
     setEditingId(item.id);
     const next: Record<string, string> = {};
     for (const field of section.fields) {
-      const value = item[field.key];
-      next[field.key] = value === null || value === undefined ? '' : String(value);
+      const raw = item[field.key];
+      const value = raw === null || raw === undefined ? '' : String(raw);
+      // A richtext field's value must always be HTML by the time it
+      // reaches FyreRichTextEditor -- an old plain-text article (see
+      // lib/richText/legacyToHtml.ts) gets converted here, once, only in
+      // memory for this edit session; nothing is written back until (and
+      // unless) the admin actually saves. Anything already HTML, or any
+      // other field kind, passes through unchanged. sanitizeArticleHtml
+      // is also re-applied here as a load-time safety net, independent of
+      // the save-time and render-time passes (see FyreRichTextEditor's
+      // and ArticleBody's own comments) -- so even a record edited
+      // directly in Supabase, bypassing this admin form entirely, can't
+      // load unsafe HTML into the editor.
+      if (field.kind === 'richtext' && value) {
+        const html = /^\s*<(p|h2|h3|h4|ul|ol|blockquote|table|hr)[\s>]/i.test(value)
+          ? value
+          : legacyContentToHtml(value);
+        next[field.key] = sanitizeArticleHtml(html);
+      } else {
+        next[field.key] = value;
+      }
     }
     setForm(next);
     setImageUrl(item.image_url || '');
@@ -512,6 +547,20 @@ function Dashboard({ section }: { section: SectionConfig }) {
           }
           payload[field.key] = n;
         }
+      } else if (field.kind === 'richtext') {
+        // Already sanitized on every edit inside the editor itself
+        // (FyreRichTextEditor's onUpdate) and again in startEdit() on
+        // load -- this third pass, right before the write to Supabase, is
+        // what actually guarantees the stored `content` value can never
+        // be unsanitized HTML, independent of whether either of those
+        // earlier passes ran (a field that was never touched keeps
+        // whatever startEdit already produced; a brand-new article goes
+        // through this for the first time here).
+        const cleanHtml = sanitizeArticleHtml(raw.trim());
+        // TipTap's empty state is literally "<p></p>", not "" -- treat it
+        // the same as a genuinely empty field (this content is optional),
+        // matching how an empty plain textarea always used to save as ''.
+        payload[field.key] = cleanHtml === '<p></p>' ? '' : cleanHtml;
       } else {
         payload[field.key] = raw.trim();
       }
@@ -579,6 +628,45 @@ function Dashboard({ section }: { section: SectionConfig }) {
                     </option>
                   ))}
                 </select>
+              </div>
+            );
+          }
+          if (field.kind === 'richtext') {
+            const isPreviewing = previewFields.has(field.key);
+            return (
+              <div key={field.key} className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="mdtype-overline text-textFaint">{field.label}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPreviewFields((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(field.key)) next.delete(field.key);
+                        else next.add(field.key);
+                        return next;
+                      })
+                    }
+                    className="text-xs font-semibold text-goldBright hover:text-gold transition"
+                  >
+                    {isPreviewing ? 'Back to editing' : 'Preview'}
+                  </button>
+                </div>
+                {isPreviewing ? (
+                  <div className="bg-bg border border-border rounded-xl px-4 py-3.5 text-[16px] leading-[1.85] max-w-[66ch] text-text">
+                    {form[field.key]?.trim() ? (
+                      <ArticleBody content={form[field.key]} />
+                    ) : (
+                      <p className="text-textFaint text-sm">Nothing written yet.</p>
+                    )}
+                  </div>
+                ) : (
+                  <FyreRichTextEditor
+                    value={form[field.key] ?? ''}
+                    onChange={(html) => setField(field.key, html)}
+                    placeholder={field.placeholder}
+                  />
+                )}
               </div>
             );
           }
