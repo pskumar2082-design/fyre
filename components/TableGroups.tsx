@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { TTTable, TTTableRow } from '@/lib/tracktollywood/types';
 import { isMoneyColumn, isDataColumn } from '@/lib/tableFormat';
+import { headingLabel, categoryLabel as sharedCategoryLabel } from '@/lib/tracktollywood/tableGroups';
 
 type Group = { heading: string; tables: TTTable[] };
 
@@ -27,13 +28,7 @@ type Group = { heading: string; tables: TTTable[] };
 // whichever side matches to get the clean category name for a filter
 // pill; fall back to the raw label for a single-table group like
 // "Day-wise Collection", where nothing is left after stripping.
-function categoryLabel(table: TTTable, heading: string): string {
-  let label = table.label;
-  if (label.startsWith(heading)) label = label.slice(heading.length);
-  else if (label.endsWith(heading)) label = label.slice(0, label.length - heading.length);
-  label = label.replace(/^[\s—-]+|[\s—-]+$/g, '');
-  return label || table.label;
-}
+const categoryLabel = sharedCategoryLabel;
 
 function categoryIcon(category: string): LucideIcon {
   const c = category.toLowerCase();
@@ -46,27 +41,16 @@ function categoryIcon(category: string): LucideIcon {
   return ListFilter;
 }
 
+// Text comes from the shared lib/tracktollywood/tableGroups.ts (including
+// its UTC-pinned date formatting -- see that file's comment); only the
+// per-heading icon choice is UI-specific enough to stay local to this
+// dropdown component.
 function headingMeta(heading: string): { label: string; icon: LucideIcon } {
-  if (heading === 'Day-wise Collection') return { label: 'Day-wise Collection', icon: BarChart3 };
-  if (heading === 'Cumulative') return { label: 'Cumulative — All Days', icon: Layers };
-  if (heading.startsWith('Advance ')) {
-    const raw = heading.slice('Advance '.length);
-    const d = new Date(raw);
-    // TrackTollywood's snapshot date ("2026-09-25") parses as UTC
-    // midnight -- formatting it in the VIEWER's own local timezone (the
-    // default when no `timeZone` is passed) shifts the printed day
-    // backwards by one for anyone whose clock sits behind UTC (most of
-    // the US, for instance), so a viewer there would see this exact
-    // table's real, correctly-scraped 25th-of-the-month data displayed
-    // under a "24 Sept" label. Pinning to UTC keeps the label matching
-    // the same calendar date the raw string -- and every row inside
-    // this table -- actually refers to, for every viewer everywhere.
-    const label = Number.isNaN(d.getTime())
-      ? heading
-      : `Advance · ${d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`;
-    return { label, icon: CalendarDays };
-  }
-  return { label: heading, icon: Film };
+  const label = headingLabel(heading);
+  if (heading === 'Day-wise Collection') return { label, icon: BarChart3 };
+  if (heading === 'Cumulative') return { label, icon: Layers };
+  if (heading.startsWith('Advance ')) return { label, icon: CalendarDays };
+  return { label, icon: Film };
 }
 
 // The "Day-wise Collection" table always carries its own "Day" + "Date"

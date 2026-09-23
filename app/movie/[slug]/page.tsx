@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getMovieDetails, parseReleaseDate } from '@/lib/tracktollywood/scraper';
 import type { TTMovieMetaItem, TTTable } from '@/lib/tracktollywood/types';
+import { groupTables } from '@/lib/tracktollywood/tableGroups';
 import { STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
 import { Card } from '@/components/ui';
 import TableGroups from '@/components/TableGroups';
@@ -64,37 +65,6 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-// Groups TrackTollywood's flat table list (54+ tables for a well-into-its-run
-// movie) into sections a person can actually scan: one per release day, one
-// per advance-booking date, and a Cumulative section -- instead of one long
-// unlabeled list. Pure string matching on the site's own data-snapshot
-// labels (e.g. "Top Cities — Day 2", "Advance 2026-09-18 — State-wise",
-// "Cumulative Language-wise") -- no hard-coded day count, so this keeps
-// working as a movie's run gets longer or an advance window changes. See
-// components/TableGroups.tsx for the interactive filter UI built on top of
-// this grouping.
-function groupTables(tables: TTTable[]): { heading: string; tables: TTTable[] }[] {
-  const groups = new Map<string, TTTable[]>();
-  const order: string[] = [];
-
-  for (const t of tables) {
-    let heading: string;
-    if (t.label === 'Day-wise Collection') heading = 'Day-wise Collection';
-    else if (/Cumulative/i.test(t.label)) heading = 'Cumulative';
-    else if (/^Advance /i.test(t.label)) heading = t.label.split(' — ')[0]; // "Advance 2026-09-18"
-    else {
-      const m = t.label.match(/— (Day \d+)$/);
-      heading = m ? m[1] : 'Other';
-    }
-    if (!groups.has(heading)) {
-      groups.set(heading, []);
-      order.push(heading);
-    }
-    groups.get(heading)!.push(t);
-  }
-
-  return order.map((heading) => ({ heading, tables: groups.get(heading)! }));
-}
 
 export default async function TrackTollywoodMoviePage({ params }: { params: { slug: string } }) {
   let details;
