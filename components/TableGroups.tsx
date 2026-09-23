@@ -262,59 +262,64 @@ function HeadingOption({
   );
 }
 
-// The primary "Breakdown for: Tracked Days · Day 48 ▾" selector -- full
-// width and stacked above the category dropdown on mobile, inline and
-// compact on tablet/desktop. Every heading groupTables() can produce
-// falls into exactly one of three sections (see categoryOf above):
-// TRACKED DAYS (every "Day N" this movie has, however many exist --
-// nothing here is hardcoded to a day count), BOX OFFICE (Day-wise /
-// Other / Cumulative), and ADVANCE (every "Advance <date>" this movie
-// has, oldest first). The whole panel keeps one shared max-height/scroll
-// (not three independently-scrolling sub-panels) so it stays a single,
-// compact control even for a movie 48+ days into its run, rather than a
-// page-height menu.
-function HeadingDropdown({
-  groups,
+// Four independent, always-visible report/dimension controls in the
+// "Performance breakdown" toolbar -- three report-category dropdowns
+// (Tracked Days / Box Office / Advance) plus the separate State-wise
+// CategoryDropdown further below. Each report-category button is its own
+// always-visible control (not sections inside one combined dropdown), but
+// all three drive the SAME single "which report is active" selection
+// (TableGroups' own `heading` / `selectHeading`) -- there is exactly one
+// active report at a time, and whichever category currently owns it shows
+// itself in gold; the other two stay neutral with just their category
+// name. ReportCategoryDropdown below is the one shared rendering engine
+// for all three (same useDropdown/HeadingOption primitives, same active-
+// label formatting the old combined dropdown used) so nothing about a
+// single dropdown's open/close behaviour, list rendering, Latest badge,
+// or date formatting is implemented three times -- TrackedDaysDropdown /
+// BoxOfficeDropdown / AdvanceDropdown just supply their own category's
+// filtered+sorted items and icon/label.
+function reportItemMeta(category: HeadingCategory, heading: string): { label: string; icon: LucideIcon } {
+  return category === 'day' ? { label: heading, icon: Film } : headingMeta(heading);
+}
+
+// Exactly the label text the old combined "Breakdown for:" dropdown used
+// for its active value -- reused as-is so splitting the dropdown apart
+// doesn't change what a selected report reads as. "Advance · 23 Sept"
+// already names its own category, so it isn't prefixed again.
+function activeReportLabel(category: HeadingCategory, heading: string, dayDateMap: Record<string, string>): string {
+  const meta = reportItemMeta(category, heading);
+  const date = category === 'day' ? dayDateMap[heading] : undefined;
+  const itemLabel = date ? `${heading} — ${date}` : meta.label;
+  if (category === 'day') return `Tracked Days · ${itemLabel}`;
+  if (category === 'boxoffice') return `Box Office · ${itemLabel}`;
+  return itemLabel;
+}
+
+function ReportCategoryDropdown({
+  categoryKey,
+  categoryLabel: label,
+  icon: CategoryIcon,
+  items,
   heading,
   dayDateMap,
+  latest,
   onSelect
 }: {
-  groups: Group[];
+  categoryKey: HeadingCategory;
+  categoryLabel: string;
+  icon: LucideIcon;
+  items: Group[];
   heading: string;
   dayDateMap: Record<string, string>;
+  latest: string | null;
   onSelect: (h: string) => void;
 }) {
   const { open, setOpen, ref } = useDropdown<HTMLDivElement>();
 
-  const dayGroups = groups
-    .filter((g) => categoryOf(g.heading) === 'day')
-    .slice()
-    .sort((a, b) => (dayNumber(a.heading)! - dayNumber(b.heading)!));
-  const boxOfficeGroups = sortBoxOfficeHeadings(groups.filter((g) => categoryOf(g.heading) === 'boxoffice'));
-  const advanceGroups = sortAdvanceHeadings(groups.filter((g) => categoryOf(g.heading) === 'advance'));
-  const latest = latestDayHeading(groups.map((g) => g.heading));
+  if (items.length === 0) return null;
 
-  const activeCategory = categoryOf(heading);
-  const activeMeta = headingMeta(heading);
-  const activeDayDate = dayDateMap[heading];
-  const activeItemLabel = activeDayDate ? `${heading} — ${activeDayDate}` : activeMeta.label;
-  // Advance's own label ("Advance · 23 Sept") already names its category,
-  // so prefixing it again would read as "Advance · Advance · 23 Sept" --
-  // only Tracked Days / Box Office need the category spelled out.
-  const activeLabel =
-    activeCategory === 'day'
-      ? `Tracked Days · ${activeItemLabel}`
-      : activeCategory === 'boxoffice'
-        ? `Box Office · ${activeItemLabel}`
-        : activeItemLabel;
-
-  const sections: { key: HeadingCategory; title: string; groups: Group[] }[] = (
-    [
-      { key: 'day', title: 'Tracked Days', groups: dayGroups },
-      { key: 'boxoffice', title: 'Box Office', groups: boxOfficeGroups },
-      { key: 'advance', title: 'Advance', groups: advanceGroups }
-    ] as { key: HeadingCategory; title: string; groups: Group[] }[]
-  ).filter((s) => s.groups.length > 0);
+  const isOwner = categoryOf(heading) === categoryKey;
+  const buttonLabel = isOwner ? activeReportLabel(categoryKey, heading, dayDateMap) : label;
 
   return (
     <div ref={ref} className="relative w-full sm:w-auto">
@@ -323,13 +328,13 @@ function HeadingDropdown({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2.5 text-sm bg-surface border border-border rounded-full h-[50px] pl-4 pr-3.5 hover:border-gold/30 transition"
+        className={`w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2.5 text-sm bg-surface border rounded-full h-[50px] pl-4 pr-3.5 transition ${
+          isOwner ? 'border-gold/30 hover:border-gold/50' : 'border-border hover:border-gold/30'
+        }`}
       >
         <span className="flex items-center gap-2 min-w-0">
-          <CalendarDays size={17} className="text-textFaint flex-none" />
-          <span className="text-textDim truncate">
-            Breakdown for: <span className="font-semibold text-gold">{activeLabel}</span>
-          </span>
+          <CategoryIcon size={17} className={`flex-none ${isOwner ? 'text-gold' : 'text-textFaint'}`} />
+          <span className={`truncate ${isOwner ? 'font-semibold text-gold' : 'text-textDim'}`}>{buttonLabel}</span>
         </span>
         <ChevronDown size={17} className={`text-textFaint flex-none transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -337,33 +342,121 @@ function HeadingDropdown({
       {open && (
         <div
           role="listbox"
-          className="absolute z-30 left-0 right-0 sm:right-auto mt-1.5 w-full sm:w-80 max-h-[24rem] overflow-y-auto bg-surface border border-border rounded-2xl shadow-card py-1.5"
+          className="absolute z-30 left-0 right-0 sm:right-auto mt-1.5 w-full sm:w-72 max-h-[22rem] overflow-y-auto bg-surface border border-border rounded-2xl shadow-card py-1.5"
         >
-          {sections.map((section, si) => (
-            <div key={section.key}>
-              {si > 0 && <div className="h-px bg-border my-1.5" />}
-              <div className="mdtype-overline text-textFaint px-4 pt-1.5 pb-1">{section.title}</div>
-              {section.groups.map((g) => (
-                <HeadingOption
-                  key={g.heading}
-                  g={g}
-                  meta={section.key === 'day' ? { label: g.heading, icon: Film } : headingMeta(g.heading)}
-                  isActive={g.heading === heading}
-                  isLatest={g.heading === latest}
-                  date={section.key === 'day' ? dayDateMap[g.heading] : undefined}
-                  onSelect={() => {
-                    onSelect(g.heading);
-                    setOpen(false);
-                  }}
-                />
-              ))}
-            </div>
+          {items.map((g) => (
+            <HeadingOption
+              key={g.heading}
+              g={g}
+              meta={reportItemMeta(categoryKey, g.heading)}
+              isActive={isOwner && g.heading === heading}
+              isLatest={g.heading === latest}
+              date={categoryKey === 'day' ? dayDateMap[g.heading] : undefined}
+              onSelect={() => {
+                onSelect(g.heading);
+                setOpen(false);
+              }}
+            />
           ))}
         </div>
       )}
     </div>
   );
 }
+
+// Dropdown 1 -- "Tracked Days": every "Day N" this movie has (however many
+// exist -- nothing hardcoded), each with its real scraped date and a
+// Latest badge on the most recently tracked day. Shows nothing but day
+// entries.
+function TrackedDaysDropdown({
+  groups,
+  heading,
+  dayDateMap,
+  latest,
+  onSelect
+}: {
+  groups: Group[];
+  heading: string;
+  dayDateMap: Record<string, string>;
+  latest: string | null;
+  onSelect: (h: string) => void;
+}) {
+  const items = groups
+    .filter((g) => categoryOf(g.heading) === 'day')
+    .slice()
+    .sort((a, b) => dayNumber(a.heading)! - dayNumber(b.heading)!);
+  return (
+    <ReportCategoryDropdown
+      categoryKey="day"
+      categoryLabel="Tracked Days"
+      icon={CalendarDays}
+      items={items}
+      heading={heading}
+      dayDateMap={dayDateMap}
+      latest={latest}
+      onSelect={onSelect}
+    />
+  );
+}
+
+// Dropdown 2 -- "Box Office": Day-wise Collection / Other / Cumulative --
+// All Days, in that fixed reading order. Shows nothing but box-office
+// entries -- no tracked days, no advance dates.
+function BoxOfficeDropdown({
+  groups,
+  heading,
+  latest,
+  onSelect
+}: {
+  groups: Group[];
+  heading: string;
+  latest: string | null;
+  onSelect: (h: string) => void;
+}) {
+  const items = sortBoxOfficeHeadings(groups.filter((g) => categoryOf(g.heading) === 'boxoffice'));
+  return (
+    <ReportCategoryDropdown
+      categoryKey="boxoffice"
+      categoryLabel="Box Office"
+      icon={BarChart3}
+      items={items}
+      heading={heading}
+      dayDateMap={{}}
+      latest={latest}
+      onSelect={onSelect}
+    />
+  );
+}
+
+// Dropdown 3 -- "Advance": every "Advance <date>" this movie has,
+// dynamically generated and chronologically sorted, oldest first. Shows
+// nothing but advance dates -- no tracked days, no box-office entries.
+function AdvanceDropdown({
+  groups,
+  heading,
+  latest,
+  onSelect
+}: {
+  groups: Group[];
+  heading: string;
+  latest: string | null;
+  onSelect: (h: string) => void;
+}) {
+  const items = sortAdvanceHeadings(groups.filter((g) => categoryOf(g.heading) === 'advance'));
+  return (
+    <ReportCategoryDropdown
+      categoryKey="advance"
+      categoryLabel="Advance"
+      icon={CalendarDays}
+      items={items}
+      heading={heading}
+      dayDateMap={{}}
+      latest={latest}
+      onSelect={onSelect}
+    />
+  );
+}
+
 
 // The secondary "State-wise / Top Cities / Language-wise / ..." selector
 // for whichever day/date is active -- same dropdown mechanics, a flat
@@ -433,6 +526,7 @@ export default function TableGroups({ groups }: { groups: Group[] }) {
   const [heading, setHeading] = useState(() => pickDefaultHeading(groups));
   const activeGroup = groups.find((g) => g.heading === heading) ?? groups[0];
   const dayDateMap = useMemo(() => buildDayDateMap(groups), [groups]);
+  const latest = useMemo(() => latestDayHeading(groups.map((g) => g.heading)), [groups]);
 
   const categories = useMemo(() => {
     if (!activeGroup) return [];
@@ -458,8 +552,10 @@ export default function TableGroups({ groups }: { groups: Group[] }) {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5 mb-4">
-        <HeadingDropdown groups={groups} heading={heading} dayDateMap={dayDateMap} onSelect={selectHeading} />
+      <div className="grid grid-cols-1 min-[560px]:grid-cols-2 gap-2.5 sm:flex sm:flex-row sm:flex-wrap sm:items-center mb-4">
+        <TrackedDaysDropdown groups={groups} heading={heading} dayDateMap={dayDateMap} latest={latest} onSelect={selectHeading} />
+        <BoxOfficeDropdown groups={groups} heading={heading} latest={latest} onSelect={selectHeading} />
+        <AdvanceDropdown groups={groups} heading={heading} latest={latest} onSelect={selectHeading} />
         {categories.length > 1 && (
           <CategoryDropdown categories={categories} active={resolvedCategory} onSelect={setCategory} />
         )}
