@@ -66,6 +66,53 @@ export function headingLabel(heading: string): string {
 // whichever side matches to get the clean category name ("State-wise",
 // "Top Cities", ...); fall back to the raw label for a single-table group
 // like "Day-wise Collection", where nothing is left after stripping.
+// Which of the three navigation categories a group heading belongs to --
+// used by the movie page's breakdown selector (components/TableGroups.tsx)
+// to section "Day 1..N" / "Day-wise Collection, Other, Cumulative" /
+// "Advance <date>" into three clearly-labeled groups instead of one flat
+// list. Pure string matching on the same heading values groupTables()
+// already produces -- nothing here is a second source of truth for what
+// headings exist.
+export type HeadingCategory = 'day' | 'boxoffice' | 'advance';
+
+export function categoryOf(heading: string): HeadingCategory {
+  if (/^Day \d+$/.test(heading)) return 'day';
+  if (heading.startsWith('Advance ')) return 'advance';
+  return 'boxoffice';
+}
+
+// "Day-wise / Other / Cumulative" -- a fixed, sensible reading order
+// rather than whatever order TrackTollywood's own table list happened to
+// produce them in. Anything unrecognized (there isn't one today, but a
+// future report type would fall in here rather than vanishing) sorts
+// after the three known headings, alphabetically among themselves.
+const BOX_OFFICE_ORDER = ['Day-wise Collection', 'Other', 'Cumulative'];
+export function sortBoxOfficeHeadings<T extends { heading: string }>(groups: T[]): T[] {
+  return groups.slice().sort((a, b) => {
+    const ia = BOX_OFFICE_ORDER.indexOf(a.heading);
+    const ib = BOX_OFFICE_ORDER.indexOf(b.heading);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.heading.localeCompare(b.heading);
+  });
+}
+
+// Advance dates aren't guaranteed to already be in date order (they're
+// just whatever order the tables appear in TrackTollywood's own flat
+// list) -- parse each "Advance 2026-09-18" heading's date and sort on
+// that explicitly, oldest first. A heading that somehow fails to parse
+// (shouldn't happen given groupTables()'s own regex, but data is data)
+// falls back to string order rather than throwing.
+export function sortAdvanceHeadings<T extends { heading: string }>(groups: T[]): T[] {
+  return groups.slice().sort((a, b) => {
+    const da = Date.parse(a.heading.slice('Advance '.length));
+    const db = Date.parse(b.heading.slice('Advance '.length));
+    if (Number.isNaN(da) || Number.isNaN(db)) return a.heading.localeCompare(b.heading);
+    return da - db;
+  });
+}
+
 export function categoryLabel(table: TTTable, heading: string): string {
   let label = table.label;
   if (label.startsWith(heading)) label = label.slice(heading.length);

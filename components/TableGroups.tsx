@@ -13,11 +13,19 @@ import {
   Film,
   ListFilter,
   ChevronDown,
-  Layers
+  Layers,
+  Check
 } from 'lucide-react';
 import type { TTTable, TTTableRow } from '@/lib/tracktollywood/types';
 import { isMoneyColumn, isDataColumn, isPercentColumn, isOccupancyColumn, occupancyColorClass } from '@/lib/tableFormat';
-import { headingLabel, categoryLabel as sharedCategoryLabel } from '@/lib/tracktollywood/tableGroups';
+import {
+  headingLabel,
+  categoryLabel as sharedCategoryLabel,
+  categoryOf,
+  sortBoxOfficeHeadings,
+  sortAdvanceHeadings,
+  type HeadingCategory
+} from '@/lib/tracktollywood/tableGroups';
 
 type Group = { heading: string; tables: TTTable[] };
 
@@ -206,13 +214,65 @@ function useDropdown<T extends HTMLElement>() {
   return { open, setOpen, ref };
 }
 
-// The primary "Breakdown for: Day 11 — 21 Sep ▾" selector -- full width
-// and stacked above the category dropdown on mobile (an overflow-x
-// scroll of 10+ day pills is what this replaces), inline and compact on
-// tablet/desktop. Non-day groups (Cumulative, Day-wise Collection,
-// Advance-booking dates) are pinned above a "TRACKED DATES" section that
-// lists every scraped day in order, oldest first, with its real date and
-// a LATEST badge on whichever day TrackTollywood most recently tracked.
+// One option row, shared by all three sections below so the "Tracked
+// Days" / "Box Office" / "Advance" lists read as one consistent list
+// rather than three differently-styled ones.
+function HeadingOption({
+  g,
+  meta,
+  isActive,
+  isLatest,
+  date,
+  onSelect
+}: {
+  g: Group;
+  meta: { label: string; icon: LucideIcon };
+  isActive: boolean;
+  isLatest: boolean;
+  date?: string;
+  onSelect: () => void;
+}) {
+  const Icon = meta.icon;
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={isActive}
+      onClick={onSelect}
+      className={`w-full flex items-center justify-between gap-2.5 text-sm px-4 py-3 text-left transition ${
+        isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-white/[0.05] hover:text-text'
+      }`}
+    >
+      <span className="flex items-center gap-2.5 min-w-0">
+        <Icon size={16} strokeWidth={2.25} className="flex-none" />
+        <span className="truncate">
+          {meta.label}
+          {date && <span className="text-textFaint font-normal"> — {date}</span>}
+        </span>
+      </span>
+      <span className="flex-none flex items-center gap-1.5">
+        {isLatest && (
+          <span className="text-[10px] font-bold uppercase bg-goldDim/10 text-goldDim border border-goldDim/20 px-2 py-0.5 rounded-full">
+            Latest
+          </span>
+        )}
+        {isActive && <Check size={15} strokeWidth={2.75} className="text-gold" />}
+      </span>
+    </button>
+  );
+}
+
+// The primary "Breakdown for: Tracked Days · Day 48 ▾" selector -- full
+// width and stacked above the category dropdown on mobile, inline and
+// compact on tablet/desktop. Every heading groupTables() can produce
+// falls into exactly one of three sections (see categoryOf above):
+// TRACKED DAYS (every "Day N" this movie has, however many exist --
+// nothing here is hardcoded to a day count), BOX OFFICE (Day-wise /
+// Other / Cumulative), and ADVANCE (every "Advance <date>" this movie
+// has, oldest first). The whole panel keeps one shared max-height/scroll
+// (not three independently-scrolling sub-panels) so it stays a single,
+// compact control even for a movie 48+ days into its run, rather than a
+// page-height menu.
 function HeadingDropdown({
   groups,
   heading,
@@ -226,16 +286,35 @@ function HeadingDropdown({
 }) {
   const { open, setOpen, ref } = useDropdown<HTMLDivElement>();
 
-  const otherGroups = groups.filter((g) => dayNumber(g.heading) == null);
   const dayGroups = groups
-    .filter((g) => dayNumber(g.heading) != null)
+    .filter((g) => categoryOf(g.heading) === 'day')
     .slice()
     .sort((a, b) => (dayNumber(a.heading)! - dayNumber(b.heading)!));
+  const boxOfficeGroups = sortBoxOfficeHeadings(groups.filter((g) => categoryOf(g.heading) === 'boxoffice'));
+  const advanceGroups = sortAdvanceHeadings(groups.filter((g) => categoryOf(g.heading) === 'advance'));
   const latest = latestDayHeading(groups.map((g) => g.heading));
 
+  const activeCategory = categoryOf(heading);
   const activeMeta = headingMeta(heading);
   const activeDayDate = dayDateMap[heading];
-  const activeLabel = activeDayDate ? `${heading} — ${activeDayDate}` : activeMeta.label;
+  const activeItemLabel = activeDayDate ? `${heading} — ${activeDayDate}` : activeMeta.label;
+  // Advance's own label ("Advance · 23 Sept") already names its category,
+  // so prefixing it again would read as "Advance · Advance · 23 Sept" --
+  // only Tracked Days / Box Office need the category spelled out.
+  const activeLabel =
+    activeCategory === 'day'
+      ? `Tracked Days · ${activeItemLabel}`
+      : activeCategory === 'boxoffice'
+        ? `Box Office · ${activeItemLabel}`
+        : activeItemLabel;
+
+  const sections: { key: HeadingCategory; title: string; groups: Group[] }[] = (
+    [
+      { key: 'day', title: 'Tracked Days', groups: dayGroups },
+      { key: 'boxoffice', title: 'Box Office', groups: boxOfficeGroups },
+      { key: 'advance', title: 'Advance', groups: advanceGroups }
+    ] as { key: HeadingCategory; title: string; groups: Group[] }[]
+  ).filter((s) => s.groups.length > 0);
 
   return (
     <div ref={ref} className="relative w-full sm:w-auto">
@@ -258,73 +337,28 @@ function HeadingDropdown({
       {open && (
         <div
           role="listbox"
-          className="absolute z-30 left-0 right-0 sm:right-auto mt-1.5 w-full sm:w-80 max-h-[22rem] overflow-y-auto bg-surface border border-border rounded-2xl shadow-card py-1.5"
+          className="absolute z-30 left-0 right-0 sm:right-auto mt-1.5 w-full sm:w-80 max-h-[24rem] overflow-y-auto bg-surface border border-border rounded-2xl shadow-card py-1.5"
         >
-          {otherGroups.map((g) => {
-            const meta = headingMeta(g.heading);
-            const Icon = meta.icon;
-            const isActive = g.heading === heading;
-            return (
-              <button
-                key={g.heading}
-                type="button"
-                role="option"
-                aria-selected={isActive}
-                onClick={() => {
-                  onSelect(g.heading);
-                  setOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 text-sm px-4 py-3 text-left transition ${
-                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-white/[0.05] hover:text-text'
-                }`}
-              >
-                <Icon size={16} strokeWidth={2.25} className="flex-none" />
-                {meta.label}
-              </button>
-            );
-          })}
-
-          {otherGroups.length > 0 && dayGroups.length > 0 && <div className="h-px bg-border my-1.5" />}
-
-          {dayGroups.length > 0 && (
-            <div className="mdtype-overline text-textFaint px-4 pt-1.5 pb-1">Tracked Dates</div>
-          )}
-          {dayGroups.map((g) => {
-            const isActive = g.heading === heading;
-            const isLatest = g.heading === latest;
-            const date = dayDateMap[g.heading];
-            return (
-              <button
-                key={g.heading}
-                type="button"
-                role="option"
-                aria-selected={isActive}
-                onClick={() => {
-                  onSelect(g.heading);
-                  setOpen(false);
-                }}
-                className={`w-full flex items-center justify-between gap-2.5 text-sm px-4 py-3 text-left transition ${
-                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-white/[0.05] hover:text-text'
-                }`}
-              >
-                <span className="flex items-center gap-2.5 min-w-0">
-                  <Film size={16} strokeWidth={2.25} className="flex-none" />
-                  <span className="truncate">
-                    {g.heading}
-                    {date && <span className="text-textFaint font-normal"> — {date}</span>}
-                  </span>
-                </span>
-                {isLatest && (
-                  <span className="flex-none flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase bg-goldDim/10 text-goldDim border border-goldDim/20 px-2 py-0.5 rounded-full">
-                      Latest
-                    </span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-goldDim" />
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {sections.map((section, si) => (
+            <div key={section.key}>
+              {si > 0 && <div className="h-px bg-border my-1.5" />}
+              <div className="mdtype-overline text-textFaint px-4 pt-1.5 pb-1">{section.title}</div>
+              {section.groups.map((g) => (
+                <HeadingOption
+                  key={g.heading}
+                  g={g}
+                  meta={section.key === 'day' ? { label: g.heading, icon: Film } : headingMeta(g.heading)}
+                  isActive={g.heading === heading}
+                  isLatest={g.heading === latest}
+                  date={section.key === 'day' ? dayDateMap[g.heading] : undefined}
+                  onSelect={() => {
+                    onSelect(g.heading);
+                    setOpen(false);
+                  }}
+                />
+              ))}
+            </div>
+          ))}
         </div>
       )}
     </div>
