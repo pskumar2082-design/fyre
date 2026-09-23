@@ -33,12 +33,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Light theme: white page, near-black high-emphasis text.
+/* Dark theme, matching the Fyre social-poster's own palette (see
+   tailwind.config.js's token comment for the full reasoning) -- near-black
+   navy page, soft-white high-emphasis text.
    Body Copy tier: Regular weight (the browser/Tailwind default,
    nothing to set), leading 1.2, tracking 0 (the default). */
 body {
-  background-color: #ffffff;
-  color: #111827;
+  background-color: #14161C;
+  color: #F2F3F5;
   line-height: 1.2;
 }
 
@@ -79,9 +81,10 @@ body {
 }
 
 /* Kept for any element still combining .gtext with .hdisplay -- a subtle
-   dark-to-accent-blue fade instead of the old light-on-dark version. */
+   white-to-accent-blue fade, back to matching a dark page (this file's
+   previous light-theme pass had inverted it to dark-on-light). */
 .gtext {
-  background: linear-gradient(90deg, #111827 0%, #2f6fed 100%);
+  background: linear-gradient(90deg, #F2F3F5 0%, #2f6fed 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

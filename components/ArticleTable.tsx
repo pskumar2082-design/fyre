@@ -11,7 +11,7 @@ export default function ArticleTable({ table }: { table: ParsedTable }) {
     <div className="overflow-x-auto my-6 -mx-1 rounded-xl border border-border">
       <table className="w-full text-xs border-collapse min-w-[420px]">
         <thead>
-          <tr className="bg-black/[0.02] border-b border-border">
+          <tr className="bg-white/[0.03] border-b border-border">
             {table.headers.map((h, i) => (
               <th
                 key={i}
@@ -28,9 +28,9 @@ export default function ArticleTable({ table }: { table: ParsedTable }) {
           {table.rows.map((row, i) => (
             <tr
               key={i}
-              className={`border-b border-border last:border-b-0 hover:bg-black/[0.02] transition ${
-                i % 2 === 1 ? 'bg-black/[0.012]' : ''
-              }`}
+              className={`border-b border-border last:border-b-0 hover:bg-white/[0.03] transition ${
+        i % 2 === 1 ? 'bg-white/[0.015]' : ''
+      }`}
             >
               {table.headers.map((h, j) => (
                 <td

@@ -58,7 +58,7 @@ export default async function BoxOfficePage({ searchParams }: { searchParams: { 
         <Card className="overflow-x-auto">
           <table className="w-full text-sm border-collapse min-w-[720px]">
             <thead>
-              <tr className="mdtype-overline text-textFaint border-b border-border bg-black/[0.02]">
+              <tr className="mdtype-overline text-textFaint border-b border-border bg-white/[0.03]">
                 <th className="text-left py-4 px-5 w-12">#</th>
                 <th className="text-left py-4 px-5">Movie</th>
                 <th className="text-left py-4 px-5">Genre</th>
@@ -68,11 +68,11 @@ export default async function BoxOfficePage({ searchParams }: { searchParams: { 
             </thead>
             <tbody>
               {sorted.map((m, i) => (
-                <tr key={m.slug} className="border-b border-border last:border-0 hover:bg-black/[0.02] transition">
+                <tr key={m.slug} className="border-b border-border last:border-0 hover:bg-white/[0.03] transition">
                   <td className="py-3 px-5 text-textFaint font-semibold">{i + 1}</td>
                   <td className="py-3 px-5">
                     <Link href={`/movie/${m.slug}`} className="flex items-center gap-3 group">
-                      <div className="w-10 h-14 flex-none rounded-lg overflow-hidden bg-surface2 border border-black/[0.04] relative">
+                      <div className="w-10 h-14 flex-none rounded-lg overflow-hidden bg-surface2 border border-border relative">
                         {m.poster && <Image src={m.poster} alt="" fill unoptimized className="object-cover object-top" />}
                       </div>
                       <span className="font-medium text-text group-hover:text-gold transition">{m.title}</span>

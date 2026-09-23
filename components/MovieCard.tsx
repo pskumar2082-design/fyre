@@ -12,7 +12,7 @@ export default function MovieCard({ movie, rank }: { movie: TTListedMovie; rank?
   const badgeLabel = movie.dayLabel ? `${STATE_LABEL[movie.state]} · ${movie.dayLabel}` : STATE_LABEL[movie.state];
   return (
     <Link href={`/movie/${movie.slug}`} className="flex-none w-40 group">
-      <div className="w-40 h-56 rounded-2xl bg-surface2 border border-black/[0.04] shadow-card relative overflow-hidden flex items-end p-2.5 transition group-hover:border-gold/30">
+      <div className="w-40 h-56 rounded-2xl bg-surface2 border border-border shadow-card relative overflow-hidden flex items-end p-2.5 transition group-hover:border-gold/30">
         {movie.poster ? (
           <Image
             src={movie.poster}

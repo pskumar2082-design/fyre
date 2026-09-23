@@ -1,4 +1,64 @@
 /** @type {import('tailwindcss').Config} */
+
+// ---------------------------------------------------------------------------
+// Fyre design tokens -- the site's ONE source of truth for color, radius and
+// shadow. This is the poster's own dark navy/blue palette
+// (lib/poster/blocks.tsx), promoted from "the thing exported PNGs look
+// like" to "the thing the whole product looks like": the site was a light
+// "Car Rent"-style theme before this pass (see the git history on this
+// file), with the poster already using these exact navy/gold/goldDim/red
+// values independently. Rather than inventing a new palette, this reuses
+// the poster's calibrated one so the website and every generated graphic
+// are visibly the same product.
+//
+// Elevation scale (dark UI convention: each step lighter = "closer to the
+// viewer"), reused via the constants below rather than repeated hex:
+//   bgAlt   -- sunken panel, a touch DARKER than bg (e.g. homepage stats rail)
+//   bg      -- page background (== navy, the poster's own background)
+//   surface -- card background (== navyAlt, one step up)
+//   surface2 / surfaceHigh / surfaceTop -- progressively lighter elevated
+//     surfaces (inputs, hover fills, thumbnail placeholders, and headroom
+//     for anything that needs to sit above a card later)
+// ---------------------------------------------------------------------------
+const navy = '#14161C';
+const navyAlt = '#1D2029';
+const surface2 = '#242733';
+const surfaceHigh = '#2B2F3D';
+const surfaceTop = '#333748';
+const bgAlt = '#0E0F13';
+
+// Thin, low-contrast translucent-white borders -- work on top of any of the
+// surfaces above without needing a matching hex per elevation step. Exactly
+// the poster's own BORDER value.
+const border = 'rgba(255,255,255,0.10)';
+const borderStrong = 'rgba(255,255,255,0.18)';
+
+// Soft white (not harsh pure white) for high-emphasis text, plus the
+// poster's own translucent-white secondary/muted tiers.
+const text = '#F2F3F5';
+const textDim = 'rgba(255,255,255,0.62)';
+const textFaint = 'rgba(255,255,255,0.38)';
+
+// The Fyre blue -- unchanged; this already matched the poster before this
+// pass. goldBright now lightens ON HOVER (a filled blue button, or blue
+// hover-text) instead of darkening -- darkening a saturated accent against
+// a dark background loses contrast instead of adding it.
+const gold = '#2F6FED';
+const goldBright = '#5B93FF';
+const goldDim = '#22C55E'; // green -- positive / "completed" states
+const red = '#EF4444';
+// New: the poster's amber mid-occupancy tier didn't have a website token
+// yet (the live site had no occupancy-threshold coloring outside the
+// admin poster tool). Centralizing it here per the design-system brief
+// rather than letting a future occupancy-colored view invent its own.
+const amber = '#F59E0B';
+// A deliberate secondary accent, distinct from the primary blue, already
+// used (as raw Tailwind `indigo-500/600`) to tell the homepage's "Now
+// Showing" stat apart from its "Advance" (blue) stat. Promoted to a
+// calibrated token instead of Tailwind's stock indigo swatch, which was
+// tuned for a light UI and read slightly too saturated/cartoonish here.
+const indigo = '#6C7BF0';
+
 module.exports = {
   content: [
     './app/**/*.{js,ts,jsx,tsx}',
@@ -8,60 +68,65 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Light theme, matching the "Car Rent" dashboard reference exactly:
-        // white main content, a warm cream secondary panel, a dark navy
-        // sidebar (the one region that stays dark), and a solid blue
-        // accent. Token NAMES are kept the same as the dark-theme pass so
-        // every component that already reads bg/surface/text/gold/etc
-        // picks up the new values automatically -- only the sidebar/header
-        // split needed real file edits (see AppShell.tsx), since a
-        // permanent dark sidebar next to light content has no single-value
-        // token that covers both.
-        bg: '#FFFFFF',       // page / main content background
-        bgAlt: '#F6F4F0',    // warm cream secondary panel (stats column)
-        surface: '#FFFFFF',  // card background
-        surface2: '#F8F9FB', // nested / hover row tint
-        surfaceHigh: '#FFFFFF',
-        surfaceTop: '#FFFFFF',
-        border: '#E7E5E0',   // hairline border/divider
+        bg: navy,
+        bgAlt,
+        surface: navyAlt,
+        surface2,
+        surfaceHigh,
+        surfaceTop,
+        border,
+        borderStrong,
 
-        // The sidebar is the one part of the page that stays dark --
-        // doesn't fit the bg/bgAlt system above, so it gets its own
-        // dedicated tokens instead of overloading an existing one.
-        navy: '#14161C',
-        navyAlt: '#1D2029',
+        // Still their own tokens (not just aliases of bg/surface) since
+        // AppShell's sidebar references them by name for its permanently-
+        // dark treatment -- they happen to equal bg/surface now that the
+        // whole app is dark, but keeping them distinct means a future
+        // "sidebar should read one step off from the page" tweak is a
+        // one-line change instead of an aliasing untangle.
+        navy,
+        navyAlt,
 
-        gold: '#2F6FED',       // primary blue accent
-        goldBright: '#1D5FE0', // darker blue -- hover/pressed on a filled blue element
-        goldDim: '#22C55E',    // secondary accent (green) -- positive/"completed" states
-        red: '#EF4444',        // error / negative / urgent state
+        gold,
+        goldBright,
+        goldDim,
+        red,
+        amber,
+        indigo,
 
-        text: '#111827',      // near-black, high-emphasis text
-        textDim: '#6B7280',   // medium gray, secondary text
-        textFaint: '#9CA3AF', // light gray, faint/placeholder text
+        text,
+        textDim,
+        textFaint,
 
-        // Not used anywhere live (only the orphaned VersionSelector.tsx) --
-        // kept pointed at the same system so nothing breaks if it's ever
-        // wired back up.
-        brandPurple: '#2F6FED',
-        brandPink: '#22C55E',
-        brandOrange: '#1D5FE0',
-        positive: '#22C55E',
-        coral: '#EF4444',
-        chartBlue: '#2F6FED',
-        chartTeal: '#22C55E',
-        tintBlue: '#F6F4F0',
-        tintPink: '#F6F4F0',
-        tintYellow: '#F6F4F0',
-        tintTeal: '#F6F4F0'
+        // Not used anywhere live (only the orphaned components/VersionSelector.tsx
+        // and components/BreakdownTable.tsx -- neither is imported by any
+        // page). Kept pointed at the new dark tokens so nothing looks
+        // broken if either is ever wired back up.
+        brandPurple: indigo,
+        brandPink: goldDim,
+        brandOrange: goldBright,
+        positive: goldDim,
+        coral: red,
+        chartBlue: gold,
+        chartTeal: goldDim,
+        tintBlue: surface2,
+        tintPink: surface2,
+        tintYellow: surface2,
+        tintTeal: surface2
       },
+      // Dialed back from the previous 15/20/25px scale -- restrained radii
+      // read as premium/data-focused (the poster's own table/card corners
+      // are 16px); the old scale was closer to a generic soft SaaS look.
       borderRadius: {
-        lg: '15px',
-        xl: '20px',
-        '2xl': '25px'
+        lg: '10px',
+        xl: '14px',
+        '2xl': '18px'
       },
+      // A single restrained shadow, not a family of them -- per the design
+      // brief, hierarchy on this dark UI comes from surface/border
+      // contrast first, with just enough shadow to lift a card off the
+      // page behind it, never a "giant shadow" or colored glow.
       boxShadow: {
-        card: '0 4px 24px -4px rgba(20,22,28,0.08)'
+        card: '0 1px 2px rgba(0,0,0,0.3), 0 8px 20px -12px rgba(0,0,0,0.5)'
       },
       // Public Sans stands in for Walmart's proprietary "Everyday Sans"
       // (brand-restricted, not available outside Walmart) -- see

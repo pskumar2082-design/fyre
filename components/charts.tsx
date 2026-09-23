@@ -14,7 +14,7 @@ export function Donut({ segments, size = 168, thickness = 22 }: { segments: Donu
   return (
     <div className="flex flex-col items-center">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeWidth={thickness} className="text-black/[0.04]" />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeWidth={thickness} className="text-white/[0.06]" />
         {total > 0 &&
           segments.map((s, i) => {
             const fraction = s.value / total;
@@ -90,8 +90,8 @@ export function TrendChart({ points, height = 220 }: { points: TrendPoint[]; hei
 
       {yTicks.map((t, i) => (
         <g key={i}>
-          <line x1={padding.left} x2={width - padding.right} y1={y(t)} y2={y(t)} stroke="#E7E5E0" strokeWidth={1} />
-          <text x={padding.left - 10} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="#9CA3AF">
+          <line x1={padding.left} x2={width - padding.right} y1={y(t)} y2={y(t)} stroke="rgba(255,255,255,0.10)" strokeWidth={1} />
+          <text x={padding.left - 10} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="rgba(255,255,255,0.38)">
             {t}
           </text>
         </g>
@@ -105,7 +105,7 @@ export function TrendChart({ points, height = 220 }: { points: TrendPoint[]; hei
 
       {points.map((p, i) =>
         i % labelEvery === 0 || i === points.length - 1 ? (
-          <text key={i} x={x(i)} y={height - 6} textAnchor="middle" fontSize={11} fill="#9CA3AF">
+          <text key={i} x={x(i)} y={height - 6} textAnchor="middle" fontSize={11} fill="rgba(255,255,255,0.38)">
             {new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
           </text>
         ) : null

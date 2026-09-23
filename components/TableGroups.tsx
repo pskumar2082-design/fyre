@@ -111,7 +111,7 @@ function TableView({ table }: { table: TTTable }) {
     <div className="overflow-x-auto -mx-1">
       <table className="w-full text-xs border-collapse min-w-[480px]">
         <thead>
-          <tr className="bg-black/[0.02] border-b border-border">
+          <tr className="bg-white/[0.03] border-b border-border">
             {table.headers.map((h) => (
               <th
                 key={h}
@@ -131,7 +131,7 @@ function TableView({ table }: { table: TTTable }) {
               className={
                 row.__isTotal
                   ? 'bg-gold/[0.06] border-t-2 border-gold/20 font-bold'
-                  : `border-b border-border hover:bg-black/[0.02] transition ${i % 2 === 1 ? 'bg-black/[0.012]' : ''}`
+                  : `border-b border-border hover:bg-white/[0.03] transition ${i % 2 === 1 ? 'bg-white/[0.015]' : ''}`
               }
             >
               {table.headers.map((h) => (
@@ -253,7 +253,7 @@ function HeadingDropdown({
                   setOpen(false);
                 }}
                 className={`w-full flex items-center gap-2.5 text-sm px-4 py-3 text-left transition ${
-                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-black/[0.03] hover:text-text'
+                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-white/[0.05] hover:text-text'
                 }`}
               >
                 <Icon size={16} strokeWidth={2.25} className="flex-none" />
@@ -282,7 +282,7 @@ function HeadingDropdown({
                   setOpen(false);
                 }}
                 className={`w-full flex items-center justify-between gap-2.5 text-sm px-4 py-3 text-left transition ${
-                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-black/[0.03] hover:text-text'
+                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-white/[0.05] hover:text-text'
                 }`}
               >
                 <span className="flex items-center gap-2.5 min-w-0">
@@ -359,7 +359,7 @@ function CategoryDropdown({
                   setOpen(false);
                 }}
                 className={`w-full flex items-center gap-2.5 text-sm px-4 py-3 text-left transition ${
-                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-black/[0.03] hover:text-text'
+                  isActive ? 'bg-gold/[0.08] text-gold font-semibold' : 'text-textDim hover:bg-white/[0.05] hover:text-text'
                 }`}
               >
                 <Icon size={16} strokeWidth={2.25} className="flex-none" />

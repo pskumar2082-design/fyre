@@ -1,24 +1,27 @@
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
-// Small shared light-theme primitives used across every page: white
-// rounded-2xl cards with a soft shadow, tinted icon badges, stat cards
-// (icon + label + value), and pill buttons/links -- matching the "Car
-// Rent" dashboard reference's card/button language.
+// Small shared dark-theme primitives used across every page: elevated
+// navy cards with a thin translucent border, tinted icon badges, stat
+// cards (icon + label + value), and pill buttons/links -- matching the
+// Fyre social-poster's own card/button language (see tailwind.config.js's
+// token comment).
 //
 // Badges use a stronger tint (12% fill / 20% border, full-saturation
-// icon) than the first light-theme pass -- the original 10%/15% read as
-// washed-out and "basic" next to the reference's confident icon chips.
+// icon) so they read as confident icon chips rather than washed-out.
 const TINTS = {
   blue: 'bg-gold/[0.12] text-gold border border-gold/20',
   teal: 'bg-goldDim/[0.12] text-goldDim border border-goldDim/20',
   yellow: 'bg-red/[0.12] text-red border border-red/20',
-  pink: 'bg-black/[0.04] text-textDim border border-black/[0.06]',
+  pink: 'bg-white/[0.06] text-textDim border border-white/[0.08]',
   // A second, subtler cool tone that still reads as part of the blue
   // family -- for stats that sit right next to the blue accent (the
   // homepage's Live Now card) without borrowing the vivid red that's
-  // reserved for actual live-tracking badges/pulse dots.
-  indigo: 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'
+  // reserved for actual live-tracking badges/pulse dots. Uses the
+  // dedicated `indigo` design token (tailwind.config.js) instead of
+  // Tailwind's stock indigo-500/600, which read slightly too saturated
+  // against the calibrated Fyre dark palette.
+  indigo: 'bg-indigo/[0.14] text-indigo border border-indigo/25'
 } as const;
 
 // Matching solid-text color for each tint, used where a number itself
@@ -29,7 +32,7 @@ const TINT_TEXT = {
   teal: 'text-goldDim',
   yellow: 'text-red',
   pink: 'text-text',
-  indigo: 'text-indigo-600'
+  indigo: 'text-indigo'
 } as const;
 
 export type Tint = keyof typeof TINTS;
@@ -42,7 +45,7 @@ export function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`bg-surface border border-black/[0.04] rounded-2xl shadow-card ${className}`}>{children}</div>
+    <div className={`bg-surface border border-border rounded-2xl shadow-card ${className}`}>{children}</div>
   );
 }
 
@@ -107,13 +110,14 @@ export function Pill({
   children: React.ReactNode;
 }) {
   const styles = {
-    // Solid blue pill with white text and a soft colored shadow -- the
-    // shadow is what was missing before; flat pills read as "basic"
-    // against the reference's buttons, which visibly lift off the page.
-    primary: 'bg-gold text-white border border-gold shadow-[0_10px_24px_-10px_rgba(47,111,237,0.55)] hover:bg-goldBright',
-    default: 'bg-surface text-textDim border border-border hover:border-gold/30 hover:text-text',
+    // Solid blue pill, white text. No colored glow -- per the Fyre design
+    // system, hierarchy comes from background/border contrast, not
+    // shadows; hover lightens toward goldBright rather than darkening,
+    // which is what actually reads as "lift" on a dark surface.
+    primary: 'bg-gold text-white border border-gold hover:bg-goldBright hover:border-goldBright',
+    default: 'bg-surface text-textDim border border-border hover:border-gold/40 hover:text-text',
     outline: 'bg-transparent text-textDim border border-border hover:border-gold/40 hover:text-text',
-    active: 'bg-gold text-white border border-gold shadow-[0_10px_24px_-10px_rgba(47,111,237,0.55)]'
+    active: 'bg-gold text-white border border-gold'
   }[variant];
   const base = `inline-flex items-center justify-center gap-1.5 text-[15px] font-semibold rounded-full px-5 py-2 transition disabled:opacity-40 disabled:pointer-events-none ${styles} ${className}`;
 

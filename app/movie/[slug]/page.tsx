@@ -121,7 +121,7 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
           treatment since it sits right against the poster art. */}
       <Card className="relative overflow-hidden mb-6">
         <div className="relative flex gap-5 p-5 sm:p-7 flex-wrap sm:flex-nowrap">
-          <div className="relative w-[104px] sm:w-[130px] aspect-[2/3] flex-none rounded-xl overflow-hidden bg-surface2 border border-black/[0.06] shadow-card">
+          <div className="relative w-[104px] sm:w-[130px] aspect-[2/3] flex-none rounded-xl overflow-hidden bg-surface2 border border-border shadow-card">
             {details.poster ? (
               <Image src={details.poster} alt={details.title} fill className="object-cover" unoptimized />
             ) : (

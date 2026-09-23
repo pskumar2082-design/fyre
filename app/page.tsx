@@ -102,7 +102,7 @@ export default async function HomePage() {
         <Card className="p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
             <IconBadge icon={IndianRupee} tint="blue" size={48} />
-            <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
+            <span className="text-[11px] font-semibold bg-white/[0.06] text-textDim px-2.5 py-1 rounded-full">Today</span>
           </div>
           <div className="text-textFaint text-xs mb-1">Today's Gross</div>
           <div className="font-stat font-bold text-5xl text-gold leading-none">{formatCr(todaysGrossCr)}</div>
@@ -112,28 +112,28 @@ export default async function HomePage() {
         <Card className="p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
             <IconBadge icon={Film} tint="indigo" size={48} />
-            <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
+            <span className="text-[11px] font-semibold bg-white/[0.06] text-textDim px-2.5 py-1 rounded-full">Today</span>
           </div>
           <div className="text-textFaint text-xs mb-1">Live Now</div>
-          <div className="font-stat font-bold text-5xl text-indigo-600 leading-none">{nowShowing.length}</div>
+          <div className="font-stat font-bold text-5xl text-indigo leading-none">{nowShowing.length}</div>
           <div className="text-textFaint text-xs mt-2.5">{upcoming.length} upcoming · {completedCount} completed archive</div>
         </Card>
 
         {/* Live/Upcoming/Completed all read as one blue-adjacent family
-            here (indigo / blue / slate) rather than the red-vs-green
+            here (indigo / blue / faint-white) rather than the red-vs-green
             pairing this replaced -- red stays reserved for the actual
             live-tracking badges and pulse dots elsewhere in the app
             (see lib/tracktollywood/stateStyle.ts), not this summary. */}
         <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-text font-medium">Live vs Upcoming vs Completed</span>
-            <span className="text-[11px] font-semibold bg-black/[0.04] text-textDim px-2.5 py-1 rounded-full">Today</span>
+            <span className="text-[11px] font-semibold bg-white/[0.06] text-textDim px-2.5 py-1 rounded-full">Today</span>
           </div>
           <Donut
             segments={[
-              { label: 'Live', value: nowShowing.length, colorClass: 'text-indigo-500', dotClass: 'bg-indigo-500' },
+              { label: 'Live', value: nowShowing.length, colorClass: 'text-indigo', dotClass: 'bg-indigo' },
               { label: 'Upcoming', value: upcoming.length, colorClass: 'text-gold', dotClass: 'bg-gold' },
-              { label: 'Completed', value: completedCount, colorClass: 'text-slate-400', dotClass: 'bg-slate-400' }
+              { label: 'Completed', value: completedCount, colorClass: 'text-textFaint', dotClass: 'bg-textFaint' }
             ]}
           />
         </Card>
@@ -251,11 +251,11 @@ export default async function HomePage() {
                 </thead>
                 <tbody>
                   {liveTable.map((m, i) => (
-                    <tr key={m.slug} className="border-b border-border last:border-0 hover:bg-black/[0.02] transition">
+                    <tr key={m.slug} className="border-b border-border last:border-0 hover:bg-white/[0.03] transition">
                       <td className="py-3 px-3 text-textFaint font-semibold">{String(i + 1).padStart(2, '0')}</td>
                       <td className="py-3 px-3">
                         <Link href={`/movie/${m.slug}`} className="flex items-center gap-3 group">
-                          <div className="w-9 h-9 flex-none rounded-full overflow-hidden bg-surface2 border border-black/[0.04] relative">
+                          <div className="w-9 h-9 flex-none rounded-full overflow-hidden bg-surface2 border border-border relative">
                             {m.poster && <Image src={m.poster} alt="" fill unoptimized className="object-cover object-top" />}
                           </div>
                           <span className="font-medium text-text group-hover:text-gold transition truncate max-w-[220px]">{m.title}</span>
@@ -263,7 +263,7 @@ export default async function HomePage() {
                       </td>
                       <td className="py-3 px-3">
                         <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold uppercase px-2.5 py-1 rounded-full ${
-                          m.state === 'live' ? 'bg-red/10 text-red border border-red/20' : 'bg-black/[0.03] text-textFaint border border-black/5'
+                          m.state === 'live' ? 'bg-red/10 text-red border border-red/20' : 'bg-white/[0.05] text-textFaint border border-white/[0.08]'
                         }`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${m.state === 'live' ? 'bg-red' : 'bg-textFaint'}`} />
                           {STATE_LABEL[m.state]}
