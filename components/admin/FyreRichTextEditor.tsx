@@ -566,10 +566,28 @@ export default function FyreRichTextEditor({
   // option only seeds the editor once at mount, so those transitions
   // need an explicit setContent. Guarded on an actual difference so this
   // doesn't fight the onUpdate above in a loop.
+  //
+  // That guard has to compare against a SANITIZED serialization, not
+  // editor.getHTML() directly: `value` is always the sanitizer's output
+  // (onChange below always sends sanitizeArticleHtml(...), and the
+  // initial value loaded from Supabase was sanitized before it was ever
+  // saved), while editor.getHTML() normalizes every color through the
+  // browser's CSSOM (hex -> rgb(), rgba() spacing added) -- the same
+  // format drift lib/richText/sanitize.ts's colorValuesMatch() exists to
+  // paper over. Comparing the raw strings meant this effect saw a "real"
+  // difference on every render as soon as any curated color/highlight
+  // was present -- not just after an actual Edit/Cancel/Submit -- and
+  // reset the whole document (moving the cursor to the start) on every
+  // single keystroke near colored text, which is exactly what looked
+  // like "the color isn't sticking".
   useEffect(() => {
     if (!editor) return;
-    if (value !== editor.getHTML()) {
-      editor.commands.setContent(value || '');
+    if (value !== sanitizeArticleHtml(editor.getHTML())) {
+      // emitUpdate: false -- this sync is echoing `value` back into the
+      // editor, not a new edit; without this, setContent's default
+      // (emitUpdate: true) fires onUpdate again, which re-sanitizes and
+      // calls onChange a second time for the same content.
+      editor.commands.setContent(value || '', { emitUpdate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, editor]);
