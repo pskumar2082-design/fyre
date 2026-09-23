@@ -226,8 +226,14 @@ export function PosterMetadata({ data }: { data: PosterData }) {
       <div style={{ display: 'flex', fontSize: 20, fontWeight: 600, color: GOLD_TINT_TEXT, marginTop: 8 }}>
         {truncate(data.reportLine, 64)}
       </div>
+      {/* A plain-language freshness note instead of a literal timestamp --
+          exact generated/updated times read as stale within minutes on a
+          poster meant to be shared, and needlessly precise for what this
+          line is actually for (reassuring the viewer the numbers are
+          current). data.generatedDateText / updatedText are still on
+          PosterData for anything that wants the literal values. */}
       <div style={{ display: 'flex', fontSize: 14, color: TEXT_FAINT, marginTop: 10 }}>
-        {[data.generatedDateText, data.updatedText].filter(Boolean).join(' · ')}
+        Freshly synced from TrackTollywood
       </div>
     </div>
   );
