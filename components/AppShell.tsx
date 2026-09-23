@@ -9,6 +9,7 @@ import {
   Newspaper,
   Film,
   TrendingUp,
+  GitCompareArrows,
   Star,
   CalendarRange,
   Search,
@@ -24,11 +25,17 @@ import {
 // left off the public nav -- it's not a section a visitor should be
 // browsing to.
 
+// "Compare" sits immediately above Reviews (task spec: placed right
+// after Box office, before Reviews) -- it's a box-office-adjacent view
+// (built entirely on the same TrackTollywood data as Box office/Now
+// showing), so it reads naturally between the two collection-focused
+// entries and the editorial ones (Reviews/Upcoming) that follow.
 const NAV = [
   { href: '/', label: 'Home', icon: Home, exact: true },
   { href: '/news', label: 'Movie news', icon: Newspaper },
   { href: '/now-showing', label: 'Now showing', icon: Film },
   { href: '/box-office', label: 'Box office', icon: TrendingUp },
+  { href: '/compare', label: 'Compare', icon: GitCompareArrows },
   { href: '/reviews', label: 'Reviews', icon: Star },
   { href: '/upcoming', label: 'Upcoming', icon: CalendarRange }
 ];

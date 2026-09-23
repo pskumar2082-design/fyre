@@ -48,3 +48,23 @@ export function occupancyColorClass(value: string): string {
   if (n < 55) return 'text-amber';
   return 'text-goldDim';
 }
+
+// A leading "#" rank column -- some TrackTollywood tables (Top Cities,
+// Cumulative City-wise) lead with their own rank column, which pushes the
+// real "name" column (City/State/Language/Format) to index 1 instead of
+// 0. Same heuristic lib/poster/blocks.tsx already used locally (that
+// file can't import Tailwind-facing helpers since it's Satori JSX, so it
+// kept its own copy); exported here too so lib/compare's comparison-table
+// builder -- which needs the exact same "which column is the name
+// column" answer to match rows across movies -- doesn't need a third
+// copy.
+export function isRankColumn(header: string): boolean {
+  return header.trim() === '#';
+}
+
+// The real name column: the first header that isn't a rank column, or 0
+// if every header is (shouldn't happen, but never throws).
+export function nameColumnIndex(columns: string[]): number {
+  const i = columns.findIndex((h) => !isRankColumn(h));
+  return i === -1 ? 0 : i;
+}

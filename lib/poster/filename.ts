@@ -12,3 +12,13 @@ export function buildPosterFilename(movieSlug: string, tableLabel: string): stri
   const piece = slugPiece(tableLabel);
   return `fyre-${slugPiece(movieSlug)}${piece ? `-${piece}` : ''}.png`;
 }
+
+// "fyre-compare-the-paradise-vs-akhanda-2-day-wise-collection.png" -- same
+// filename conventions as buildPosterFilename, extended to N movie slugs
+// joined by "-vs-" for the comparison poster
+// (app/api/social-poster/compare/route.ts).
+export function buildComparisonPosterFilename(movieSlugs: string[], reportLine: string): string {
+  const piece = slugPiece(reportLine);
+  const movies = movieSlugs.map(slugPiece).join('-vs-');
+  return `fyre-compare-${movies}${piece ? `-${piece}` : ''}.png`;
+}

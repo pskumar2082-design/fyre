@@ -8,6 +8,7 @@ import { STATE_LABEL, STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
 import { Card, IconBadge, SectionHeading, EmptyState, Pill } from '@/components/ui';
 import { Donut, TrendChart } from '@/components/charts';
 import MovieCard from '@/components/MovieCard';
+import HomeCompareSection from '@/components/compare/HomeCompareSection';
 
 export const dynamic = 'force-dynamic';
 // Belt-and-braces alongside force-dynamic above: without this, supabase-js's own
@@ -86,6 +87,20 @@ export default async function HomePage() {
   const { news, reviews, nowShowing, upcoming, upcomingRow, completed, completedCount, todaysGrossCr, dailyTotals } = await getData();
   const liveTable = [...nowShowing].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
   const boxOfficeRow = [...completed].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
+
+  // The exact same live+advance+upcoming+completed movie set
+  // lib/compare/useMovieCatalog.ts's client-side hook would otherwise
+  // fetch (its own /api/tracktollywood/live + /api/tracktollywood/
+  // completed calls read these same two functions), reused here to seed
+  // the home page's compact comparison selectors without a second
+  // network round trip -- nowShowing/upcoming/completed are already
+  // fetched above for the rest of this page.
+  const seenSlugs = new Set<string>();
+  const compareCatalog = [...nowShowing, ...upcoming, ...completed].filter((m) => {
+    if (seenSlugs.has(m.slug)) return false;
+    seenSlugs.add(m.slug);
+    return true;
+  });
 
   return (
     <div className="px-5 md:px-8 py-8 flex flex-col lg:flex-row gap-6">
@@ -298,6 +313,11 @@ export default async function HomePage() {
             </div>
           )}
         </Card>
+
+        {/* Movie Comparison — immediately below Box office, above it
+            preserved exactly as-is. Compact teaser for the full /compare
+            page; see components/compare/HomeCompareSection.tsx. */}
+        <HomeCompareSection movies={compareCatalog} />
 
         <Card className="p-5 mb-10">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">

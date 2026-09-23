@@ -26,3 +26,49 @@ export type PosterData = {
 };
 
 export type PosterRowsMode = 'all' | number;
+
+// ---------------------------------------------------------------------
+// Comparison poster (Movie vs Movie) -- the generic shape
+// lib/poster/blocks.tsx's ComparisonPoster component renders, produced
+// by lib/poster/buildComparison.ts from the SAME lib/compare/
+// buildComparison.ts view model the /compare page and the Social Poster
+// Comparison mode both already share (see lib/compare/types.ts's own
+// "never a duplicate calculation pipeline" note) -- this type only adds
+// the presentation-specific pieces a single-movie PosterData doesn't
+// need (per-movie identity, an optional alignment note, and the target
+// canvas format).
+// ---------------------------------------------------------------------
+export type ComparisonPosterFormat = '1080x1350' | '1080x1080' | 'auto';
+
+export type ComparisonPosterMovie = {
+  title: string;
+  badgeText: string | null;
+  releaseText: string | null;
+  posterImageUrl: string | null;
+};
+
+// One stat label with one value slot per movie (same null-means-N/A
+// contract as lib/compare/types.ts's own ComparedStat) -- used for the
+// poster's compact headline-figures row (e.g. "India Gross").
+export type ComparisonPosterStat = {
+  label: string;
+  values: (string | null)[];
+};
+
+export type ComparisonPosterRow = {
+  name: string;
+  valuesByColumn: Record<string, (string | null)[]>;
+};
+
+export type ComparisonPosterData = {
+  movies: ComparisonPosterMovie[]; // 2-4, in display order (also the color/legend order)
+  reportLine: string; // e.g. "Day-wise Collection — Day 1 vs Day 1" / "Cumulative — State-wise"
+  alignmentNote: string | null; // e.g. "Release-relative: Day 1 vs Day 1" / "By calendar date" -- Day-wise Collection only
+  generatedDateText: string;
+  summary: ComparisonPosterStat[];
+  nameColumn: string;
+  columns: string[];
+  rows: ComparisonPosterRow[];
+  sourceLabel: string;
+  format: ComparisonPosterFormat;
+};

@@ -87,8 +87,11 @@ function buildSummary(table: TTTable): PosterStat[] {
 // path, but the same asset also exists at the plain pre-Smush .jpg path
 // (what its own <noscript> fallback uses). Swap to that if the URL
 // matches the expected pattern; otherwise drop the poster image entirely
-// rather than risk another unrenderable-image failure.
-function posterToJpg(url: string | null): string | null {
+// rather than risk another unrenderable-image failure. Exported so
+// lib/poster/buildComparison.ts's comparison-poster adapter can apply the
+// exact same swap to each movie's poster instead of a second copy of
+// this logic.
+export function posterToJpg(url: string | null): string | null {
   if (!url) return null;
   const jpg = url.replace('/wp-content/smush-webp/', '/wp-content/uploads/').replace(/\.jpg\.webp$/, '.jpg');
   return jpg !== url ? jpg : null;

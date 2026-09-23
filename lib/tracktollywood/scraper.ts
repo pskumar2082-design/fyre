@@ -93,6 +93,13 @@ export function parseReleaseDate(releaseText: string | null): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+// releaseTextFromMeta() -- the "Released On"/"Releasing On" meta-item
+// lookup this file used to also export -- now lives in ./meta.ts
+// instead, specifically so a 'use client' file that only needs that one
+// pure helper never has to import this file (and drag axios + cheerio
+// into the browser bundle just to reach it). Import it from
+// '@/lib/tracktollywood/meta' directly.
+
 // ---------------------------------------------------------------------------
 // Hub listing (/box-office-collection/)
 // ---------------------------------------------------------------------------
