@@ -108,3 +108,31 @@ body {
 .card-gradient-secondary {
   background: linear-gradient(115deg, #14161c 2.6%, #2f6fed 140%);
 }
+
+/* Centralized keyboard-focus treatment -- every interactive element on
+   the site (form inputs, selects, textareas, links, buttons) gets the
+   same blue focus-visible ring, defined once here rather than repeated
+   as a Tailwind class on 15+ individual <input>/<select>/<button>
+   call sites across app/admin/page.tsx, components/admin/TableBuilder.tsx,
+   components/admin/SocialPosterTool.tsx, etc. #2f6fed is the same value
+   as the `gold` design token (tailwind.config.js) -- this file already
+   mirrors token values as literal hex for the body background and the
+   .gtext/.card-gradient-secondary gradients above, so this follows the
+   same established pattern rather than introducing a new one. Native
+   `outline` is used (not a Tailwind `ring` box-shadow utility) so it
+   survives on any element regardless of which component class strings
+   it happens to carry, and never clips against a parent's
+   `overflow: hidden`. :focus-visible only, so mouse/touch clicks that
+   already show their own state (hover backgrounds, pill fills) don't
+   also gain an outline. */
+:focus-visible {
+  outline: 2px solid #2f6fed;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
+  border-color: #2f6fed;
+}

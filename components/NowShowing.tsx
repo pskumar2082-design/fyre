@@ -87,7 +87,7 @@ export default function NowShowing({ movies }: { movies: NowShowingMovie[] }) {
                   <span className="bg-gold text-white text-xs font-bold px-2 py-1 rounded">
                     {selected.review.rating} / 5
                   </span>
-                  <span className="text-[#F6A609] text-xs">★★★★★</span>
+                  <span className="text-star text-xs">★★★★★</span>
                 </div>
                 <p className="text-sm text-textDim mb-2">{selected.review.excerpt}</p>
                 <Link href={`/reviews/${selected.review.id}`} className="text-gold text-xs font-semibold">

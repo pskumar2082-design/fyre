@@ -58,6 +58,16 @@ const amber = '#F59E0B';
 // calibrated token instead of Tailwind's stock indigo swatch, which was
 // tuned for a light UI and read slightly too saturated/cartoonish here.
 const indigo = '#6C7BF0';
+// The review-star rating color -- previously hardcoded as a raw hex
+// (#F6A609) independently in app/page.tsx, app/reviews/page.tsx and
+// components/NowShowing.tsx. Same exact value, just centralized: "no
+// hardcoded page-specific colors" applies to every color on the site,
+// not only the ones this pass happened to touch first. Deliberately its
+// own token rather than reusing `amber` (#F59E0B) -- close but not the
+// same hex, and a rating star and an occupancy-percentage warning are
+// different pieces of meaning that shouldn't be forced to share a color
+// just because they're visually similar.
+const star = '#F6A609';
 
 module.exports = {
   content: [
@@ -92,6 +102,7 @@ module.exports = {
         red,
         amber,
         indigo,
+        star,
 
         text,
         textDim,

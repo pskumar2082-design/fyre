@@ -3,6 +3,14 @@
 // Live/Upcoming/Completed split) and a simple area/line trend (the
 // Earning Summary chart, read from tt_daily_snapshot).
 
+// SVG presentation attributes (stroke/fill/stopColor below) can't consume
+// Tailwind classes, so the trend line's accent color is named here once
+// instead of being repeated as three separate raw-hex copies. Must match
+// the `gold` design token in tailwind.config.js exactly -- same reasoning
+// as lib/poster/blocks.tsx's own local hex constants (Satori can't
+// consume Tailwind or CSS variables either).
+const TREND_LINE_COLOR = '#2F6FED';
+
 export type DonutSegment = { label: string; value: number; colorClass: string; dotClass: string };
 
 export function Donut({ segments, size = 168, thickness = 22 }: { segments: DonutSegment[]; size?: number; thickness?: number }) {
@@ -83,8 +91,8 @@ export function TrendChart({ points, height = 220 }: { points: TrendPoint[]; hei
     <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
       <defs>
         <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2F6FED" stopOpacity="0.22" />
-          <stop offset="100%" stopColor="#2F6FED" stopOpacity="0" />
+          <stop offset="0%" stopColor={TREND_LINE_COLOR} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={TREND_LINE_COLOR} stopOpacity="0" />
         </linearGradient>
       </defs>
 
@@ -98,9 +106,9 @@ export function TrendChart({ points, height = 220 }: { points: TrendPoint[]; hei
       ))}
 
       {points.length > 1 && <path d={areaPath} fill="url(#trendFill)" />}
-      <path d={linePath} fill="none" stroke="#2F6FED" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={linePath} fill="none" stroke={TREND_LINE_COLOR} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
       {points.map((p, i) => (
-        <circle key={i} cx={x(i)} cy={y(p.value)} r={points.length < 14 ? 3.5 : 0} fill="#2F6FED" />
+        <circle key={i} cx={x(i)} cy={y(p.value)} r={points.length < 14 ? 3.5 : 0} fill={TREND_LINE_COLOR} />
       ))}
 
       {points.map((p, i) =>

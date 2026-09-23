@@ -29,7 +29,7 @@ export default async function ReviewsPage() {
             <Link key={r.id} href={`/reviews/${r.id}`} className="block group">
               <Card className="p-5 hover:-translate-y-0.5 transition">
                 <div className="flex justify-between mb-2">
-                  <span className="text-[#F6A609]">★★★★★</span>
+                  <span className="text-star">★★★★★</span>
                   <span className="bg-gold text-white text-sm font-bold px-2.5 py-1 rounded-lg">{r.rating} / 5</span>
                 </div>
                 <h3 className="font-semibold mb-2 group-hover:text-gold transition">{r.title}</h3>
