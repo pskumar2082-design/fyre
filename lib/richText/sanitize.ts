@@ -108,14 +108,42 @@ function installHooks() {
 // or any other scheme DOMPurify's own default allowlist might permit.
 const ALLOWED_URI_REGEXP = /^(?:https?:|mailto:)/i;
 
+// A handful of literal `&` `<` `>` `"` `'` characters -- deliberately
+// nothing fancier (no full HTML-entity table) since this only ever runs
+// on plain text this function has already stripped every tag out of.
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function sanitizeArticleHtml(html: string): string {
   installHooks();
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    ALLOWED_URI_REGEXP,
-    ALLOW_DATA_ATTR: false,
-    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'svg', 'math'],
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'srcdoc']
-  }).trim();
+  try {
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS,
+      ALLOWED_ATTR,
+      ALLOWED_URI_REGEXP,
+      ALLOW_DATA_ATTR: false,
+      FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'svg', 'math'],
+      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'srcdoc']
+    }).trim();
+  } catch (err) {
+    // DOMPurify/jsdom throwing on some particular piece of content must
+    // never take the whole article page down with it (that's exactly
+    // what happened in production before this fallback existed). Fail
+    // safe, not loud: strip every tag down to plain escaped text -- never
+    // pass the original HTML through unsanitized -- so the article still
+    // renders, just without rich formatting, while this gets investigated.
+    // eslint-disable-next-line no-console
+    console.error('sanitizeArticleHtml: DOMPurify threw, falling back to plain text', err);
+    const text = html
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return text ? `<p>${escapeHtml(text)}</p>` : '';
+  }
 }

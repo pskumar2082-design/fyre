@@ -1,5 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // isomorphic-dompurify (lib/richText/sanitize.ts, used to sanitize
+  // article HTML on every News/Review render) pulls in jsdom, which does
+  // its own dynamic/conditional requires internally. Left to Next's
+  // default webpack bundling for server components, those requires get
+  // mangled by the bundler and/or missed by Vercel's dependency trace --
+  // works fine in `next dev` and even a plain `next build && next start`
+  // here, but throws at runtime once actually deployed as a Vercel
+  // serverless function (the "500 Internal Server Error" on News/Review
+  // detail pages after the rich-text editor shipped). Marking it (and its
+  // jsdom dependency) as an external server package tells Next to leave
+  // it as a real node_modules require instead of bundling it, which is
+  // the documented fix for this exact isomorphic-dompurify/jsdom-in-
+  // serverless failure mode.
+  experimental: {
+    serverComponentsExternalPackages: ['isomorphic-dompurify', 'jsdom']
+  },
   images: {
     remotePatterns: [
       {
