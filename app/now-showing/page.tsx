@@ -24,7 +24,7 @@ export default async function NowShowingPage({ searchParams }: { searchParams: {
   try {
     movies = await getLiveMovies();
   } catch (err: any) {
-    loadError = err?.message ?? 'Could not reach TrackTollywood right now.';
+    loadError = err?.message ?? 'Could not reach our data source right now.';
   }
   // "Now showing" means actually released and running -- advance-booking
   // and not-yet-released movies belong on /upcoming instead, even though

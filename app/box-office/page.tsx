@@ -22,7 +22,7 @@ export default async function BoxOfficePage({ searchParams }: { searchParams: { 
   try {
     movies = await getCompletedMovies();
   } catch (err: any) {
-    loadError = err?.message ?? 'Could not reach TrackTollywood right now.';
+    loadError = err?.message ?? 'Could not reach our data source right now.';
   }
 
   const sort: SortKey = searchParams.sort === 'az' ? 'az' : 'gross';

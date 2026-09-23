@@ -195,8 +195,11 @@ export function PosterHeader({ logoSrc }: { logoSrc: string }) {
 
 // ---------------------------------------------------------------------
 // PosterMetadata -- movie title (up to 2 lines), the selected report
-// line, and TrackTollywood's own "last updated" text passed through
-// verbatim.
+// line, and a plain-language freshness note. Deliberately does not name
+// the upstream data source anywhere the poster displays it (fyre's
+// tracking source is internal plumbing, not user-facing -- same reason
+// the site's own URLs were moved off /tracktollywood/[slug] to
+// /movie/[slug] earlier).
 // ---------------------------------------------------------------------
 export function PosterMetadata({ data }: { data: PosterData }) {
   return (
@@ -233,7 +236,7 @@ export function PosterMetadata({ data }: { data: PosterData }) {
           current). data.generatedDateText / updatedText are still on
           PosterData for anything that wants the literal values. */}
       <div style={{ display: 'flex', fontSize: 14, color: TEXT_FAINT, marginTop: 10 }}>
-        Freshly synced from TrackTollywood
+        Most recently synced
       </div>
     </div>
   );

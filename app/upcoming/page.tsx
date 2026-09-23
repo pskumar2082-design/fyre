@@ -22,7 +22,7 @@ export default async function UpcomingPage({ searchParams }: { searchParams: { s
   try {
     movies = await getLiveMovies();
   } catch (err: any) {
-    loadError = err?.message ?? 'Could not reach TrackTollywood right now.';
+    loadError = err?.message ?? 'Could not reach our data source right now.';
   }
   // Advance = pre-release with advance bookings already open; Upcoming =
   // announced but bookings not open yet. Both belong here, not on
