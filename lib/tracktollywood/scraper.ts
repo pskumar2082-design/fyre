@@ -14,17 +14,62 @@ const HUB_PATH = '/box-office-collection/';
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
 
+// Headers beyond User-Agent that a real Chrome navigation sends and a
+// bare axios.get() otherwise skips -- Accept-Language/Accept-Encoding
+// and the Sec-Fetch-* trio in particular are common signals a WAF's
+// bot-scoring looks at. Doesn't change what gets scraped, only makes
+// the request look less like generic script traffic.
+const BROWSER_HEADERS = {
+  'User-Agent': USER_AGENT,
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1'
+};
+
+// Statuses worth one short retry -- a 403 from a WAF or a 429/5xx can be
+// a transient per-request flag rather than a hard, permanent block, so
+// a single retry with a short delay sometimes gets through even when
+// the first attempt didn't. A 404 on a movie slug stays NOT retryable:
+// that's a real, expected "not tracked" outcome the caller needs to see
+// immediately, not a transient failure. This is a best-effort mitigation
+// only -- the actual safety net for a *sustained* block is the
+// stale-fallback cache in ./cache.ts, which serves the last known-good
+// data regardless of whether a retry here ever helps.
+const RETRYABLE_STATUS = new Set([403, 408, 425, 429, 500, 502, 503, 504]);
+const RETRY_DELAY_MS = 600;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function fetchHtml(path: string): Promise<string> {
-  const res = await axios.get<string>(`${ORIGIN}${path}`, {
-    headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' },
-    timeout: 15000,
-    responseType: 'text',
-    // Only 200 counts as success -- a 404 on a movie slug is a real,
-    // expected "not tracked" outcome the caller needs to see, not an
-    // exception to catch.
-    validateStatus: (status) => status === 200
-  });
-  return res.data;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await axios.get<string>(`${ORIGIN}${path}`, {
+        headers: BROWSER_HEADERS,
+        timeout: 15000,
+        responseType: 'text',
+        // Only 200 counts as success -- a 404 on a movie slug is a real,
+        // expected "not tracked" outcome the caller needs to see, not an
+        // exception to catch.
+        validateStatus: (status) => status === 200
+      });
+      return res.data;
+    } catch (err: any) {
+      const status = err?.response?.status as number | undefined;
+      const retryable = status ? RETRYABLE_STATUS.has(status) : true; // no response at all (timeout/network) is also worth one retry
+      if (!retryable || attempt === 1) throw err;
+      await sleep(RETRY_DELAY_MS);
+    }
+  }
+  // Unreachable -- the loop above always either returns or throws -- but
+  // keeps TypeScript happy about every code path returning a value.
+  throw new Error('fetchHtml: unreachable');
 }
 
 function slugFromUrl(url: string): string {
