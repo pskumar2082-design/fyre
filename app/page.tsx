@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Search, TrendingUp, Film, ListFilter, IndianRupee } from 'lucide-react';
+import { Search, Film, ListFilter, IndianRupee } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { getLiveMovies, getCompletedMovies, getMovieDetails, parseReleaseDate, parseAmountToCr } from '@/lib/tracktollywood/scraper';
-import { getDailyTotals } from '@/lib/tracktollywood/aggregate';
 import { STATE_LABEL, STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
 import { Card, IconBadge, SectionHeading, EmptyState, Pill } from '@/components/ui';
-import { Donut, TrendChart } from '@/components/charts';
+import { Donut } from '@/components/charts';
 import MovieCard from '@/components/MovieCard';
+import ReviewCard from '@/components/ReviewCard';
 import HomeCompareSection from '@/components/compare/HomeCompareSection';
 
 export const dynamic = 'force-dynamic';
@@ -20,12 +20,11 @@ export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
 async function getData() {
-  const [{ data: news }, { data: reviews }, allMovies, completed, dailyTotals] = await Promise.all([
+  const [{ data: news }, { data: reviews }, allMovies, completed] = await Promise.all([
     supabase.from('news').select('*').order('created_at', { ascending: false }).limit(10),
     supabase.from('reviews').select('*').order('created_at', { ascending: false }).limit(3),
     getLiveMovies().catch(() => [] as Awaited<ReturnType<typeof getLiveMovies>>),
-    getCompletedMovies().catch(() => [] as Awaited<ReturnType<typeof getCompletedMovies>>),
-    getDailyTotals().catch(() => [] as Awaited<ReturnType<typeof getDailyTotals>>)
+    getCompletedMovies().catch(() => [] as Awaited<ReturnType<typeof getCompletedMovies>>)
   ]);
 
   const nowShowing = allMovies.filter((m) => m.state === 'live');
@@ -73,8 +72,7 @@ async function getData() {
     upcomingRow,
     completed,
     completedCount: completed.length,
-    todaysGrossCr,
-    dailyTotals
+    todaysGrossCr
   };
 }
 
@@ -84,7 +82,7 @@ function formatCr(cr: number): string {
 }
 
 export default async function HomePage() {
-  const { news, reviews, nowShowing, upcoming, upcomingRow, completed, completedCount, todaysGrossCr, dailyTotals } = await getData();
+  const { news, reviews, nowShowing, upcoming, upcomingRow, completed, completedCount, todaysGrossCr } = await getData();
   const liveTable = [...nowShowing].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
   const boxOfficeRow = [...completed].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
 
@@ -110,7 +108,7 @@ export default async function HomePage() {
           comparison line on the two stat cards -- there's no persisted
           history to back that number honestly (see
           lib/tracktollywood/snapshot.ts for what now collects it going
-          forward for the trend chart on the right). */}
+          forward). */}
       <aside className="order-2 lg:order-1 lg:w-[300px] flex-none bg-bgAlt -mx-5 px-5 pt-8 pb-8 md:-mx-8 md:px-8 mt-6 lg:mt-0 lg:mx-0 lg:px-5 lg:py-6 lg:rounded-2xl">
         <h2 className="hdisplay text-lg text-text mb-5">Live Snapshot</h2>
 
@@ -155,11 +153,10 @@ export default async function HomePage() {
       </aside>
 
       {/* RIGHT — the white main column. Order follows how users actually
-          want to browse on mobile: what's new (News, Reviews) and what's
-          coming (Upcoming) first, then what's playing right now (Now
-          Showing) and the full completed archive (Box Office), with the
-          Earning Summary trend chart last since it's the most
-          data-dense/least glanceable block. */}
+          want to browse: find/compare a movie first, then what's new
+          (News, Reviews) and what's coming (Upcoming), then what's
+          playing right now (Now Showing) and the full completed archive
+          (Box Office). */}
       <div className="flex-1 min-w-0 order-1 lg:order-2">
         <Card className="p-5 mb-6">
           <h2 className="hdisplay text-lg text-text mb-4">Find a movie</h2>
@@ -184,6 +181,14 @@ export default async function HomePage() {
             </Pill>
           </form>
         </Card>
+
+        {/* Movie Comparison — moved immediately below the "Find a movie"
+            tile per the homepage layout spec, so comparison is one of
+            the first things a visitor sees rather than buried below Box
+            office. Same component, same state and API integration as
+            before (components/compare/HomeCompareSection.tsx) -- only
+            its position on this page changed. */}
+        <HomeCompareSection movies={compareCatalog} />
 
         {/* Existing content, kept above the dashboard tables and restyled light. */}
         {news.length > 0 && (
@@ -214,16 +219,7 @@ export default async function HomePage() {
             <SectionHeading title="Fresh reviews" action={<Link href="/reviews" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {reviews.map((r: any) => (
-                <Link key={r.id} href={`/reviews/${r.id}`} className="block group">
-                  <Card className="p-5 hover:-translate-y-0.5 transition">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-star">★★★★★</span>
-                      <span className="bg-gold text-white text-sm font-bold px-2.5 py-1 rounded-lg">{r.rating} / 5</span>
-                    </div>
-                    <h3 className="font-semibold mb-2 text-text group-hover:text-gold transition">{r.title}</h3>
-                    <p className="text-sm text-textDim line-clamp-3">{r.excerpt}</p>
-                  </Card>
-                </Link>
+                <ReviewCard key={r.id} review={r} />
               ))}
             </div>
           </section>
@@ -298,7 +294,7 @@ export default async function HomePage() {
           )}
         </Card>
 
-        <Card className="p-5 mb-6">
+        <Card className="p-5 mb-10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="hdisplay text-lg text-text">Box office</h2>
             <Link href="/box-office" className="text-xs font-semibold text-gold hover:underline">See all →</Link>
@@ -311,28 +307,6 @@ export default async function HomePage() {
                 <MovieCard key={m.slug} movie={m} rank={i + 1} />
               ))}
             </div>
-          )}
-        </Card>
-
-        {/* Movie Comparison — immediately below Box office, above it
-            preserved exactly as-is. Compact teaser for the full /compare
-            page; see components/compare/HomeCompareSection.tsx. */}
-        <HomeCompareSection movies={compareCatalog} />
-
-        <Card className="p-5 mb-10">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <h2 className="hdisplay text-lg text-text">Earning Summary</h2>
-            <span className="flex items-center gap-1.5 text-xs text-textDim">
-              <TrendingUp size={14} className="text-gold" /> Daily total gross across every tracked movie
-            </span>
-          </div>
-          {dailyTotals.length < 2 ? (
-            <EmptyState>
-              Collecting daily data now — a daily snapshot job saves today's totals going forward, so this trend
-              fills in over the next few days instead of showing invented history.
-            </EmptyState>
-          ) : (
-            <TrendChart points={dailyTotals.map((d) => ({ date: d.date, value: Math.round(d.totalCr * 100) / 100 }))} />
           )}
         </Card>
       </div>

@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
-import { Card, SectionHeading, EmptyState } from '@/components/ui';
+import { SectionHeading, EmptyState } from '@/components/ui';
+import ReviewCard from '@/components/ReviewCard';
 
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/siteConfig';
@@ -27,16 +27,7 @@ export default async function ReviewsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {reviews.map((r: any) => (
-            <Link key={r.id} href={`/reviews/${r.id}`} className="block group">
-              <Card className="p-5 hover:-translate-y-0.5 transition">
-                <div className="flex justify-between mb-2">
-                  <span className="text-star">★★★★★</span>
-                  <span className="bg-gold text-white text-sm font-bold px-2.5 py-1 rounded-lg">{r.rating} / 5</span>
-                </div>
-                <h3 className="font-semibold mb-2 group-hover:text-gold transition">{r.title}</h3>
-                <p className="text-sm text-textDim line-clamp-3">{r.excerpt}</p>
-              </Card>
-            </Link>
+            <ReviewCard key={r.id} review={r} />
           ))}
         </div>
       )}
