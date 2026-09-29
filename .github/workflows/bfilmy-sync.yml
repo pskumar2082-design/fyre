@@ -1,0 +1,19 @@
+name: BFILMY sync
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger fyre sync
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 90 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://fyre.co.in/api/cron/bfilmy" | head -c 2000
