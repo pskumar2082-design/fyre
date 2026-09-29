@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Search as SearchIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
-import { getLiveMovies, getCompletedMovies } from '@/lib/tracktollywood/scraper';
+import { getLiveMovies, getCompletedMovies } from '@/lib/bfilmy/source';
 import { Card, SectionHeading } from '@/components/ui';
 
 export const revalidate = 0; // always fetch fresh results

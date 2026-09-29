@@ -3,6 +3,10 @@
     {
       "path": "/api/tracktollywood/snapshot",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/bfilmy",
+      "schedule": "35 18 * * *"
     }
   ]
 }

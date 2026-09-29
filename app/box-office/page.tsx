@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { getCompletedMovies } from '@/lib/tracktollywood/scraper';
+import { getCompletedMovies } from '@/lib/bfilmy/source';
 
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/siteConfig';

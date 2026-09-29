@@ -158,7 +158,7 @@ export default function SocialPosterTool() {
       setHeading(defaultGroup.heading);
       setTableLabel(defaultCategory.tableLabel);
     } catch (err: any) {
-      setLoadError(err?.message ?? 'Could not reach TrackTollywood right now.');
+      setLoadError(err?.message ?? 'Could not load this movie right now.');
     } finally {
       setLoading(false);
     }
@@ -419,7 +419,7 @@ export default function SocialPosterTool() {
       {posterMode === 'single' && (
         <>
           <p className="text-sm text-textDim mb-4">
-            Enter a movie's TrackTollywood slug (the last part of its URL, e.g. <code>the-paradise</code> from{' '}
+            Enter a movie's slug (the last part of its fyre URL, e.g. <code>the-paradise</code> from{' '}
             <code>/movie/the-paradise</code>) to build a shareable poster from its current live data.
           </p>
 

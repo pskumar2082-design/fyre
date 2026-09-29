@@ -126,7 +126,7 @@ export function buildPosterData(details: TTMovieDetails, tableLabel: string): Bu
     columns: table.headers,
     rows: table.rows.filter((r) => !r.__isTotal),
     posterImageUrl: posterToJpg(details.poster),
-    sourceLabel: 'Source: TrackTollywood'
+    sourceLabel: 'fyre.co.in'
   };
 
   return { data, table };

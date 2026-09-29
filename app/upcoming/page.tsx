@@ -1,6 +1,6 @@
 import { CalendarRange } from 'lucide-react';
 import Link from 'next/link';
-import { getLiveMovies, parseReleaseDate } from '@/lib/tracktollywood/scraper';
+import { getLiveMovies, parseReleaseDate } from '@/lib/bfilmy/source';
 
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/siteConfig';

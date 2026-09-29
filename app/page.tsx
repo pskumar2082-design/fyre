@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Search, Film, ListFilter, IndianRupee } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
-import { getLiveMovies, getCompletedMovies, getMovieDetails, parseReleaseDate, parseAmountToCr } from '@/lib/tracktollywood/scraper';
+import { getLiveMovies, getCompletedMovies, getMovieDetails, parseReleaseDate, parseAmountToCr } from '@/lib/bfilmy/source';
 import { STATE_LABEL, STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
 import { Card, IconBadge, SectionHeading, EmptyState, Pill } from '@/components/ui';
 import { Donut } from '@/components/charts';
@@ -83,7 +83,8 @@ function formatCr(cr: number): string {
 
 export default async function HomePage() {
   const { news, reviews, nowShowing, upcoming, upcomingRow, completed, completedCount, todaysGrossCr } = await getData();
-  const liveTable = [...nowShowing].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
+  // Already ordered by the latest day's gross (lib/bfilmy/source.ts).
+  const liveTable = nowShowing.slice(0, 8);
   const boxOfficeRow = [...completed].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
 
   // The exact same live+advance+upcoming+completed movie set

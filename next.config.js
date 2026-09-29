@@ -34,6 +34,20 @@ const nextConfig = {
         pathname: '/image/**'
       },
       {
+        // Movie posters from BFILMY's District movie list (see
+        // lib/bfilmy/normalize.ts buildPosterMap), e.g.
+        // https://cdn.district.in/movies-assets/images/cinema/....jpg
+        protocol: 'https',
+        hostname: 'cdn.district.in',
+        pathname: '/**'
+      },
+      {
+        // A few District list posters are served from Zomato's CDN instead.
+        protocol: 'https',
+        hostname: 'b.zmtcdn.com',
+        pathname: '/**'
+      },
+      {
         // Posters TrackTollywood serves directly from its own WordPress
         // media library (see lib/tracktollywood/scraper.ts), e.g.
         // https://tracktollywood.com/wp-content/smush-webp/2026/09/....jpg.webp

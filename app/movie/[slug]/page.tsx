@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getMovieDetails, parseReleaseDate } from '@/lib/tracktollywood/scraper';
+import { getMovieDetails, parseReleaseDate } from '@/lib/bfilmy/source';
 import type { TTMovieMetaItem, TTTable } from '@/lib/tracktollywood/types';
 import { groupTables } from '@/lib/tracktollywood/tableGroups';
 import { STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
@@ -66,7 +66,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 
-export default async function TrackTollywoodMoviePage({ params }: { params: { slug: string } }) {
+export default async function MoviePage({ params }: { params: { slug: string } }) {
   let details;
   try {
     details = await getMovieDetails(params.slug);
@@ -152,10 +152,10 @@ export default async function TrackTollywoodMoviePage({ params }: { params: { sl
       </Card>
 
       {/* MOVIE INFO — Released/Releasing On, Cast, Director, Genre,
-          Languages, Production, straight from TrackTollywood's own
-          per-movie footer. Generic label/value list (see
+          Languages, Formats -- from the stored box-office data
+          (lib/bfilmy/adapter.ts). Generic label/value list (see
           TTMovieMetaItem) rather than fixed fields, so this keeps
-          working even if TrackTollywood adds or renames a field.
+          working if a field is added or renamed.
           `wide` items (Cast, Production -- usually long comma lists)
           get two columns instead of one, same as the source site. */}
       {details.meta.length > 0 && (

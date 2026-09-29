@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getLiveMovies } from '@/lib/tracktollywood/scraper';
+import { getLiveMovies } from '@/lib/bfilmy/source';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Public, unauthenticated -- read-only, cached (see lib/tracktollywood/cache.ts),
-// nothing here writes to TrackTollywood or touches this app's own database.
+// Public, unauthenticated, read-only -- served from the box-office data the
+// BFILMY sync job stores in Supabase (see lib/bfilmy/source.ts).
 export async function GET() {
   try {
     const movies = await getLiveMovies();
     return NextResponse.json({ movies, count: movies.length });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message ?? 'failed to fetch TrackTollywood listing' }, { status: 502 });
+    return NextResponse.json({ error: err?.message ?? 'Could not load current movies right now' }, { status: 502 });
   }
 }

@@ -1,7 +1,7 @@
 import path from 'path';
 import { readFileSync } from 'fs';
 import { ImageResponse } from 'next/og';
-import { getMovieDetails } from '@/lib/tracktollywood/scraper';
+import { getMovieDetails } from '@/lib/bfilmy/source';
 import { buildComparison } from '@/lib/compare/buildComparison';
 import { modeFromKey } from '@/lib/compare/mode';
 import type { ComparisonMovie } from '@/lib/compare/types';

@@ -1,7 +1,7 @@
 import path from 'path';
 import { readFileSync } from 'fs';
 import { ImageResponse } from 'next/og';
-import { getMovieDetails } from '@/lib/tracktollywood/scraper';
+import { getMovieDetails } from '@/lib/bfilmy/source';
 import { buildPosterData } from '@/lib/poster/build';
 import { SocialPoster, POSTER_WIDTH, computePosterHeight } from '@/lib/poster/blocks';
 import { buildPosterFilename } from '@/lib/poster/filename';
@@ -46,7 +46,7 @@ export async function GET(req: Request, { params }: { params: { slug: string } }
     details = null;
   }
   if (!details) {
-    return new Response(`TrackTollywood has no movie at slug "${params.slug}".`, { status: 404 });
+    return new Response(`No movie found at slug "${params.slug}".`, { status: 404 });
   }
   if (!tableLabel) {
     return new Response('Missing "table" query parameter -- pass the exact report table label (see /api/tracktollywood/[slug] for the list).', {

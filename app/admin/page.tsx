@@ -349,8 +349,8 @@ function AdminShell() {
           </button>
         ))}
         {/* Not a Supabase table like the tabs above -- generates a branded,
-            shareable poster image on demand from a TrackTollywood movie's
-            own live data, for posting a box-office update on X/etc. See
+            shareable poster image on demand from a movie's stored
+            box-office data, for posting a box-office update on X/etc. See
             components/admin/SocialPosterTool.tsx and
             app/api/social-poster/[slug]/route.tsx. */}
         <button

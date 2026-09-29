@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getLiveMovies } from '@/lib/tracktollywood/scraper';
+import { getLiveMovies } from '@/lib/bfilmy/source';
 
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/siteConfig';
@@ -12,11 +12,11 @@ export const metadata: Metadata = {
 import MovieCard from '@/components/MovieCard';
 import { SectionHeading, EmptyState, Pill } from '@/components/ui';
 
-// TrackTollywood-backed, not Supabase -- see lib/tracktollywood/scraper.ts.
-// Cached 5 min there, so this page doesn't need its own revalidate window.
+// Reads the box-office data the BFILMY sync job stores in Supabase (see
+// lib/bfilmy/source.ts); rendered fresh on every request.
 export const dynamic = 'force-dynamic';
 
-type SortKey = 'gross' | 'az';
+type SortKey = 'today' | 'gross' | 'az';
 
 export default async function NowShowingPage({ searchParams }: { searchParams: { sort?: string } }) {
   let movies: Awaited<ReturnType<typeof getLiveMovies>> = [];
@@ -29,10 +29,14 @@ export default async function NowShowingPage({ searchParams }: { searchParams: {
   // "Now showing" means actually released and running -- advance-booking
   // and not-yet-released movies belong on /upcoming instead, even though
   // TrackTollywood's own default listing mixes all three together.
-  const sort: SortKey = searchParams.sort === 'az' ? 'az' : 'gross';
-  const nowShowing = movies
-    .filter((m) => m.state === 'live')
-    .sort((a, b) => (sort === 'az' ? a.title.localeCompare(b.title) : (b.grossCr ?? 0) - (a.grossCr ?? 0)));
+  // Default: the source's own order -- latest day's gross, i.e. what's
+  // drawing audiences right now.
+  const sort: SortKey = searchParams.sort === 'az' ? 'az' : searchParams.sort === 'gross' ? 'gross' : 'today';
+  const running = movies.filter((m) => m.state === 'live');
+  const nowShowing =
+    sort === 'today'
+      ? running
+      : [...running].sort((a, b) => (sort === 'az' ? a.title.localeCompare(b.title) : (b.grossCr ?? 0) - (a.grossCr ?? 0)));
 
   return (
     <div className="px-5 md:px-10 py-8">
@@ -45,8 +49,11 @@ export default async function NowShowingPage({ searchParams }: { searchParams: {
       </p>
 
       <div className="flex items-center gap-2 mb-6">
+        <Pill href="/now-showing" variant={sort === 'today' ? 'active' : 'default'} className="!px-4 !py-1.5 !text-xs">
+          Trending today
+        </Pill>
         <Pill href="/now-showing?sort=gross" variant={sort === 'gross' ? 'active' : 'default'} className="!px-4 !py-1.5 !text-xs">
-          Highest gross
+          Highest total
         </Pill>
         <Pill href="/now-showing?sort=az" variant={sort === 'az' ? 'active' : 'default'} className="!px-4 !py-1.5 !text-xs">
           A – Z

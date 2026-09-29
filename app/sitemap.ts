@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { supabase } from '@/lib/supabaseClient';
-import { getLiveMovies, getCompletedMovies } from '@/lib/tracktollywood/scraper';
+import { getLiveMovies, getCompletedMovies } from '@/lib/bfilmy/source';
 import { SITE_URL } from '@/lib/siteConfig';
 
 // This is what actually gets every movie/news/review page in front of

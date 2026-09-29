@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getMovieDetails } from '@/lib/tracktollywood/scraper';
+import { getMovieDetails } from '@/lib/bfilmy/source';
 import { SITE_URL } from '@/lib/siteConfig';
 import { SLUG_PARAMS } from '@/lib/compare/urlParams';
 import ComparePageClient from './ComparePageClient';
