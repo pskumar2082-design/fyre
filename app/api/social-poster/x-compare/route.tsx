@@ -4,7 +4,7 @@ import { ImageResponse } from 'next/og';
 import { getComparison } from '@/lib/analytics/compare';
 import { contextLine, parseCompareParams } from '@/lib/analytics/query';
 import type { MetricKey } from '@/lib/analytics/types';
-import { TerritoryPoster, XPoster, X_WIDTH, fitToHeight, territoryPosterHeight, xPosterHeight, type XPosterOptions } from '@/lib/poster/xPoster';
+import { TerritoryPoster, XPoster, X45_HEIGHT, X_WIDTH, fitTerritoryToHeight, fitToHeight, territoryPosterHeight, xPosterHeight, type XPosterOptions } from '@/lib/poster/xPoster';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -60,12 +60,18 @@ export async function GET(req: Request) {
     const [india, usa] = await Promise.all([getComparison({ ...parsed, slugs: [slug], territory: 'IN' }), getComparison({ ...parsed, slugs: [slug], territory: 'US' })]);
     if (!india.movies.length && !usa.movies.length) return new Response('Movie not found', { status: 404 });
     if (!india.movies[0]?.available && !usa.movies[0]?.available) return new Response(`Nothing tracked for ${india.selectionLabel}`, { status: 404 });
-    const o: XPosterOptions = { metric: (parsed.metric ?? 'gross') as MetricKey, chart: false, summaryMetrics: ['gross', 'tickets', 'shows', 'occupancy'] };
+    let o: XPosterOptions = { metric: (parsed.metric ?? 'gross') as MetricKey, chart: false, summaryMetrics: ['gross', 'tickets', 'shows', 'occupancy'] };
     const what = contextLine(parsed.selection).split(' · ')[0];
-    const height = territoryPosterHeight(india, usa, o);
+    let inData = india;
+    let usData = usa;
+    let height = territoryPosterHeight(inData, usData, o);
+    if (q.get('format') === '1080x1350') {
+      height = X45_HEIGHT;
+      ({ india: inData, usa: usData, o } = fitTerritoryToHeight(india, usa, o, height));
+    }
     const image = await posterData(india.movies[0]?.poster ?? usa.movies[0]?.poster ?? null);
     const name = `fyre-${slug}-india-usa-${india.selectionLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
-    return new ImageResponse(<TerritoryPoster india={india} usa={usa} o={o} image={image} logoSrc={LOGO_SRC} watermark={q.get('watermark') !== '0'} height={height} context={`${what} · INDIA + USA`} />, {
+    return new ImageResponse(<TerritoryPoster india={inData} usa={usData} o={o} image={image} logoSrc={LOGO_SRC} watermark={q.get('watermark') !== '0'} height={height} context={`${what} · INDIA + USA`} />, {
       width: X_WIDTH,
       height,
       fonts,
@@ -87,7 +93,7 @@ export async function GET(req: Request) {
   let o = opts;
   let height = xPosterHeight(data, o);
   if (q.get('format') === '1080x1350') {
-    height = 1350;
+    height = X45_HEIGHT;
     ({ c: data, o } = fitToHeight(data, o, height));
   }
 

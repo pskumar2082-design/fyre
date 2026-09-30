@@ -88,7 +88,7 @@ export default function SocialPosterTool() {
   const url = useMemo(() => {
     if (!ready) return null;
     const qs = compareQuery({ slugs, selection, dimension: dimension === 'overview' ? null : dimension, metric, limit: rows, territory: territory === 'us' ? 'US' : 'IN' });
-    return `/api/social-poster/x-compare?${qs}${territory === 'both' ? '&territory=both' : ''}${chart && territory !== 'both' ? '&chart=1' : ''}${format !== 'auto' && territory !== 'both' ? `&format=${format}` : ''}${watermark ? '' : '&watermark=0'}`;
+    return `/api/social-poster/x-compare?${qs}${territory === 'both' ? '&territory=both' : ''}${chart && territory !== 'both' ? '&chart=1' : ''}${format !== 'auto' ? `&format=${format}` : ''}${watermark ? '' : '&watermark=0'}`;
   }, [ready, slugs.join(','), basis, day, dimension, metric, rows, chart, format, watermark, territory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pickTerritory = (t: PosterTerritory) => {
