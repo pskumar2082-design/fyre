@@ -5,6 +5,7 @@
 // permission to use this data.
 import axios from 'axios';
 import type { BfAliasFile, BfKind, BfRawSummaryFile } from './types';
+import type { BfRawDetailFile } from './detail';
 
 const USER_AGENT = 'fyre.co.in data sync (+https://fyre.co.in)';
 
@@ -19,11 +20,11 @@ function dateParts(date: string) {
 // matters: for an old date the current host can hang until the request
 // times out instead of answering 404, so anything older than two weeks
 // tries the archive first.
-export function summaryUrls(kind: BfKind, date: string, now: Date = new Date()): string[] {
+export function summaryUrls(kind: BfKind, date: string, now: Date = new Date(), file: 'finalsummary' | 'finaldetailed' = 'finalsummary'): string[] {
   const { y, m, d, compact } = dateParts(date);
   const dir = kind === 'boxoffice' ? 'daily' : 'advance';
-  const current = `https://bfilmyapi.pages.dev/${dir}/data/${compact}/finalsummary.json`;
-  const archive = `https://bfilmyapi${y}.pages.dev/${dir}/data/${y}/${m}-${d}_finalsummary.json`;
+  const current = `https://bfilmyapi.pages.dev/${dir}/data/${compact}/${file}.json`;
+  const archive = `https://bfilmyapi${y}.pages.dev/${dir}/data/${y}/${m}-${d}_${file}.json`;
   const ageDays = (now.getTime() - Date.parse(`${date}T00:00:00Z`)) / 86_400_000;
   return ageDays > 14 ? [archive, current] : [current, archive];
 }
@@ -60,6 +61,24 @@ export async function fetchSummary(kind: BfKind, date: string): Promise<{ url: s
     try {
       const file = await getJson<BfRawSummaryFile>(url);
       if (file && typeof file === 'object' && file.movies && typeof file.movies === 'object') return { url, file };
+    } catch (err) {
+      if (err instanceof BfNotFound) continue;
+      lastErr = err;
+    }
+  }
+  if (lastErr) throw lastErr;
+  return null;
+}
+
+// The show-level file for the same date (one row per show; see
+// ./detail.ts). About 1 MB compressed / 11 MB of JSON for a full day, so
+// it gets a longer timeout. Null when BFILMY hasn't published it.
+export async function fetchDetail(kind: BfKind, date: string): Promise<{ url: string; file: BfRawDetailFile } | null> {
+  let lastErr: unknown = null;
+  for (const url of summaryUrls(kind, date, new Date(), 'finaldetailed')) {
+    try {
+      const file = await getJson<BfRawDetailFile>(url, 60000);
+      if (file && typeof file === 'object' && Array.isArray(file.data)) return { url, file };
     } catch (err) {
       if (err instanceof BfNotFound) continue;
       lastErr = err;

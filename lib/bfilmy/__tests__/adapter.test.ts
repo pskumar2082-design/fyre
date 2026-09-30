@@ -14,7 +14,6 @@ import {
   type BfStoredDay
 } from '../adapter';
 import { categoryOf, groupTables } from '@/lib/boxoffice/tableGroups';
-import { buildComparedTable } from '@/lib/compare/buildComparison';
 
 const TODAY = '2026-09-29';
 
@@ -153,15 +152,6 @@ describe('detailsFromData', () => {
     const cities = d.tables.find((t) => t.label === 'Top Cities — Day 1')!;
     expect(cities.headers.slice(0, 3)).toEqual(['#', 'City', 'State']);
     expect(cities.rows[0]).toMatchObject({ '#': '1', City: 'Hyderabad', State: 'Telangana', 'Gross (₹)': '10,00,00,000' });
-  });
-
-  it('lines up two movies in the compare feature by state name', () => {
-    const other = detailsFromData(row({ slug: 'other', title: 'Other', first_date: '2026-09-20', release_date: '2026-09-20' }), [day('boxoffice', '2026-09-20', 50_000_000)], null, TODAY);
-    const t1 = d.tables.find((t) => t.label === 'State-wise — Day 1')!;
-    const t2 = other.tables.find((t) => t.label === 'State-wise — Day 1')!;
-    const merged = buildComparedTable([t1, t2]);
-    expect(merged.nameColumn).toBe('State');
-    expect(merged.rows.find((r) => r.name === 'Telangana')!.valuesByColumn['Gross (₹)']).toEqual(['12,00,00,000', '3,00,00,000']);
   });
 
   it('uses fixed stat labels and headline text', () => {

@@ -1,82 +1,62 @@
 import type { Metadata } from 'next';
-import { getMovieDetails } from '@/lib/bfilmy/source';
 import { SITE_URL } from '@/lib/siteConfig';
-import { SLUG_PARAMS } from '@/lib/compare/urlParams';
+import { getComparison, parseCompareParams, type CompareRequest } from '@/lib/analytics/compare';
+import type { Comparison } from '@/lib/analytics/types';
 import ComparePageClient from './ComparePageClient';
 
-// Same conventions app/box-office/page.tsx and app/movie/[slug]/page.tsx
-// already use: force-dynamic (TrackTollywood data is live, never
-// statically cached at the route level -- lib/bfilmy/source.ts's
-// own short-TTL cache is the only caching layer), searchParams-driven
-// state, and a separate generateMetadata that fetches independently
-// (getMovieDetails is backed by that same short-TTL cache, so this
-// doesn't double the real scrape load).
 export const dynamic = 'force-dynamic';
 
-type CompareSearchParams = { a?: string; b?: string; c?: string; d?: string; mode?: string; align?: string };
+type SP = Record<string, string | undefined>;
 
-// Reads only the a/b/c/d slug params, in that fixed order, de-duplicated
-// -- never more than SLUG_PARAMS.length movies, matching the up-to-4
-// cap the rest of the comparison feature (lib/compare/types.ts) uses
-// throughout.
-function parseSlugs(searchParams: CompareSearchParams): string[] {
-  const slugs: string[] = [];
-  for (const key of SLUG_PARAMS) {
-    const slug = searchParams[key];
-    if (slug && !slugs.includes(slug)) slugs.push(slug);
-  }
-  return slugs;
+function toParams(sp: SP): URLSearchParams {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) if (v != null) p.set(k, v);
+  return p;
 }
 
-export async function generateMetadata({ searchParams }: { searchParams: CompareSearchParams }): Promise<Metadata> {
+function initialRequest(sp: SP): { req: CompareRequest; slugs: string[] } {
+  const parsed = parseCompareParams(toParams(sp));
+  if (!('error' in parsed)) return { req: parsed, slugs: parsed.slugs };
+  const slugs = (sp.movies ?? [sp.a, sp.b, sp.c, sp.d].filter(Boolean).join(',')).split(',').filter(Boolean);
+  return { req: { slugs, selection: { basis: 'day', day: 1 }, dimension: 'state', metric: 'gross', limit: 10 }, slugs };
+}
+
+export async function generateMetadata({ searchParams }: { searchParams: SP }): Promise<Metadata> {
   const fallback: Metadata = {
     title: 'Movie Comparison — Box Office Head to Head',
-    description:
-      'Compare box office collections, day-wise trends, language and state splits between two or more Telugu movies, side by side.',
+    description: 'Compare box office by release day: Day 1 vs Day 1, cumulative, lifetime and advance, with state, city, language, chain and venue splits.',
     alternates: { canonical: `${SITE_URL}/compare` }
   };
-
-  const slugs = parseSlugs(searchParams);
+  const { req, slugs } = initialRequest(searchParams);
   if (slugs.length < 2) return fallback;
-
-  let details: (Awaited<ReturnType<typeof getMovieDetails>>)[];
   try {
-    details = await Promise.all(slugs.map((s) => getMovieDetails(s)));
+    const cmp = await getComparison({ ...req, dimension: null, trend: false });
+    const titles = cmp.movies.map((m) => m.title);
+    if (titles.length < 2) return fallback;
+    return {
+      title: `${titles.join(' vs ')} — ${cmp.selectionLabel} Box Office Comparison`,
+      description: `${titles.join(' vs ')}: ${cmp.selectionLabel.toLowerCase()} gross, tickets, shows and occupancy side by side.`,
+      alternates: { canonical: `${SITE_URL}/compare?movies=${slugs.join(',')}` }
+    };
   } catch {
     return fallback;
   }
-
-  const titles = details.filter((d): d is NonNullable<typeof d> => d != null).map((d) => d.title);
-  if (titles.length < 2) return fallback;
-
-  const qs = slugs.map((s, i) => `${SLUG_PARAMS[i]}=${encodeURIComponent(s)}`).join('&');
-
-  return {
-    title: `${titles.join(' vs ')} — Box Office Comparison`,
-    description: `Side-by-side box office comparison of ${titles.join(', ')}: collections, day-wise trends, language and state splits.`,
-    alternates: { canonical: `${SITE_URL}/compare?${qs}` }
-  };
 }
 
-export default async function ComparePage({ searchParams }: { searchParams: CompareSearchParams }) {
-  const slugs = parseSlugs(searchParams);
-
-  // Parallel fetch, tolerant of a bad/removed slug in the middle -- one
-  // movie failing to load never blocks the others from rendering (see
-  // Promise.allSettled, not Promise.all).
-  const settled = await Promise.allSettled(slugs.map((slug) => getMovieDetails(slug)));
-  const initialDetails = settled.map((r) => (r.status === 'fulfilled' ? r.value : null));
-
-  const initialAlign: 'day' | 'date' = searchParams.align === 'date' ? 'date' : 'day';
-
+export default async function ComparePage({ searchParams }: { searchParams: SP }) {
+  const { req, slugs } = initialRequest(searchParams);
+  if (!req.dimension && !('dimension' in searchParams)) req.dimension = 'state';
+  let initial: Comparison | null = null;
+  if (slugs.length >= 2) {
+    try {
+      initial = await getComparison(req);
+    } catch {
+      initial = null;
+    }
+  }
   return (
     <div className="px-5 md:px-10 py-8 max-w-6xl mx-auto">
-      <ComparePageClient
-        initialSlugs={slugs}
-        initialDetails={initialDetails}
-        initialModeKey={searchParams.mode}
-        initialAlign={initialAlign}
-      />
+      <ComparePageClient initialRequest={req} initial={initial} />
     </div>
   );
 }

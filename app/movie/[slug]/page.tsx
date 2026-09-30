@@ -4,11 +4,13 @@ import { ArrowLeft, Sparkles } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getMovieDetails, parseReleaseDate } from '@/lib/bfilmy/source';
-import type { TTMovieMetaItem, TTTable } from '@/lib/boxoffice/types';
-import { groupTables } from '@/lib/boxoffice/tableGroups';
+import type { TTMovieMetaItem } from '@/lib/boxoffice/types';
+import { loadMovieAnalytics } from '@/lib/analytics/load';
+import { formatGross } from '@/lib/analytics/format';
+import SummaryCards from '@/components/analytics/SummaryCards';
+import MovieBreakdownExplorer from '@/components/analytics/MovieBreakdownExplorer';
 import { STATE_BADGE } from '@/lib/boxoffice/stateStyle';
 import { Card } from '@/components/ui';
-import TableGroups from '@/components/TableGroups';
 import { SITE_URL } from '@/lib/siteConfig';
 
 export const dynamic = 'force-dynamic';
@@ -28,17 +30,19 @@ function metaValue(meta: TTMovieMetaItem[], pattern: RegExp): string | null {
 // link) had no way to tell one movie's page from another's.
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   let details;
+  let analytics;
   try {
-    details = await getMovieDetails(params.slug, 'page');
+    [details, analytics] = await Promise.all([getMovieDetails(params.slug, 'summary'), loadMovieAnalytics(params.slug)]);
   } catch {
     details = null;
   }
-  if (!details) return {};
+  if (!details || !analytics) return {};
 
-  const title = `${details.title} Box Office Collection${details.headlineGross ? ` — ${details.headlineGross}` : ''}`;
+  const gross = analytics.days.length ? formatGross(analytics.lifetime.gross) : null;
+  const title = `${details.title} Box Office Collection${gross ? ` — ${gross}` : ''}`;
   const description = [
     `${details.title} live box office collection`,
-    details.headlineGross ? `at ${details.headlineGross}` : null,
+    gross ? `at ${gross}` : null,
     '— day-wise breakdown, cast, director, genre and release date, updated daily.'
   ]
     .filter(Boolean)
@@ -68,14 +72,34 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 
 export default async function MoviePage({ params }: { params: { slug: string } }) {
   let details;
+  let analytics;
   try {
-    details = await getMovieDetails(params.slug, 'page');
+    [details, analytics] = await Promise.all([getMovieDetails(params.slug, 'summary'), loadMovieAnalytics(params.slug)]);
   } catch {
     details = null;
   }
-  if (!details) notFound();
+  if (!details || !analytics) notFound();
 
-  const groups = groupTables(details.tables);
+  // Headline figure from Fyre Analytics -- the same numbers as the cards,
+  // the breakdowns, Movie Comparison and the poster.
+  const lt = analytics.lifetime;
+  const latestAdvance = analytics.advance[analytics.advance.length - 1];
+  const badgeText =
+    analytics.state === 'live'
+      ? `Live Tracking${analytics.latestDay && analytics.latestDay.day != null ? ` · ${analytics.latestDay.label}` : ''}`
+      : analytics.state === 'advance'
+        ? 'Advance Booking'
+        : analytics.state === 'final'
+          ? 'Final'
+          : details.badgeText || details.state;
+  const headlineGross = analytics.days.length ? formatGross(lt.gross) : latestAdvance ? formatGross(latestAdvance.metrics.gross) : details.headlineGross;
+  const headlineLabel = analytics.days.length
+    ? analytics.carriedOver
+      ? 'Tracked gross since 1 Jan 2025'
+      : `Tracked Gross · ${analytics.state === 'live' ? `${analytics.latestDay?.label ?? ''} running` : `Final · ${lt.days} days with shows`}`
+    : latestAdvance
+      ? `Advance Gross · ${latestAdvance.label}`
+      : details.headlineLabel;
   const backHref =
     details.state === 'final' ? '/box-office' : details.state === 'live' ? '/now-showing' : '/upcoming';
   const backLabel =
@@ -129,22 +153,22 @@ export default async function MoviePage({ params }: { params: { slug: string } }
             )}
           </div>
           <div className="min-w-0 flex flex-col justify-center">
-            {details.state !== 'unknown' && (
-              <span className={`inline-flex items-center gap-1.5 w-fit text-[11px] font-bold uppercase px-2.5 py-1 rounded-lg mb-2.5 ${STATE_BADGE[details.state]}`}>
-                {details.state === 'live' && (
+            {analytics.state !== 'unknown' && (
+              <span className={`inline-flex items-center gap-1.5 w-fit text-[11px] font-bold uppercase px-2.5 py-1 rounded-lg mb-2.5 ${STATE_BADGE[analytics.state]}`}>
+                {analytics.state === 'live' && (
                   <span className="relative flex w-1.5 h-1.5">
                     <span className="absolute inline-flex w-full h-full rounded-full bg-white/60 animate-ping" />
                     <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-white" />
                   </span>
                 )}
-                {details.badgeText || details.state}
+                {badgeText}
               </span>
             )}
             <h1 className="hdisplay text-2xl sm:text-3xl text-text">{details.title}</h1>
-            {details.headlineGross && (
+            {headlineGross && (
               <div className="mt-3">
-                <div className="text-gold font-stat font-bold text-5xl sm:text-6xl leading-none">{details.headlineGross}</div>
-                {details.headlineLabel && <div className="text-textFaint text-xs mt-1">{details.headlineLabel}</div>}
+                <div className="text-gold font-stat font-bold text-5xl sm:text-6xl leading-none">{headlineGross}</div>
+                {headlineLabel && <div className="text-textFaint text-xs mt-1">{headlineLabel}</div>}
               </div>
             )}
           </div>
@@ -171,38 +195,17 @@ export default async function MoviePage({ params }: { params: { slug: string } }
         </Card>
       )}
 
-      {/* STAT CARDS — the label matching /gross/i gets the accent
-          treatment, same restraint as the rest of the site: green means
-          "this is the money number", everything else stays neutral. */}
-      {details.stats.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-          {details.stats.map((s, i) => {
-            const highlight = /gross/i.test(s.label);
-            return (
-              <Card
-                key={i}
-                className={`p-4 ${highlight ? 'bg-gold/5 border-gold/25' : ''}`}
-              >
-                <div className="mdtype-overline text-textFaint truncate">{s.label}</div>
-                <div className={`font-stat text-2xl mt-1 truncate ${highlight ? 'font-bold text-gold' : 'font-semibold text-textDim'}`}>{s.value}</div>
-                {s.note && <div className="text-textFaint text-[10px] mt-0.5">{s.note}</div>}
-              </Card>
-            );
-          })}
-        </div>
-      )}
+      <SummaryCards m={analytics} />
 
-      {(groups.length > 0 || (details.lazyDays?.length ?? 0) > 0) && (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles size={16} className="text-gold" />
-            <h2 className="hdisplay text-lg">Performance breakdown</h2>
-          </div>
-          <Card className="p-4 sm:p-5">
-            <TableGroups groups={groups} lazyDays={details.lazyDays} slug={details.slug} />
-          </Card>
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles size={16} className="text-gold" />
+          <h2 className="hdisplay text-lg">Performance breakdown</h2>
         </div>
-      )}
+        <Card className="p-4 sm:p-5">
+          <MovieBreakdownExplorer m={analytics} />
+        </Card>
+      </div>
     </div>
   );
 }

@@ -20,6 +20,7 @@ export type SyncFileResult = {
   date: string;
   status: 'ok' | 'missing' | 'error';
   movies?: number;
+  skipped?: number; // titles in the file that aren't tracked (not stored)
   sourceUpdated?: string | null;
   url?: string;
   error?: string;
@@ -72,7 +73,7 @@ export function toRow(d: BfMovieDay, syncedAt: string) {
   };
 }
 
-function chunks<T>(arr: T[], size: number): T[][] {
+export function chunks<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
@@ -119,7 +120,7 @@ export function pickSlug(base: string, taken: Set<string>): string {
 // for the first time. This is what keeps "Mana Shankara Vara Prasad Garu"
 // and "Mana Shankara Varaprasad Garu" on one page, under one URL, whichever
 // spelling a given day's file uses.
-async function applyStableSlugs(days: BfMovieDay[]): Promise<void> {
+export async function applyStableSlugs<T extends { key: string; title: string; slug: string }>(days: T[]): Promise<void> {
   const keys = [...new Set(days.map((d) => d.key))];
   const known = new Map<string, { slug: string; title: string }>();
   for (const batch of chunks(keys, 200)) {
@@ -203,7 +204,10 @@ const debug = (msg: string) => {
 
 export async function syncBfilmy(
   targets: SyncTarget[] = defaultTargets(),
-  opts: { posters?: boolean; prune?: boolean; recordState?: boolean } = {}
+  // tracked: the BFILMY title keys to import (Fyre only stores the movies
+  // MovieMint lists -- see lib/tracking.ts). Every other title in a file is
+  // skipped and never stored.
+  opts: { posters?: boolean; prune?: boolean; recordState?: boolean; tracked?: Set<string> } = {}
 ): Promise<SyncResult> {
   const startedAt = new Date().toISOString();
   const errors: string[] = [];
@@ -220,14 +224,15 @@ export async function syncBfilmy(
         files.push({ ...t, status: 'missing' });
         continue;
       }
-      const days = normalizeSummaryFile(got.file, t.kind, t.date, aliasMap);
+      const all = normalizeSummaryFile(got.file, t.kind, t.date, aliasMap);
+      const days = opts.tracked ? all.filter((d) => opts.tracked!.has(d.key)) : all;
       debug(`  fetched ${got.url.includes(`${t.date.slice(0, 4)}.pages`) ? 'archive' : 'current'}; slugs`);
       await applyStableSlugs(days);
       debug(`  upsert ${days.length}`);
       await upsertDays(days);
       debug('  upserted');
       days.forEach((d) => touched.add(d.slug));
-      files.push({ ...t, status: 'ok', movies: days.length, sourceUpdated: got.file.last_updated ?? null, url: got.url });
+      files.push({ ...t, status: 'ok', movies: days.length, skipped: all.length - days.length, sourceUpdated: got.file.last_updated ?? null, url: got.url });
     } catch (err: any) {
       const message = err?.message ?? String(err);
       files.push({ ...t, status: 'error', error: message });

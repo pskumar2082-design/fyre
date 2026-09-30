@@ -1,4 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { supabaseFetch } from '@/lib/supabaseFetch';
+
+export { supabaseFetch };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -19,18 +22,6 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 // fetch, so setting it here is a no-op in the browser (where this same
 // client is also used) and only takes effect for the server-side reads
 // it's actually fixing.
-export const supabaseFetch: typeof fetch = (input, init) => {
-  // init?.headers can be a Headers instance, a plain object, or an array
-  // of tuples depending on caller -- spreading it with `...` silently
-  // drops everything if it's a Headers instance (its entries aren't
-  // enumerable own properties), which would strip the `apikey`/
-  // `Authorization` headers supabase-js sets and break every request.
-  // Routing it through the Headers constructor merges correctly no
-  // matter which shape came in.
-  const headers = new Headers(init?.headers);
-  headers.set('Accept-Encoding', 'identity');
-  return fetch(input, { ...init, headers });
-};
 
 // Single shared client for both server components (read-only, anon key is
 // fine because of the public-read RLS policies) and the browser (admin

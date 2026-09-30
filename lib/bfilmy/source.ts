@@ -4,6 +4,7 @@
 // TrackTollywood scraper did (see ./adapter.ts), with the same function
 // names, so switching a page over is a one-line import change.
 import { supabase } from '@/lib/supabaseClient';
+import { publicTrackedSlugs } from '@/lib/tracking';
 import type { TTListedMovie, TTMovieDetails, TTTable } from '@/lib/boxoffice/types';
 import {
   dayBreakdownTables,
@@ -43,7 +44,14 @@ function remember<T>(key: string, ttlMs: number, load: () => Promise<T>): Promis
   return value;
 }
 
+// Only movies Fyre tracks (MovieMint's list, matched to BFILMY) are ever
+// listed; see lib/tracking.ts.
 async function selectMovies(apply: (q: any) => any): Promise<BfMovieRow[]> {
+  const tracked = await publicTrackedSlugs();
+  return (await selectAllMovies(apply)).filter((m) => tracked.has(m.slug));
+}
+
+async function selectAllMovies(apply: (q: any) => any): Promise<BfMovieRow[]> {
   const out: BfMovieRow[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await apply(supabase.from('bf_movie').select(MOVIE_COLUMNS)).range(from, from + 999);
@@ -177,6 +185,7 @@ export type MovieDetailLevel = 'full' | 'page' | 'summary';
 export async function getMovieDetails(slug: string, detail: MovieDetailLevel = 'full'): Promise<TTMovieDetails | null> {
   const safeSlug = cleanSlug(slug);
   if (!safeSlug) return null;
+  if (!(await publicTrackedSlugs()).has(safeSlug)) return null;
   const today = todayIST();
   return remember(`movie:${detail}:${safeSlug}:${today}`, 60_000, async () => {
     const row = await loadMovieRow(safeSlug);
@@ -197,31 +206,6 @@ export async function getMovieDetails(slug: string, detail: MovieDetailLevel = '
     if (cumRes.error) throw new Error(`bf_movie_cumulative: ${cumRes.error.message}`);
 
     return detailsFromData(row, days, (cumRes.data ?? null) as BfCumulative | null, today);
-  });
-}
-
-// One tracked day's breakdown tables, for the movie page's on-demand
-// loading of older days. Null when the movie or day doesn't exist or the
-// day has no Day number.
-export async function getMovieDay(slug: string, date: string): Promise<{ heading: string; date: string; tables: TTTable[] } | null> {
-  const safeSlug = cleanSlug(slug);
-  if (!safeSlug || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  return remember(`day:${safeSlug}:${date}`, 5 * 60_000, async () => {
-    const row = await loadMovieRow(safeSlug);
-    if (!row) return null;
-    const heading = dayHeading(row, date);
-    if (!heading) return null;
-    const { data, error } = await supabase
-      .from('bf_movie_day')
-      .select('kind,date,totals,breakdown')
-      .eq('slug', safeSlug)
-      .eq('kind', 'boxoffice')
-      .eq('date', date)
-      .maybeSingle();
-    if (error) throw new Error(`bf_movie_day: ${error.message}`);
-    if (!data) return null;
-    const day = { ...(data as any), breakdown: trimBreakdown((data as any).breakdown) } as BfStoredDay;
-    return { heading, date, tables: dayBreakdownTables(row, day) };
   });
 }
 

@@ -6,6 +6,7 @@ import type { Session } from '@supabase/supabase-js';
 import { Card } from '@/components/ui';
 import TableBuilder from '@/components/admin/TableBuilder';
 import SocialPosterTool from '@/components/admin/SocialPosterTool';
+import TrackedMoviesTool from '@/components/admin/TrackedMoviesTool';
 import FyreRichTextEditor from '@/components/admin/FyreRichTextEditor';
 import ArticleBody from '@/components/ArticleBody';
 import { sanitizeArticleHtml } from '@/lib/richText/sanitize';
@@ -317,6 +318,7 @@ function SignIn() {
 }
 
 const SOCIAL_POSTER_KEY = 'social-poster';
+const TRACKED_KEY = 'tracked-movies';
 
 function AdminShell() {
   const [activeKey, setActiveKey] = useState<string>(SECTIONS[0].key);
@@ -354,6 +356,14 @@ function AdminShell() {
             components/admin/SocialPosterTool.tsx and
             app/api/social-poster/[slug]/route.tsx. */}
         <button
+          onClick={() => setActiveKey(TRACKED_KEY)}
+          className={`text-sm font-medium pb-3 border-b-[3px] -mb-px transition whitespace-nowrap ${
+            activeKey === TRACKED_KEY ? 'text-gold border-gold' : 'text-textFaint border-transparent hover:text-gold'
+          }`}
+        >
+          Tracked movies
+        </button>
+        <button
           onClick={() => setActiveKey(SOCIAL_POSTER_KEY)}
           className={`text-sm font-medium pb-3 border-b-[3px] -mb-px transition whitespace-nowrap ${
             activeKey === SOCIAL_POSTER_KEY
@@ -367,7 +377,7 @@ function AdminShell() {
 
       {/* key={active.key} remounts the Dashboard on tab switch, which resets
           all its form/list state for free instead of a manual reset effect. */}
-      {active ? <Dashboard key={active.key} section={active} /> : <SocialPosterTool />}
+      {active ? <Dashboard key={active.key} section={active} /> : activeKey === TRACKED_KEY ? <TrackedMoviesTool /> : <SocialPosterTool />}
     </div>
   );
 }

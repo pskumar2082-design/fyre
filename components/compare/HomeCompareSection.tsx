@@ -1,87 +1,46 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { GitCompareArrows } from 'lucide-react';
-import type { TTListedMovie, TTMovieDetails } from '@/lib/boxoffice/types';
-import type { ComparisonMovie } from '@/lib/compare/types';
-import { buildComparison } from '@/lib/compare/buildComparison';
-import { Card, Pill, EmptyState } from '@/components/ui';
+import type { TTListedMovie } from '@/lib/boxoffice/types';
+import type { Comparison, MetricKey } from '@/lib/analytics/types';
+import { formatMetric } from '@/lib/analytics/format';
+import { METRIC_LABELS } from '@/lib/analytics/metrics';
+import { Card, EmptyState } from '@/components/ui';
 import MovieSelector from './MovieSelector';
-import ComparisonStatCards from './ComparisonStatCards';
+import { movieTextClass } from './movieColors';
 
-// Compact home-page teaser for the full /compare page, placed
-// immediately below the existing Box Office section (app/page.tsx).
-// The two selectors are seeded from the SAME live+advance+upcoming+
-// completed movie lists the rest of the homepage already fetched
-// server-side -- no extra network call just to populate these
-// dropdowns. Once both movies are picked, their full details are
-// fetched via the same public /api/movies/[slug] route
-// /compare itself uses, and run through the SAME buildComparison()
-// adapter -- never a second, home-page-only comparison calculation --
-// so the few stats previewed here can never quietly disagree with the
-// full page.
+// Homepage teaser for Movie Comparison: lifetime headline figures for two
+// picked movies, from the same /api/analytics/compare view model as the
+// full /compare page.
+const ROWS: MetricKey[] = ['gross', 'tickets', 'occupancy'];
+
 export default function HomeCompareSection({ movies }: { movies: TTListedMovie[] }) {
   const [pickA, setPickA] = useState<TTListedMovie | null>(null);
   const [pickB, setPickB] = useState<TTListedMovie | null>(null);
-  const [detailsA, setDetailsA] = useState<TTMovieDetails | null>(null);
-  const [detailsB, setDetailsB] = useState<TTMovieDetails | null>(null);
-  const [loadingA, setLoadingA] = useState(false);
-  const [loadingB, setLoadingB] = useState(false);
+  const [data, setData] = useState<Comparison | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function fetchDetails(slug: string): Promise<TTMovieDetails> {
-    const res = await fetch(`/api/movies/${encodeURIComponent(slug)}`);
-    const json = await res.json().catch(() => null);
-    if (!res.ok || !json) throw new Error(json?.error ?? 'Could not load this movie right now.');
-    return json as TTMovieDetails;
-  }
-
-  function pick(which: 'a' | 'b', movie: TTListedMovie) {
+  useEffect(() => {
+    setData(null);
     setError(null);
-    if (which === 'a') {
-      setPickA(movie);
-      setDetailsA(null);
-      setLoadingA(true);
-    } else {
-      setPickB(movie);
-      setDetailsB(null);
-      setLoadingB(true);
-    }
-    fetchDetails(movie.slug)
-      .then((details) => {
-        if (which === 'a') setDetailsA(details);
-        else setDetailsB(details);
+    if (!pickA || !pickB) return;
+    const ctrl = new AbortController();
+    setLoading(true);
+    fetch(`/api/analytics/compare?movies=${encodeURIComponent(pickA.slug)},${encodeURIComponent(pickB.slug)}&basis=lifetime&trend=0`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.error) throw new Error(j.error);
+        setData(j as Comparison);
       })
-      .catch((err: any) => setError(err?.message ?? 'Could not load this movie right now.'))
-      .finally(() => (which === 'a' ? setLoadingA(false) : setLoadingB(false)));
-  }
+      .catch((e) => e.name !== 'AbortError' && setError(e.message || 'Could not load this comparison right now.'))
+      .finally(() => setLoading(false));
+    return () => ctrl.abort();
+  }, [pickA, pickB]);
 
-  function clear(which: 'a' | 'b') {
-    if (which === 'a') {
-      setPickA(null);
-      setDetailsA(null);
-    } else {
-      setPickB(null);
-      setDetailsB(null);
-    }
-  }
-
-  const comparisonMovies: ComparisonMovie[] = useMemo(() => {
-    const list: ComparisonMovie[] = [];
-    if (pickA && detailsA) list.push({ slug: pickA.slug, details: detailsA });
-    if (pickB && detailsB) list.push({ slug: pickB.slug, details: detailsB });
-    return list;
-  }, [pickA, detailsA, pickB, detailsB]);
-
-  const vm = useMemo(() => buildComparison(comparisonMovies), [comparisonMovies]);
-
-  const bothPicked = Boolean(pickA && pickB);
-  const anyLoading = loadingA || loadingB;
-  const ready = comparisonMovies.length === 2;
-
-  const compareHref =
-    pickA && pickB ? `/compare?a=${encodeURIComponent(pickA.slug)}&b=${encodeURIComponent(pickB.slug)}` : '/compare';
+  const compareHref = pickA && pickB ? `/compare?movies=${encodeURIComponent(pickA.slug)},${encodeURIComponent(pickB.slug)}&basis=day&day=1&dimension=state` : '/compare';
 
   return (
     <Card className="p-5 mb-6">
@@ -96,44 +55,34 @@ export default function HomeCompareSection({ movies }: { movies: TTListedMovie[]
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-        <MovieSelector
-          movies={movies}
-          loading={false}
-          selected={pickA}
-          onSelect={(m) => pick('a', m)}
-          onClear={pickA ? () => clear('a') : undefined}
-          excludeSlugs={pickB ? [pickB.slug] : []}
-          label="Movie A"
-        />
-        <MovieSelector
-          movies={movies}
-          loading={false}
-          selected={pickB}
-          onSelect={(m) => pick('b', m)}
-          onClear={pickB ? () => clear('b') : undefined}
-          excludeSlugs={pickA ? [pickA.slug] : []}
-          label="Movie B"
-        />
+        <MovieSelector movies={movies} loading={false} selected={pickA} onSelect={setPickA} onClear={pickA ? () => setPickA(null) : undefined} excludeSlugs={pickB ? [pickB.slug] : []} label="Movie A" />
+        <MovieSelector movies={movies} loading={false} selected={pickB} onSelect={setPickB} onClear={pickB ? () => setPickB(null) : undefined} excludeSlugs={pickA ? [pickA.slug] : []} label="Movie B" />
       </div>
 
       {error && <div className="text-xs text-red mb-3">{error}</div>}
 
-      {!bothPicked ? (
+      {!pickA || !pickB ? (
         <EmptyState>Pick two movies above to see a quick comparison.</EmptyState>
+      ) : loading || !data ? (
+        <div className="text-sm text-textFaint text-center py-6">Loading comparison…</div>
       ) : (
         <>
-          <div className="mb-4">
-            {anyLoading ? (
-              <div className="text-sm text-textFaint text-center py-6">Loading comparison…</div>
-            ) : ready ? (
-              <ComparisonStatCards movies={vm.movies} stats={vm.stats.slice(0, 3)} className="!grid-cols-1 sm:!grid-cols-3" />
-            ) : (
-              <EmptyState>Could not load full details for one of these movies right now.</EmptyState>
-            )}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            {ROWS.map((k) => (
+              <div key={k} className="rounded-xl border border-border p-3">
+                <div className="mdtype-overline text-textFaint mb-1.5">Lifetime {METRIC_LABELS[k]}</div>
+                {data.movies.map((m, i) => (
+                  <div key={m.slug} className="flex justify-between text-sm">
+                    <span className="text-textDim truncate mr-2">{m.title}</span>
+                    <span className={`font-stat font-bold ${movieTextClass(i)}`}>{formatMetric(k, m.summary ? (m.summary[k] as number | null) : null)}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
-          <Pill href={compareHref} variant="primary" className="w-full sm:w-auto justify-center">
-            <GitCompareArrows size={15} className="mr-1.5" /> Compare Movies
-          </Pill>
+          <Link href={compareHref} className="text-xs font-semibold text-gold hover:underline">
+            Compare Day 1 vs Day 1, states, languages and more →
+          </Link>
         </>
       )}
     </Card>

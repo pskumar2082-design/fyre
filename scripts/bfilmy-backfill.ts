@@ -5,6 +5,13 @@
 // --reset first empties every bf_* table (for a clean rebuild after a
 // change to how films are grouped); run it only on the first chunk.
 //
+//   npx tsx --env-file=.env.local scripts/bfilmy-backfill.ts --detail <from> <to> [--no-advance] [--keep-shows N]
+//
+// imports BFILMY's show-level files (box office + advance) for the range
+// into the permanent aggregate tables (lib/bfilmy/detailSync.ts). Run it
+// after the summary backfill for the same range. Raw show rows are only
+// stored for final dates within the last N days (default 7).
+//
 //   npx tsx --env-file=.env.local scripts/bfilmy-backfill.ts --refresh-all [offset] [count]
 //
 // re-runs bf_refresh_movies for every film (after a change to that SQL
@@ -19,6 +26,38 @@
 // .env.local -- nothing is printed except progress.
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { dateRange, syncBfilmy, type SyncTarget } from '../lib/bfilmy/sync';
+import { syncDetail } from '../lib/bfilmy/detailSync';
+import { fetchAliases } from '../lib/bfilmy/fetch';
+import { buildAliasMap } from '../lib/bfilmy/normalize';
+import { trackedKeys } from '../lib/tracking';
+
+// Only movies Fyre tracks (MovieMint's list, matched to BFILMY) are ever
+// imported; every other title in BFILMY's files is skipped.
+async function tracked() {
+  const t = await trackedKeys(supabaseAdmin as any);
+  if (t.keys.size === 0) throw new Error('No tracked movies yet: run scripts/moviemint-sync.ts --catalog first.');
+  return t;
+}
+
+async function detailRange(from: string, to: string, withAdvance: boolean, keepShowDays: number) {
+  const dates = dateRange(from, to);
+  if (dates.length === 0) throw new Error('invalid date range');
+  const aliasMap = buildAliasMap(await fetchAliases());
+  const t = await tracked();
+  let failed = 0;
+  for (const date of dates) {
+    const t0 = Date.now();
+    const targets: SyncTarget[] = [{ kind: 'boxoffice', date }, ...(withAdvance ? [{ kind: 'advance' as const, date }] : [])];
+    // Advance totals come from the summary file too; make sure both exist.
+    if (withAdvance) await syncBfilmy([{ kind: 'advance', date }], { posters: false, prune: false, recordState: false, tracked: t.keys });
+    const r = await syncDetail(targets, aliasMap, { keepShowDays, tracked: t.keys, scopeSlugs: t.slugs });
+    failed += r.filter((f) => f.status === 'error').length;
+    console.log(
+      `${date} ${r.map((f) => `${f.kind[0]}=${f.status}${f.movies ? `(${f.movies} films, ${f.shows} shows${f.reconcileIssues ? `, ${f.reconcileIssues} reconcile issues` : ''}${f.showsStored ? `, ${f.showsStored} show rows` : ''})` : ''}${f.error ? ` ${f.error}` : ''}`).join(' ')} ${((Date.now() - t0) / 1000).toFixed(1)}s`
+    );
+  }
+  if (failed) process.exitCode = 1;
+}
 
 async function resetTables() {
   // bf_movie_day is large (~100k rows): delete it a half-month at a time so
@@ -64,6 +103,12 @@ async function refreshAll(offset: number, count: number) {
 
 async function main() {
   const args = process.argv.slice(2);
+  if (args[0] === '--detail') {
+    const [from, to] = args.slice(1).filter((a) => !a.startsWith('--') && /^\d{4}-\d{2}-\d{2}$/.test(a));
+    const k = args.indexOf('--keep-shows');
+    await detailRange(from, to ?? from, !args.includes('--no-advance'), k >= 0 ? Number(args[k + 1]) : 7);
+    return;
+  }
   if (args[0] === '--refresh-all') {
     await refreshAll(Number(args[1] ?? 0), Number(args[2] ?? 100000));
     return;
@@ -88,7 +133,7 @@ async function main() {
       { kind: 'boxoffice' as const, date },
       ...(advanceDates.has(date) ? [{ kind: 'advance' as const, date }] : [])
     ]);
-    const r = await syncBfilmy(targets, { posters: false, prune: false, recordState: false });
+    const r = await syncBfilmy(targets, { posters: false, prune: false, recordState: false, tracked: (await tracked()).keys });
     for (const f of r.files) {
       if (f.status === 'ok') ok++;
       else if (f.status === 'missing') missing++;
@@ -97,7 +142,7 @@ async function main() {
     console.log(`${slice[0]}..${slice[slice.length - 1]}: ${r.files.map((f) => `${f.kind[0]}${f.date.slice(5)}=${f.status}${f.movies ? `(${f.movies})` : ''}`).join(' ')}`);
   }
 
-  const final = await syncBfilmy([], { posters: true, prune: true });
+  const final = await syncBfilmy([], { posters: true, prune: true, tracked: (await tracked()).keys });
   console.log(`done: ${ok} files imported, ${missing} not published, posters set ${final.postersSet}, advance rows pruned ${final.advancePruned}`);
   if (errors.length || final.errors.length) {
     console.log('errors:', [...errors, ...final.errors].slice(0, 20));
