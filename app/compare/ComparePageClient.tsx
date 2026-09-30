@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeftRight, RotateCcw, Plus, X, Sparkles } from 'lucide-react';
-import type { TTListedMovie, TTMovieDetails } from '@/lib/tracktollywood/types';
-import { releaseTextFromMeta } from '@/lib/tracktollywood/meta';
+import type { TTListedMovie, TTMovieDetails } from '@/lib/boxoffice/types';
+import { releaseTextFromMeta } from '@/lib/boxoffice/meta';
 import type { ComparisonMovie } from '@/lib/compare/types';
 import { buildComparison } from '@/lib/compare/buildComparison';
 import { modeKey, modeFromKey } from '@/lib/compare/mode';
@@ -22,7 +22,7 @@ import ComparisonGroupView from '@/components/compare/ComparisonGroupView';
 // Server Component already did the first parallel getMovieDetails()
 // fetch for whatever slugs were in the URL on load, so this component
 // only re-fetches a movie's details when the PERSON changes a selection
-// (via the public /api/tracktollywood/[slug] route -- the same JSON the
+// (via the public /api/movies/[slug] route -- the same JSON the
 // server itself reads from).
 //
 // initialSlugs/initialDetails/initialModeKey/initialAlign are read ONCE,
@@ -35,7 +35,7 @@ import ComparisonGroupView from '@/components/compare/ComparisonGroupView';
 type Slot = { listed: TTListedMovie; details: TTMovieDetails | null; loading: boolean; error: string | null };
 
 // TTMovieDetails doesn't carry TTListedMovie's own release-text/genre/
-// gross-label fields (see lib/tracktollywood/types.ts) -- this adapts a
+// gross-label fields (see lib/boxoffice/types.ts) -- this adapts a
 // server-fetched TTMovieDetails into the minimal TTListedMovie shape
 // MovieSelector's collapsed "selected" view needs, reusing the exact
 // same "find the Released/Releasing meta item" pattern
@@ -117,7 +117,7 @@ export default function ComparePageClient({
     });
     setFailedSlugs([]);
 
-    fetch(`/api/tracktollywood/${encodeURIComponent(listed.slug)}`)
+    fetch(`/api/movies/${encodeURIComponent(listed.slug)}`)
       .then(async (res) => ({ ok: res.ok, json: await res.json().catch(() => null) }))
       .then(({ ok, json }) => {
         if (requestIdsRef.current[index] !== myId) return;

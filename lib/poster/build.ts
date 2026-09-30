@@ -2,10 +2,10 @@
 // breakdown table) into the generic PosterData the renderer consumes --
 // selection and reshaping only. No independent data source: every value
 // here traces back to the exact same getMovieDetails() call that powers
-// the live /movie/[slug] page (see lib/tracktollywood/scraper.ts), so the
+// the live /movie/[slug] page (see lib/boxoffice/scraper.ts), so the
 // poster and the site can never quietly disagree.
-import type { TTMovieDetails, TTTable } from '../tracktollywood/types';
-import { groupTables, headingLabel, categoryLabel } from '../tracktollywood/tableGroups';
+import type { TTMovieDetails, TTTable } from '../boxoffice/types';
+import { groupTables, headingLabel, categoryLabel } from '../boxoffice/tableGroups';
 import type { PosterData, PosterStat } from './types';
 
 export type BuildPosterResult = { data: PosterData; table: TTTable } | { error: string };
@@ -13,7 +13,7 @@ export type BuildPosterResult = { data: PosterData; table: TTTable } | { error: 
 // TrackTollywood's own table cells are already fully formatted for
 // display ("₹9.99 Cr", "389,238", "50.1%") -- this project has never
 // kept a separate raw-numeric column for a breakdown row (confirmed
-// against lib/tracktollywood/types.ts's TTTableRow, which is just
+// against lib/boxoffice/types.ts's TTTableRow, which is just
 // Record<string,string>). None of these breakdown tables ship a TOTAL row
 // either (confirmed live), so a Gross/Tickets/Shows summary for a
 // specific table has to be derived by summing that table's own rows --

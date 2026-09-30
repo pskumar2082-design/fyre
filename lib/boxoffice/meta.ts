@@ -10,7 +10,7 @@ import type { TTMovieMetaItem } from './types';
 // meta list rather than inventing one.
 //
 // Deliberately its own tiny, dependency-free file rather than living in
-// lib/tracktollywood/scraper.ts (where parseReleaseDate, its natural
+// lib/boxoffice/scraper.ts (where parseReleaseDate, its natural
 // pairing, already lives): scraper.ts pulls in axios + cheerio for its
 // actual scraping work, and importing even one pure helper from it into
 // a 'use client' file drags both of those Node-only libraries into the

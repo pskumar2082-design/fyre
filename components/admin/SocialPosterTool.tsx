@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X, Globe, Languages, LayoutGrid, Clock, MapPin, BarChart3, ListFilter } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { TTMovieDetails, TTListedMovie } from '@/lib/tracktollywood/types';
+import type { TTMovieDetails, TTListedMovie } from '@/lib/boxoffice/types';
 import { listAvailableReports } from '@/lib/poster/build';
 import { buildPosterFilename, buildComparisonPosterFilename } from '@/lib/poster/filename';
 import type { ComparisonPosterFormat } from '@/lib/poster/types';
@@ -20,7 +20,7 @@ import ComparisonTabs from '@/components/compare/ComparisonTabs';
 // update on X without hand-designing a graphic every time.
 //
 // Deliberately thin: this component only fetches the movie's data once
-// (via the existing /api/tracktollywood/[slug] endpoint -- the same JSON
+// (via the existing /api/movies/[slug] endpoint -- the same JSON
 // the movie detail page itself is built from) to populate the Report /
 // Breakdown pickers, then points an <img> straight at the same route
 // Download PNG fetches from. Preview and export can never drift apart
@@ -135,7 +135,7 @@ export default function SocialPosterTool() {
     setDetails(null);
     setPreviewUrl(null);
     try {
-      const res = await fetch(`/api/tracktollywood/${encodeURIComponent(slug)}`);
+      const res = await fetch(`/api/movies/${encodeURIComponent(slug)}`);
       const json = await res.json();
       if (!res.ok) {
         setLoadError(json.error ?? `Could not load "${slug}".`);
@@ -231,7 +231,7 @@ export default function SocialPosterTool() {
     });
     setCmpPreviewUrl(null);
 
-    fetch(`/api/tracktollywood/${encodeURIComponent(listed.slug)}`)
+    fetch(`/api/movies/${encodeURIComponent(listed.slug)}`)
       .then(async (res) => ({ ok: res.ok, json: await res.json().catch(() => null) }))
       .then(({ ok, json }) => {
         if (cmpRequestIdsRef.current[index] !== myId) return;

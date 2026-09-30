@@ -4,12 +4,12 @@
 // consume (TTListedMovie / TTMovieDetails). Keeping those shapes means the
 // switch from TrackTollywood to BFILMY doesn't ripple through every page.
 //
-// Table labels deliberately follow the conventions lib/tracktollywood/
+// Table labels deliberately follow the conventions lib/boxoffice/
 // tableGroups.ts groups by -- "<Category> — Day N", "Day-wise
 // Collection", "Cumulative <Category>", "Advance YYYY-MM-DD — <Category>"
 // -- so the movie page's Report/Breakdown pickers, compare tabs and poster
 // report list work unchanged.
-import type { TTListedMovie, TTMovieDetails, TTMovieMetaItem, TTMovieState, TTStat, TTTable, TTTableRow } from '@/lib/tracktollywood/types';
+import type { TTLazyDay, TTListedMovie, TTMovieDetails, TTMovieMetaItem, TTMovieState, TTStat, TTTable, TTTableRow } from '@/lib/boxoffice/types';
 import { chainFromTuple, cityFromTuple, finalizeFigures } from './normalize';
 import type { BfCityRow, BfFigures, BfNamedRow } from './types';
 
@@ -46,7 +46,8 @@ export type BfStoredDay = {
   kind: 'boxoffice' | 'advance';
   date: string;
   totals: BfDaySnapshot;
-  breakdown: {
+  // null = not loaded (the movie page loads older days on demand)
+  breakdown: null | {
     states?: Partial<BfNamedRow>[];
     formats?: Partial<BfNamedRow>[];
     languages?: Partial<BfNamedRow>[];
@@ -130,7 +131,7 @@ export function dayOneDate(row: Pick<BfMovieRow, 'first_date' | 'release_date' |
 // unknown, so its figures are shown as "since 1 Jan 2025", never as
 // lifetime numbers or with invented Day counts.
 export const ARCHIVE_START = '2025-01-01';
-const SINCE_ARCHIVE = 'Gross since 1 Jan 2025';
+const SINCE_ARCHIVE = 'Tracked gross since 1 Jan 2025';
 
 // Report headings stay "Day N" (including "Day 0") because the movie
 // page's grouping matches /^Day \d+$/. Day 0 is the day just before
@@ -195,7 +196,7 @@ export function listedFromRow(row: BfMovieRow, today: string): TTListedMovie {
     releaseText: row.release_date && !row.carried_over ? `${released ? 'Released' : 'Releasing'} ${formatDate(row.release_date)}` : null,
     genre: primaryLanguages(row),
     poster: row.poster,
-    grossLabel: row.carried_over ? SINCE_ARCHIVE : released ? 'India Gross' : 'Advance Gross',
+    grossLabel: row.carried_over ? SINCE_ARCHIVE : released ? 'Tracked Gross' : 'Advance Gross',
     gross: grossRupees > 0 ? formatMoney(grossRupees) : null,
     grossCr: grossRupees > 0 ? Math.round((grossRupees / 1e7) * 100) / 100 : null,
     todayText: todayGross != null ? formatMoney(todayGross) : null,
@@ -253,7 +254,7 @@ function chainsTable(label: string, tuples: unknown[][] | undefined): TTTable | 
 }
 
 // The per-date breakdown set, in the order the movie page shows them.
-function breakdownTables(suffixOrPrefix: (category: string) => string, b: BfStoredDay['breakdown'] | BfCumulative): TTTable[] {
+function breakdownTables(suffixOrPrefix: (category: string) => string, b: NonNullable<BfStoredDay['breakdown']> | BfCumulative): TTTable[] {
   return [
     namedTable(suffixOrPrefix('State-wise'), 'State', b.states),
     citiesTable(suffixOrPrefix('Top Cities'), b.cities),
@@ -299,6 +300,28 @@ export function dayWiseTable(boxoffice: BfStoredDay[], dayOne: string | null, pr
 // Details
 // ---------------------------------------------------------------------------
 
+// The "Day N" report heading for one box-office date, or null when the
+// date has no real day number (release unknown, or stray pre-release
+// shows before Day 0) -- those stay in the day-wise table only.
+export function dayHeading(
+  row: Pick<BfMovieRow, 'first_date' | 'release_date' | 'carried_over' | 'premiere_date'>,
+  date: string
+): string | null {
+  const first = dayOneDate(row);
+  if (!first) return null;
+  if (row.premiere_date && date === row.premiere_date) return 'Day 0';
+  const dn = dayNumber(date, first);
+  return dn >= 1 ? `Day ${dn}` : null;
+}
+
+// The breakdown tables for one box-office day, labelled exactly as
+// detailsFromData labels them (so they group under the same heading).
+export function dayBreakdownTables(row: BfMovieRow, day: BfStoredDay): TTTable[] {
+  const heading = dayHeading(row, day.date);
+  if (!heading || !day.breakdown) return [];
+  return breakdownTables((c) => `${c} — ${heading}`, day.breakdown);
+}
+
 export function detailsFromData(
   row: BfMovieRow,
   days: BfStoredDay[],
@@ -313,23 +336,23 @@ export function detailsFromData(
   const first = dayOneDate(row); // null for films released before the archive starts
 
   const tables: TTTable[] = [];
+  const lazyDays: TTLazyDay[] = [];
   if (released) {
     const dw = dayWiseTable(boxoffice, first, row.premiere_date);
     if (dw) tables.push(dw);
     // Per-day breakdowns only where a real Day number exists (premiere day
     // included as "Day 0"); stray pre-release shows stay in the day-wise
     // table and totals but get no report of their own.
-    if (first) {
-      for (const d of boxoffice) {
-        const isPremiere = !!row.premiere_date && d.date === row.premiere_date;
-        const dn = isPremiere ? 0 : dayNumber(d.date, first);
-        if (dn < 1 && !isPremiere) continue;
-        tables.push(...breakdownTables((c) => `${c} — Day ${dn}`, d.breakdown));
-      }
+    for (const d of boxoffice) {
+      const heading = dayHeading(row, d.date);
+      if (!heading) continue;
+      if (d.breakdown) tables.push(...breakdownTables((c) => `${c} — ${heading}`, d.breakdown));
+      else lazyDays.push({ heading, date: d.date });
     }
     if (cumulative) tables.push(...breakdownTables((c) => `Cumulative ${c}`, cumulative));
   }
   for (const d of advance) {
+    if (!d.breakdown) continue;
     tables.push(...breakdownTables((c) => `Advance ${d.date} — ${c}`, d.breakdown));
   }
 
@@ -340,7 +363,7 @@ export function detailsFromData(
   const totalSeats = n(row.total_seats);
   const dayNote = (date: string) => (first ? dayLabelFor(date, first, row.premiere_date) || null : formatDate(date));
   if (released) {
-    stats.push({ label: row.carried_over ? SINCE_ARCHIVE : 'India Gross', value: formatMoney(totalGross), note: null });
+    stats.push({ label: row.carried_over ? SINCE_ARCHIVE : 'Tracked Gross', value: formatMoney(totalGross), note: null });
     if (row.latest?.date) {
       stats.push({
         label: row.latest.date === today ? "Today's Gross" : 'Latest Day',
@@ -371,8 +394,8 @@ export function detailsFromData(
     ? row.carried_over
       ? `${SINCE_ARCHIVE} · released earlier`
       : state === 'live'
-        ? `India Gross · Day ${dayN} running`
-        : `India Gross · Final · ${daysWithShows} days with shows`
+        ? `Tracked Gross · Day ${dayN} running`
+        : `Tracked Gross · Final · ${daysWithShows} days with shows`
     : row.advance?.date
       ? `Advance Gross · ${formatDate(row.advance.date)}`
       : null;
@@ -400,6 +423,7 @@ export function detailsFromData(
     meta,
     metaUpdatedText: row.source_updated ? `Last updated ${row.source_updated}` : null,
     tables,
+    ...(lazyDays.length ? { lazyDays } : {}),
     fetchedAt
   };
 }

@@ -4,8 +4,10 @@
 // TrackTollywood scraper did (see ./adapter.ts), with the same function
 // names, so switching a page over is a one-line import change.
 import { supabase } from '@/lib/supabaseClient';
-import type { TTListedMovie, TTMovieDetails } from '@/lib/tracktollywood/types';
+import type { TTListedMovie, TTMovieDetails, TTTable } from '@/lib/boxoffice/types';
 import {
+  dayBreakdownTables,
+  dayHeading,
   detailsFromData,
   listedFromRow,
   parseAmountToCr,
@@ -90,25 +92,136 @@ export async function getCompletedMovies(): Promise<TTListedMovie[]> {
   });
 }
 
-export async function getMovieDetails(slug: string): Promise<TTMovieDetails | null> {
-  const safeSlug = String(slug).toLowerCase().replace(/[^a-z0-9-]/g, '');
+// Same list lengths bf_movie_days trims to.
+const CITY_LIMIT = 50;
+const CHAIN_LIMIT = 30;
+
+// How many of the most recent tracked days the movie page sends with
+// their full breakdown tables; older days load when someone opens them.
+const PAGE_RECENT_DAYS = 3;
+
+function cleanSlug(slug: string): string {
+  return String(slug).toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
+
+function trimBreakdown(b: any): BfStoredDay['breakdown'] {
+  if (!b || typeof b !== 'object') return {};
+  return {
+    states: b.states ?? [],
+    formats: b.formats ?? [],
+    languages: b.languages ?? [],
+    cities: Array.isArray(b.cities) ? b.cities.slice(0, CITY_LIMIT) : [],
+    chains: Array.isArray(b.chains) ? b.chains.slice(0, CHAIN_LIMIT) : []
+  };
+}
+
+async function loadMovieRow(slug: string): Promise<BfMovieRow | null> {
+  const { data: row, error } = await supabase.from('bf_movie').select(MOVIE_COLUMNS).eq('slug', slug).maybeSingle();
+  if (error) throw new Error(`bf_movie: ${error.message}`);
+  return (row as BfMovieRow | null) ?? null;
+}
+
+// Every day's totals (no breakdowns), plus full breakdowns for all
+// advance dates and the most recent PAGE_RECENT_DAYS tracked days. The
+// remaining days come back with breakdown = null, which the adapter
+// turns into lazyDays.
+async function loadPageDays(slug: string, row: BfMovieRow): Promise<BfStoredDay[]> {
+  const days: BfStoredDay[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from('bf_movie_day')
+      .select('kind,date,totals,source_updated')
+      .eq('slug', slug)
+      .order('date', { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(`bf_movie_day: ${error.message}`);
+    for (const d of data ?? []) days.push({ ...(d as any), breakdown: null });
+    if (!data || data.length < 1000) break;
+  }
+
+  const recent = days
+    .filter((d) => d.kind === 'boxoffice' && dayHeading(row, d.date))
+    .slice(-PAGE_RECENT_DAYS)
+    .map((d) => d.date);
+  const hasAdvance = days.some((d) => d.kind === 'advance');
+
+  const [recentRes, advanceRes] = await Promise.all([
+    recent.length
+      ? supabase.from('bf_movie_day').select('kind,date,breakdown').eq('slug', slug).eq('kind', 'boxoffice').in('date', recent)
+      : Promise.resolve({ data: [], error: null }),
+    hasAdvance
+      ? supabase.from('bf_movie_day').select('kind,date,breakdown').eq('slug', slug).eq('kind', 'advance')
+      : Promise.resolve({ data: [], error: null })
+  ]);
+  if (recentRes.error) throw new Error(`bf_movie_day: ${recentRes.error.message}`);
+  if (advanceRes.error) throw new Error(`bf_movie_day: ${advanceRes.error.message}`);
+
+  const loaded = new Map<string, BfStoredDay['breakdown']>();
+  for (const d of [...(recentRes.data ?? []), ...(advanceRes.data ?? [])] as any[]) {
+    loaded.set(`${d.kind}:${d.date}`, trimBreakdown(d.breakdown));
+  }
+  for (const d of days) {
+    const b = loaded.get(`${d.kind}:${d.date}`);
+    if (b) d.breakdown = b;
+  }
+  return days;
+}
+
+// detail:
+//   'full'    -- every day's breakdown tables (API route: compare, poster tool)
+//   'page'    -- the movie page: recent days in full, older days listed in
+//                lazyDays and fetched on demand (getMovieDay)
+//   'summary' -- headline, stats and meta only, no tables (homepage cards)
+export type MovieDetailLevel = 'full' | 'page' | 'summary';
+
+export async function getMovieDetails(slug: string, detail: MovieDetailLevel = 'full'): Promise<TTMovieDetails | null> {
+  const safeSlug = cleanSlug(slug);
   if (!safeSlug) return null;
   const today = todayIST();
-  return remember(`movie:${safeSlug}:${today}`, 60_000, async () => {
-    const { data: row, error } = await supabase.from('bf_movie').select(MOVIE_COLUMNS).eq('slug', safeSlug).maybeSingle();
-    if (error) throw new Error(`bf_movie: ${error.message}`);
+  return remember(`movie:${detail}:${safeSlug}:${today}`, 60_000, async () => {
+    const row = await loadMovieRow(safeSlug);
     if (!row) return null;
+    if (detail === 'summary') return detailsFromData(row, [], null, today);
 
-    const [daysRes, cumRes] = await Promise.all([
-      supabase.rpc('bf_movie_days', { p_slug: safeSlug, p_city_limit: 50, p_chain_limit: 30 }),
-      (row as BfMovieRow).first_date
+    const [days, cumRes] = await Promise.all([
+      detail === 'page'
+        ? loadPageDays(safeSlug, row)
+        : supabase.rpc('bf_movie_days', { p_slug: safeSlug, p_city_limit: CITY_LIMIT, p_chain_limit: CHAIN_LIMIT }).then((r) => {
+            if (r.error) throw new Error(`bf_movie_days: ${r.error.message}`);
+            return (r.data ?? []) as BfStoredDay[];
+          }),
+      row.first_date
         ? supabase.rpc('bf_movie_cumulative', { p_slug: safeSlug, p_city_limit: 100, p_chain_limit: 50 })
         : Promise.resolve({ data: null, error: null })
     ]);
-    if (daysRes.error) throw new Error(`bf_movie_days: ${daysRes.error.message}`);
     if (cumRes.error) throw new Error(`bf_movie_cumulative: ${cumRes.error.message}`);
 
-    return detailsFromData(row as BfMovieRow, (daysRes.data ?? []) as BfStoredDay[], (cumRes.data ?? null) as BfCumulative | null, today);
+    return detailsFromData(row, days, (cumRes.data ?? null) as BfCumulative | null, today);
+  });
+}
+
+// One tracked day's breakdown tables, for the movie page's on-demand
+// loading of older days. Null when the movie or day doesn't exist or the
+// day has no Day number.
+export async function getMovieDay(slug: string, date: string): Promise<{ heading: string; date: string; tables: TTTable[] } | null> {
+  const safeSlug = cleanSlug(slug);
+  if (!safeSlug || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return remember(`day:${safeSlug}:${date}`, 5 * 60_000, async () => {
+    const row = await loadMovieRow(safeSlug);
+    if (!row) return null;
+    const heading = dayHeading(row, date);
+    if (!heading) return null;
+    const { data, error } = await supabase
+      .from('bf_movie_day')
+      .select('kind,date,totals,breakdown')
+      .eq('slug', safeSlug)
+      .eq('kind', 'boxoffice')
+      .eq('date', date)
+      .maybeSingle();
+    if (error) throw new Error(`bf_movie_day: ${error.message}`);
+    if (!data) return null;
+    const day = { ...(data as any), breakdown: trimBreakdown((data as any).breakdown) } as BfStoredDay;
+    return { heading, date, tables: dayBreakdownTables(row, day) };
   });
 }
 

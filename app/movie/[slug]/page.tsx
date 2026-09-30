@@ -4,9 +4,9 @@ import { ArrowLeft, Sparkles } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getMovieDetails, parseReleaseDate } from '@/lib/bfilmy/source';
-import type { TTMovieMetaItem, TTTable } from '@/lib/tracktollywood/types';
-import { groupTables } from '@/lib/tracktollywood/tableGroups';
-import { STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
+import type { TTMovieMetaItem, TTTable } from '@/lib/boxoffice/types';
+import { groupTables } from '@/lib/boxoffice/tableGroups';
+import { STATE_BADGE } from '@/lib/boxoffice/stateStyle';
 import { Card } from '@/components/ui';
 import TableGroups from '@/components/TableGroups';
 import { SITE_URL } from '@/lib/siteConfig';
@@ -29,7 +29,7 @@ function metaValue(meta: TTMovieMetaItem[], pattern: RegExp): string | null {
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   let details;
   try {
-    details = await getMovieDetails(params.slug);
+    details = await getMovieDetails(params.slug, 'page');
   } catch {
     details = null;
   }
@@ -69,7 +69,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 export default async function MoviePage({ params }: { params: { slug: string } }) {
   let details;
   try {
-    details = await getMovieDetails(params.slug);
+    details = await getMovieDetails(params.slug, 'page');
   } catch {
     details = null;
   }
@@ -192,14 +192,14 @@ export default async function MoviePage({ params }: { params: { slug: string } }
         </div>
       )}
 
-      {groups.length > 0 && (
+      {(groups.length > 0 || (details.lazyDays?.length ?? 0) > 0) && (
         <div>
           <div className="flex items-center gap-2 mb-4">
             <Sparkles size={16} className="text-gold" />
             <h2 className="hdisplay text-lg">Performance breakdown</h2>
           </div>
           <Card className="p-4 sm:p-5">
-            <TableGroups groups={groups} />
+            <TableGroups groups={groups} lazyDays={details.lazyDays} slug={details.slug} />
           </Card>
         </div>
       )}

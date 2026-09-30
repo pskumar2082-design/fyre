@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { TTListedMovie } from '../tracktollywood/types';
+import type { TTListedMovie } from '../boxoffice/types';
 
 // Shared client-side movie catalog for every searchable selector the
 // comparison feature needs (the /compare page, the home page's compact
 // section, and the admin Social Poster tool's comparison mode). No new
-// API route: app/api/tracktollywood/live and app/api/tracktollywood/
+// API route: app/api/movies/live and app/api/movies/
 // completed already return this exact public JSON (the same data
 // /now-showing, /upcoming and /box-office read server-side), so this
 // hook just fetches both once, merges, and de-dupes by slug -- live
@@ -26,8 +26,8 @@ export function useMovieCatalog(): MovieCatalogState {
     async function load() {
       try {
         const [liveRes, completedRes] = await Promise.all([
-          fetch('/api/tracktollywood/live'),
-          fetch('/api/tracktollywood/completed')
+          fetch('/api/movies/live'),
+          fetch('/api/movies/completed')
         ]);
         const [liveJson, completedJson] = await Promise.all([liveRes.json(), completedRes.json()]);
         if (cancelled) return;

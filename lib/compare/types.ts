@@ -3,7 +3,7 @@
 // TrackTollywood's own data is entirely label-driven -- a stat is
 // {label, value, note}, a breakdown table is {label, headers, rows} whose
 // meaning comes from string-matching its `label` (see
-// lib/tracktollywood/tableGroups.ts). There is no fixed schema of "state/
+// lib/boxoffice/tableGroups.ts). There is no fixed schema of "state/
 // language/format" fields anywhere in the live pipeline: whatever
 // TrackTollywood published for a specific movie is literally all that
 // exists for it. Everything below preserves that -- movies are compared
@@ -11,8 +11,8 @@
 // assuming a fixed metric exists on every side. A `null` slot always
 // means "this movie has no stat/table/row under this exact label", never
 // an invented zero.
-import type { TTMovieDetails, TTTable } from '../tracktollywood/types';
-import type { HeadingCategory } from '../tracktollywood/tableGroups';
+import type { TTMovieDetails, TTTable } from '../boxoffice/types';
+import type { HeadingCategory } from '../boxoffice/tableGroups';
 
 export type ComparisonMovie = {
   slug: string;
@@ -38,7 +38,7 @@ export type ComparedCategory = {
 };
 
 // One report group (a "Day N", "Day-wise Collection", "Cumulative", or
-// "Advance <date>" heading -- see lib/tracktollywood/tableGroups.ts),
+// "Advance <date>" heading -- see lib/boxoffice/tableGroups.ts),
 // unioned across every selected movie's own groupTables() output.
 export type ComparedReportGroup = {
   heading: string;

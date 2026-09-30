@@ -1,12 +1,9 @@
-// Shared types for the TrackTollywood integration (lib/tracktollywood/*).
-//
-// TrackTollywood (tracktollywood.com) is a WordPress site, unlike
-// MovieMint (Next.js). Its box-office data is plain server-rendered HTML
-// with clean, semantic class names and no client-side rendering step --
-// confirmed live 2026-09-21 via a bare `curl` (no JS execution) against
-// both /box-office-collection/ and a movie detail page, and via
-// robots.txt (only /wp-admin/ is disallowed). That means this client
-// never needs a headless-browser tier the way moviemintClient.ts does.
+// The movie shapes every page, the compare feature and the poster tool
+// consume. They were first defined for the old TrackTollywood scraper
+// (hence the TT prefix) and are now produced from BFILMY data by
+// lib/bfilmy/adapter.ts; keeping the shapes meant the data-source switch
+// didn't ripple through every page. Tables are label-driven (see
+// lib/boxoffice/tableGroups.ts) rather than a fixed schema.
 
 export type TTMovieState = 'live' | 'advance' | 'upcoming' | 'final' | 'unknown';
 
@@ -20,7 +17,7 @@ export type TTListedMovie = {
   releaseText: string | null; // e.g. "Released 18 Sep 2026" / "Releasing 25 Sep 2026"
   genre: string | null;
   poster: string | null;
-  grossLabel: string | null; // e.g. "India Gross" / "Advance Gross"
+  grossLabel: string | null; // e.g. "Tracked Gross" / "Advance Gross"
   gross: string | null; // display string as shown on site, e.g. "₹5.41 Cr"
   grossCr: number | null; // gross parsed to crores (numeric), null if unparsable
   todayText: string | null; // e.g. "₹42.40 L" -- only present for live movies
@@ -63,6 +60,8 @@ export type TTTable = {
 // Cast, Production -- get more room; short ones don't).
 export type TTMovieMetaItem = { label: string; value: string; wide: boolean };
 
+export type TTLazyDay = { heading: string; date: string }; // "Day 7", "2026-09-14"
+
 export type TTMovieDetails = {
   slug: string;
   title: string;
@@ -71,10 +70,14 @@ export type TTMovieDetails = {
   poster: string | null;
   badgeText: string | null; // e.g. "Live Tracking · Day 4"
   headlineGross: string | null; // e.g. "₹5.41Cr"
-  headlineLabel: string | null; // e.g. "India Gross · Day 4 running"
+  headlineLabel: string | null; // e.g. "Tracked Gross · Day 4 running"
   stats: TTStat[];
   meta: TTMovieMetaItem[]; // Released/Cast/Director/Genre/Languages/Production
   metaUpdatedText: string | null; // e.g. "Last updated 2026-09-21 23:53 IST"
   tables: TTTable[];
+  // Tracked days whose breakdown tables weren't sent with this response
+  // (long runs send only the most recent few); the movie page fetches
+  // each one from /api/movies/[slug]/day/[date] when it's opened.
+  lazyDays?: TTLazyDay[];
   fetchedAt: string; // ISO timestamp of this fetch (not cache-aware -- see cache.ts)
 };

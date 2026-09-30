@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import type { TTListedMovie } from '@/lib/tracktollywood/types';
-import { STATE_LABEL, STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
+import type { TTListedMovie } from '@/lib/boxoffice/types';
+import { STATE_LABEL, STATE_BADGE } from '@/lib/boxoffice/stateStyle';
 
 // The poster card used for a TrackTollywood movie everywhere one appears --
 // the homepage's featured carousel, /now-showing, and /upcoming -- so all

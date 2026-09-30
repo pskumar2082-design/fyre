@@ -49,7 +49,7 @@ export async function GET(req: Request, { params }: { params: { slug: string } }
     return new Response(`No movie found at slug "${params.slug}".`, { status: 404 });
   }
   if (!tableLabel) {
-    return new Response('Missing "table" query parameter -- pass the exact report table label (see /api/tracktollywood/[slug] for the list).', {
+    return new Response('Missing "table" query parameter -- pass the exact report table label (see /api/movies/[slug] for the list).', {
       status: 400
     });
   }

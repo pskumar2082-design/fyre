@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { Search, Film, ListFilter, IndianRupee } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { getLiveMovies, getCompletedMovies, getMovieDetails, parseReleaseDate, parseAmountToCr } from '@/lib/bfilmy/source';
-import { STATE_LABEL, STATE_BADGE } from '@/lib/tracktollywood/stateStyle';
+import { STATE_LABEL, STATE_BADGE } from '@/lib/boxoffice/stateStyle';
 import { Card, IconBadge, SectionHeading, EmptyState, Pill } from '@/components/ui';
 import { Donut } from '@/components/charts';
 import MovieCard from '@/components/MovieCard';
@@ -48,7 +48,7 @@ async function getData() {
   const upcomingRow = await Promise.all(
     upcomingPreview.map(async (m) => {
       try {
-        const details = await getMovieDetails(m.slug);
+        const details = await getMovieDetails(m.slug, 'summary');
         if (details?.headlineGross) {
           return { ...m, gross: details.headlineGross, grossLabel: details.headlineLabel ?? m.grossLabel };
         }
@@ -89,7 +89,7 @@ export default async function HomePage() {
 
   // The exact same live+advance+upcoming+completed movie set
   // lib/compare/useMovieCatalog.ts's client-side hook would otherwise
-  // fetch (its own /api/tracktollywood/live + /api/tracktollywood/
+  // fetch (its own /api/movies/live + /api/movies/
   // completed calls read these same two functions), reused here to seed
   // the home page's compact comparison selectors without a second
   // network round trip -- nowShowing/upcoming/completed are already
@@ -108,7 +108,7 @@ export default async function HomePage() {
           Live/Upcoming/Completed split as a donut. No "vs yesterday"
           comparison line on the two stat cards -- there's no persisted
           history to back that number honestly (see
-          lib/tracktollywood/snapshot.ts for what now collects it going
+          lib/bfilmy/sync.ts for what now collects it going
           forward). */}
       <aside className="order-2 lg:order-1 lg:w-[300px] flex-none bg-bgAlt -mx-5 px-5 pt-8 pb-8 md:-mx-8 md:px-8 mt-6 lg:mt-0 lg:mx-0 lg:px-5 lg:py-6 lg:rounded-2xl">
         <h2 className="hdisplay text-lg text-text mb-5">Live Snapshot</h2>
@@ -118,7 +118,7 @@ export default async function HomePage() {
             <IconBadge icon={IndianRupee} tint="blue" size={48} />
             <span className="text-[11px] font-semibold bg-white/[0.06] text-textDim px-2.5 py-1 rounded-full">Today</span>
           </div>
-          <div className="text-textFaint text-xs mb-1">Today's Gross</div>
+          <div className="text-textFaint text-xs mb-1">Today's Tracked Gross</div>
           <div className="font-stat font-bold text-5xl text-gold leading-none">{formatCr(todaysGrossCr)}</div>
           <div className="text-textFaint text-xs mt-2.5">across {nowShowing.length} movie{nowShowing.length === 1 ? '' : 's'} live right now</div>
         </Card>
@@ -137,7 +137,7 @@ export default async function HomePage() {
             here (indigo / blue / faint-white) rather than the red-vs-green
             pairing this replaced -- red stays reserved for the actual
             live-tracking badges and pulse dots elsewhere in the app
-            (see lib/tracktollywood/stateStyle.ts), not this summary. */}
+            (see lib/boxoffice/stateStyle.ts), not this summary. */}
         <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-text font-medium">Live vs Upcoming vs Completed</span>

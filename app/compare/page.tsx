@@ -6,7 +6,7 @@ import ComparePageClient from './ComparePageClient';
 
 // Same conventions app/box-office/page.tsx and app/movie/[slug]/page.tsx
 // already use: force-dynamic (TrackTollywood data is live, never
-// statically cached at the route level -- lib/tracktollywood/cache.ts's
+// statically cached at the route level -- lib/bfilmy/source.ts's
 // own short-TTL cache is the only caching layer), searchParams-driven
 // state, and a separate generateMetadata that fetches independently
 // (getMovieDetails is backed by that same short-TTL cache, so this

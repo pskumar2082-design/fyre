@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { GitCompareArrows } from 'lucide-react';
-import type { TTListedMovie, TTMovieDetails } from '@/lib/tracktollywood/types';
+import type { TTListedMovie, TTMovieDetails } from '@/lib/boxoffice/types';
 import type { ComparisonMovie } from '@/lib/compare/types';
 import { buildComparison } from '@/lib/compare/buildComparison';
 import { Card, Pill, EmptyState } from '@/components/ui';
@@ -16,7 +16,7 @@ import ComparisonStatCards from './ComparisonStatCards';
 // completed movie lists the rest of the homepage already fetched
 // server-side -- no extra network call just to populate these
 // dropdowns. Once both movies are picked, their full details are
-// fetched via the same public /api/tracktollywood/[slug] route
+// fetched via the same public /api/movies/[slug] route
 // /compare itself uses, and run through the SAME buildComparison()
 // adapter -- never a second, home-page-only comparison calculation --
 // so the few stats previewed here can never quietly disagree with the
@@ -31,7 +31,7 @@ export default function HomeCompareSection({ movies }: { movies: TTListedMovie[]
   const [error, setError] = useState<string | null>(null);
 
   async function fetchDetails(slug: string): Promise<TTMovieDetails> {
-    const res = await fetch(`/api/tracktollywood/${encodeURIComponent(slug)}`);
+    const res = await fetch(`/api/movies/${encodeURIComponent(slug)}`);
     const json = await res.json().catch(() => null);
     if (!res.ok || !json) throw new Error(json?.error ?? 'Could not load this movie right now.');
     return json as TTMovieDetails;

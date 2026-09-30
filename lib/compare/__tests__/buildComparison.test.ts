@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildComparison, buildComparedTable } from '../buildComparison';
 import type { ComparisonMovie } from '../types';
-import type { TTMovieDetails, TTTable, TTStat } from '../../tracktollywood/types';
+import type { TTMovieDetails, TTTable, TTStat } from '../../boxoffice/types';
 
 // Minimal-but-realistic TTMovieDetails fixture builder -- only the
 // fields buildComparison actually reads (stats, tables) vary per test;
@@ -13,7 +13,7 @@ function movie(
   const details: TTMovieDetails = {
     slug,
     title: slug,
-    url: `https://tracktollywood.com/box-office-collection/${slug}/`,
+    url: `/movie/${slug}`,
     state: 'live',
     poster: null,
     badgeText: null,
@@ -40,7 +40,7 @@ function dayWiseTable(rows: { day: string; date: string; gross: string }[]): TTT
 // heading last for a per-day breakdown ("State-wise — Day 2"), but the
 // ADVANCE date first and category last for an advance breakdown
 // ("Advance 2026-09-18 — State-wise") -- see
-// lib/tracktollywood/tableGroups.ts's groupTables(), whose regex
+// lib/boxoffice/tableGroups.ts's groupTables(), whose regex
 // (`/— (Day \d+)$/`) only recognizes "Day N" as a trailing suffix. This
 // fixture mirrors that exactly rather than inventing its own label
 // shape, so these tests exercise the real parsing/grouping convention.

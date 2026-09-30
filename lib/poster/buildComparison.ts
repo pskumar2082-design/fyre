@@ -10,7 +10,7 @@ import type { ComparedReportGroup, ComparisonMovie } from '../compare/types';
 import { buildComparison, buildComparedTable } from '../compare/buildComparison';
 import type { ComparisonMode } from '../compare/mode';
 import { pickDefaultCategory } from '../compare/category';
-import { releaseTextFromMeta } from '../tracktollywood/meta';
+import { releaseTextFromMeta } from '../boxoffice/meta';
 import { posterToJpg } from './build';
 import type { ComparisonPosterData, ComparisonPosterFormat, ComparisonPosterMovie, ComparisonPosterRow, ComparisonPosterStat, PosterRowsMode } from './types';
 
@@ -37,7 +37,7 @@ export type BuildComparisonPosterResult = { data: ComparisonPosterData } | { err
 // a single movie, adapted for a ComparedReportGroup[] union instead --
 // used by the admin tool to populate its Report/Breakdown pickers for
 // Comparison mode without it having to know anything about
-// lib/tracktollywood/tableGroups.ts itself.
+// lib/boxoffice/tableGroups.ts itself.
 export function listAvailableComparisonReports(groups: ComparedReportGroup[]): { heading: string; label: string; categories: string[] }[] {
   return groups.map((g) => ({ heading: g.heading, label: g.headingLabel, categories: g.categories.map((c) => c.category) }));
 }

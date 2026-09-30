@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Search, ChevronDown, X, Check } from 'lucide-react';
-import type { TTListedMovie } from '@/lib/tracktollywood/types';
-import { STATE_LABEL } from '@/lib/tracktollywood/stateStyle';
+import type { TTListedMovie } from '@/lib/boxoffice/types';
+import { STATE_LABEL } from '@/lib/boxoffice/stateStyle';
 import { filterMovieCatalog } from '@/lib/compare/useMovieCatalog';
 import { useDropdown } from './useDropdown';
 

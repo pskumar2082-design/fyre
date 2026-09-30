@@ -1,5 +1,6 @@
 // Shared, pure (no React, no server-only deps) grouping/labeling logic for
-// TrackTollywood's flat per-movie table list -- built once for the movie
+// a movie's flat table list (labels as produced by lib/bfilmy/adapter.ts,
+// following the convention the old TrackTollywood pages used) -- built once for the movie
 // detail page's dropdown UI (components/TableGroups.tsx) and reused as-is
 // by the Social Poster admin tool, so "which Report / which Breakdown" is
 // computed identically everywhere rather than as a second implementation

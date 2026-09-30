@@ -16,7 +16,7 @@ import {
   Layers,
   Check
 } from 'lucide-react';
-import type { TTTable, TTTableRow } from '@/lib/tracktollywood/types';
+import type { TTLazyDay, TTTable, TTTableRow } from '@/lib/boxoffice/types';
 import { isMoneyColumn, isDataColumn, isPercentColumn, isOccupancyColumn, occupancyColorClass } from '@/lib/tableFormat';
 import {
   headingLabel,
@@ -24,8 +24,9 @@ import {
   categoryOf,
   sortBoxOfficeHeadings,
   sortAdvanceHeadings,
+  groupTables,
   type HeadingCategory
-} from '@/lib/tracktollywood/tableGroups';
+} from '@/lib/boxoffice/tableGroups';
 
 type Group = { heading: string; tables: TTTable[] };
 
@@ -49,7 +50,7 @@ function categoryIcon(category: string): LucideIcon {
   return ListFilter;
 }
 
-// Text comes from the shared lib/tracktollywood/tableGroups.ts (including
+// Text comes from the shared lib/boxoffice/tableGroups.ts (including
 // its UTC-pinned date formatting -- see that file's comment); only the
 // per-heading icon choice is UI-specific enough to stay local to this
 // dropdown component.
@@ -522,8 +523,51 @@ function CategoryDropdown({
   );
 }
 
-export default function TableGroups({ groups }: { groups: Group[] }) {
+type DayLoad = { status: 'loading' } | { status: 'error' } | { status: 'done'; tables: TTTable[] };
+
+// `lazyDays` are tracked days whose tables weren't sent with the page
+// (long runs only ship the most recent few). They still appear in the
+// Tracked Days list; opening one fetches its tables from
+// /api/movies/[slug]/day/[date].
+export default function TableGroups({
+  groups: baseGroups,
+  lazyDays = [],
+  slug
+}: {
+  groups: Group[];
+  lazyDays?: TTLazyDay[];
+  slug?: string;
+}) {
+  const [dayLoads, setDayLoads] = useState<Record<string, DayLoad>>({});
+  const lazyByHeading = useMemo(() => new Map(lazyDays.map((d) => [d.heading, d])), [lazyDays]);
+  const groups = useMemo(() => {
+    const present = new Set(baseGroups.map((g) => g.heading));
+    const extra = lazyDays
+      .filter((d) => !present.has(d.heading))
+      .map((d) => {
+        const load = dayLoads[d.heading];
+        return { heading: d.heading, tables: load?.status === 'done' ? load.tables : [] };
+      });
+    return [...baseGroups, ...extra];
+  }, [baseGroups, lazyDays, dayLoads]);
+
   const [heading, setHeading] = useState(() => pickDefaultHeading(groups));
+  const lazyActive = lazyByHeading.get(heading);
+  const activeLoad = lazyActive ? dayLoads[heading] : undefined;
+
+  useEffect(() => {
+    if (!lazyActive || !slug || dayLoads[lazyActive.heading]) return;
+    const { heading: h, date } = lazyActive;
+    setDayLoads((prev) => ({ ...prev, [h]: { status: 'loading' } }));
+    fetch(`/api/movies/${encodeURIComponent(slug)}/day/${date}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: { tables: TTTable[] }) => {
+        // Keep only the tables that belong to this day's heading.
+        const tables = groupTables(data.tables ?? []).find((g) => g.heading === h)?.tables ?? [];
+        setDayLoads((prev) => ({ ...prev, [h]: { status: 'done', tables } }));
+      })
+      .catch(() => setDayLoads((prev) => ({ ...prev, [h]: { status: 'error' } })));
+  }, [lazyActive, slug, dayLoads]);
   const activeGroup = groups.find((g) => g.heading === heading) ?? groups[0];
   const dayDateMap = useMemo(() => buildDayDateMap(groups), [groups]);
   const latest = useMemo(() => latestDayHeading(groups.map((g) => g.heading)), [groups]);
@@ -561,7 +605,30 @@ export default function TableGroups({ groups }: { groups: Group[] }) {
         )}
       </div>
 
-      {activeTable && <TableView table={activeTable} />}
+      {activeTable ? (
+        <TableView table={activeTable} />
+      ) : lazyActive && activeLoad?.status === 'error' ? (
+        <div className="py-10 text-center text-sm text-textFaint">
+          Couldn&apos;t load {heading}.{' '}
+          <button
+            type="button"
+            className="text-gold font-semibold hover:text-goldBright"
+            onClick={() =>
+              setDayLoads((prev) => {
+                const next = { ...prev };
+                delete next[heading];
+                return next;
+              })
+            }
+          >
+            Try again
+          </button>
+        </div>
+      ) : lazyActive && activeLoad?.status !== 'done' ? (
+        <div className="py-10 text-center text-sm text-textFaint">Loading {heading}…</div>
+      ) : lazyActive ? (
+        <div className="py-10 text-center text-sm text-textFaint">No breakdown for {heading}.</div>
+      ) : null}
     </div>
   );
 }

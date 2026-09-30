@@ -1,6 +1,6 @@
 // Pure, no-React, no-server-only-deps adapter: N already-fetched
 // TTMovieDetails -> a ComparisonViewModel (see ./types.ts). Reuses
-// lib/tracktollywood/tableGroups.ts's own grouping/labeling/sorting
+// lib/boxoffice/tableGroups.ts's own grouping/labeling/sorting
 // logic as-is (groupTables/headingLabel/categoryOf/categoryLabel/
 // sortBoxOfficeHeadings/sortAdvanceHeadings) rather than reimplementing
 // it -- so "which report groups exist and in what order" can never
@@ -13,7 +13,7 @@
 // deterministic given a fixed movie selection, and never reorders a
 // movie's own data, only decides where a NEW label/heading/row that
 // hasn't been seen yet gets inserted into the merged list.
-import type { TTTable } from '../tracktollywood/types';
+import type { TTTable } from '../boxoffice/types';
 import {
   groupTables,
   headingLabel,
@@ -22,7 +22,7 @@ import {
   sortBoxOfficeHeadings,
   sortAdvanceHeadings,
   type TableGroup
-} from '../tracktollywood/tableGroups';
+} from '../boxoffice/tableGroups';
 import { isRankColumn, nameColumnIndex } from '../tableFormat';
 import type {
   ComparisonMovie,

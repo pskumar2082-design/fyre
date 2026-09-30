@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  dayBreakdownTables,
+  dayHeading,
   dayNumber,
   detailsFromData,
   formatDate,
@@ -11,7 +13,7 @@ import {
   type BfMovieRow,
   type BfStoredDay
 } from '../adapter';
-import { categoryOf, groupTables } from '@/lib/tracktollywood/tableGroups';
+import { categoryOf, groupTables } from '@/lib/boxoffice/tableGroups';
 import { buildComparedTable } from '@/lib/compare/buildComparison';
 
 const TODAY = '2026-09-29';
@@ -94,7 +96,7 @@ describe('listedFromRow', () => {
       dayLabel: 'Day 4',
       releaseText: 'Released 26 Sep 2026',
       genre: 'Telugu, Hindi, Tamil +1',
-      grossLabel: 'India Gross',
+      grossLabel: 'Tracked Gross',
       gross: '₹49.80 Cr',
       grossCr: 49.8,
       todayText: '₹4.98 Cr',
@@ -163,10 +165,10 @@ describe('detailsFromData', () => {
   });
 
   it('uses fixed stat labels and headline text', () => {
-    expect(d.stats.map((s) => s.label)).toEqual(['India Gross', "Today's Gross", 'Best Day', 'Tickets Sold', 'Shows', 'Avg Occupancy', 'Advance Gross', 'Advance Tickets']);
+    expect(d.stats.map((s) => s.label)).toEqual(['Tracked Gross', "Today's Gross", 'Best Day', 'Tickets Sold', 'Shows', 'Avg Occupancy', 'Advance Gross', 'Advance Tickets']);
     expect(d.stats.find((s) => s.label === 'Best Day')).toMatchObject({ value: '₹20.00 Cr', note: 'Day 1' });
     expect(d.headlineGross).toBe('₹49.80 Cr');
-    expect(d.headlineLabel).toBe('India Gross · Day 4 running');
+    expect(d.headlineLabel).toBe('Tracked Gross · Day 4 running');
     expect(d.badgeText).toBe('Live Tracking · Day 4');
   });
 
@@ -205,10 +207,10 @@ describe('correctness labels', () => {
   it('never presents a film released before 2025 as lifetime or with invented Day numbers', () => {
     const r = row({ carried_over: true, first_date: '2025-01-01', release_date: null, last_date: '2025-03-01', days_tracked: 60, total_gross: 795_700_000 });
     const m = listedFromRow(r, TODAY);
-    expect(m).toMatchObject({ state: 'final', grossLabel: 'Gross since 1 Jan 2025', releaseText: null, dayLabel: null, gross: '₹79.57 Cr' });
+    expect(m).toMatchObject({ state: 'final', grossLabel: 'Tracked gross since 1 Jan 2025', releaseText: null, dayLabel: null, gross: '₹79.57 Cr' });
     const d = detailsFromData(r, [day('boxoffice', '2025-01-01', 1_000_000), day('boxoffice', '2025-01-02', 1_000_000)], null, TODAY);
-    expect(d.headlineLabel).toBe('Gross since 1 Jan 2025 · released earlier');
-    expect(d.stats[0].label).toBe('Gross since 1 Jan 2025');
+    expect(d.headlineLabel).toBe('Tracked gross since 1 Jan 2025 · released earlier');
+    expect(d.stats[0].label).toBe('Tracked gross since 1 Jan 2025');
     expect(d.meta[0]).toMatchObject({ label: 'Released', value: 'Before 1 Jan 2025 (figures shown are from 1 Jan 2025)' });
     const dw = d.tables.find((t) => t.label === 'Day-wise Collection')!;
     expect(dw.rows[0].Day).toBe('');
@@ -227,6 +229,43 @@ describe('correctness labels', () => {
   it('describes a finished run by days with shows, not calendar span', () => {
     const r = row({ first_date: '2026-03-18', release_date: '2026-03-18', last_date: '2026-08-10', days_tracked: 110, advance: null, advance_date: null });
     expect(listedFromRow(r, TODAY)).toMatchObject({ state: 'final', dayLabel: '110 days' });
-    expect(detailsFromData(r, [], null, TODAY).headlineLabel).toBe('India Gross · Final · 110 days with shows');
+    expect(detailsFromData(r, [], null, TODAY).headlineLabel).toBe('Tracked Gross · Final · 110 days with shows');
+  });
+});
+
+describe('on-demand day loading', () => {
+  it('lists days without a loaded breakdown as lazyDays and keeps them in the day-wise table', () => {
+    const days = [
+      { ...day('boxoffice', '2026-09-26', 200_000_000), breakdown: null },
+      { ...day('boxoffice', '2026-09-27', 100_000_000), breakdown: null },
+      day('boxoffice', '2026-09-28', 80_000_000)
+    ];
+    const d = detailsFromData(row(), days, null, TODAY);
+    expect(d.lazyDays).toEqual([
+      { heading: 'Day 1', date: '2026-09-26' },
+      { heading: 'Day 2', date: '2026-09-27' }
+    ]);
+    const headings = groupTables(d.tables).map((g) => g.heading);
+    expect(headings).toEqual(['Day-wise Collection', 'Day 3']);
+    const dw = d.tables.find((t) => t.label === 'Day-wise Collection')!;
+    expect(dw.rows.filter((r) => !r.__isTotal)).toHaveLength(3);
+  });
+
+  it('sends no lazyDays when every breakdown is loaded', () => {
+    const d = detailsFromData(row(), [day('boxoffice', '2026-09-26', 1)], null, TODAY);
+    expect(d.lazyDays).toBeUndefined();
+  });
+
+  it('labels a fetched day exactly like the full page does', () => {
+    const full = detailsFromData(row(), [day('boxoffice', '2026-09-26', 5), day('boxoffice', '2026-09-27', 7)], null, TODAY);
+    const fetched = dayBreakdownTables(row(), day('boxoffice', '2026-09-27', 7));
+    expect(fetched).toEqual(full.tables.filter((t) => t.label.endsWith('— Day 2')));
+  });
+
+  it('gives Day 0 for the premiere and nothing for stray pre-release or unknown-release days', () => {
+    const r = row({ premiere_date: '2026-09-25' });
+    expect(dayHeading(r, '2026-09-25')).toBe('Day 0');
+    expect(dayHeading(r, '2026-09-20')).toBeNull();
+    expect(dayHeading(row({ carried_over: true }), '2026-09-27')).toBeNull();
   });
 });
