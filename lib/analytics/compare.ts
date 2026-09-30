@@ -1,7 +1,7 @@
 // Movie vs movie comparison view model -- the single source for the Movie
 // Comparison page AND the comparison poster. Pure given its inputs
 // (buildComparison), plus a loader that fetches those inputs.
-import { loadBreakdown, loadMovieAnalytics, resolveSelection, selectionLabel, selectionSummary, DIMENSION_LABELS } from './load';
+import { firstNDays, loadBreakdown, loadMovieAnalytics, resolveSelection, selectionLabel, selectionSummary, DIMENSION_LABELS } from './load';
 import { metricValue, sumMetrics } from './metrics';
 import type { Breakdown, Comparison, ComparisonMovie, Dimension, MetricKey, Metrics, MovieAnalytics } from './types';
 import { contextLine, type CompareRequest } from './query';
@@ -9,8 +9,8 @@ import { contextLine, type CompareRequest } from './query';
 export { compareQuery, contextLine, parseCompareParams, parseSelection, type CompareRequest } from './query';
 
 // Trend points Day 1..N for one metric: each movie's own release days,
-// daily or running (cumulative) values. Pre-release days are included in
-// the running total from Day 1, exactly like "Cumulative through Day N".
+// daily or running (cumulative) values. Running values are exactly
+// "First N days" (firstNDays): Day 1..N, pre-release excluded.
 export function trendSeries(movies: MovieAnalytics[], metric: MetricKey, cumulative: boolean, maxDay: number): { day: number; values: (number | null)[] }[] {
   const points: { day: number; values: (number | null)[] }[] = [];
   for (let day = 1; day <= maxDay; day++) {
@@ -21,7 +21,7 @@ export function trendSeries(movies: MovieAnalytics[], metric: MetricKey, cumulat
         const target = m.days.find((d) => d.day === day);
         if (!target) return null;
         if (!cumulative) return metricValue(target.metrics, metric);
-        const upto = m.days.filter((d) => d.date <= target.date);
+        const upto = firstNDays(m, day) ?? [];
         return metricValue(sumMetrics(upto.map((d) => d.metrics)), metric);
       })
     });

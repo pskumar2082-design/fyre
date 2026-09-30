@@ -29,7 +29,9 @@ export type MetricKey = 'gross' | 'tickets' | 'shows' | 'occupancy' | 'atp' | 's
 
 // What a number is:
 //   day        -- one release day (Day N), a finalized or live daily file
-//   cumulative -- every box-office date from the first show through Day N
+//   cumulative -- "First N days": release Day 1 through Day N. Pre-release
+//                 dates (Day 0 and earlier) are never counted here; they
+//                 stay in the data, in Day 0 and in lifetime.
 //   lifetime   -- every tracked box-office date
 //   advance    -- BFILMY's final advance-booking snapshot for Day N's date
 //                 (frozen the night before); never added to box office
@@ -114,7 +116,7 @@ export type ComparisonMovie = {
 
 export type Comparison = {
   selection: Selection;
-  context: string; // "DAY 1 • INDIA • ALL LANGUAGES"
+  context: string; // "DAY 1 · INDIA · ALL LANGUAGES"
   selectionLabel: string; // "Day 1", "Cumulative through Day 7", "Lifetime", "Advance · Day 1"
   movies: ComparisonMovie[];
   dimension: Dimension | null;

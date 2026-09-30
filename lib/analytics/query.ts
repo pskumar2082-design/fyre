@@ -18,13 +18,13 @@ export function contextLine(sel: Selection): string {
     sel.basis === 'lifetime'
       ? 'LIFETIME'
       : sel.basis === 'cumulative'
-        ? `FIRST ${sel.day} DAYS`
+        ? `FIRST ${sel.day} DAY${sel.day === 1 ? '' : 'S'}`
         : sel.basis === 'advance'
           ? `ADVANCE · DAY ${sel.day}`
           : sel.day === 0
             ? 'DAY 0 (PRE-RELEASE)'
             : `DAY ${sel.day}`;
-  return `${what} • INDIA • ALL LANGUAGES`;
+  return `${what} · INDIA · ALL LANGUAGES`;
 }
 
 export function parseSelection(q: URLSearchParams): Selection | { error: string } {

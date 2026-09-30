@@ -85,7 +85,12 @@ export const FYRE_ALIASES: Record<string, string[]> = {
   'Mahendragiri Varahi': ['Mahendragiri Vaaraahi'],
   'Valathu Vasathe Kallan': ['Valathu Vashathe Kallan'],
   'Sambhavam Adhyayam Onnu': ['Sambhavam Adhyam Onnu'],
-  'Hrudhayam Murali': ['Hrudayam Murali']
+  'Hrudhayam Murali': ['Hrudayam Murali'],
+  // One film listed under a different name per ticketing platform: every
+  // "Hi (2026)" show is BookMyShow's (s=B), every "Hi" show District's
+  // (s=D); same release day (28 Aug 2026), same languages, zero shared
+  // venues. BFILMY normally joins both platforms under one title.
+  'Hi (2026)': ['Hi']
 };
 // After adding an entry here, the variant's already-stored days must be
 // moved: delete its slug's rows (bf_movie_day, bf_movie, bf_title_key) and

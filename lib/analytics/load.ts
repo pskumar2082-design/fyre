@@ -176,12 +176,22 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
 
 export function selectionLabel(s: Selection): string {
   if (s.basis === 'lifetime') return 'Lifetime';
-  if (s.basis === 'cumulative') return s.day === 1 ? 'Day 1 (incl. pre-release)' : `First ${s.day} days`;
+  if (s.basis === 'cumulative') return s.day === 1 ? 'First 1 day' : `First ${s.day} days`;
   if (s.basis === 'advance') return `Advance · Day ${s.day}`;
   return s.day === 0 ? 'Day 0 (Pre-release)' : `Day ${s.day}`;
 }
 
 export type Resolved = { kind: 'boxoffice' | 'advance'; points: DayPoint[]; reason: string | null };
+
+// "First N days" for one movie: its release days Day 1..N (Day N itself must
+// be tracked; null otherwise). Pre-release dates -- Day 0 and any stray
+// earlier shows -- are excluded. The ONE definition used by the comparison,
+// the poster, the trend chart and the movie page.
+export function firstNDays(m: MovieAnalytics, n: number): DayPoint[] | null {
+  const target = m.days.find((d) => d.day === n);
+  if (!target || n < 1) return null;
+  return m.days.filter((d) => d.day != null && d.day >= 1 && d.date <= target.date);
+}
 
 // Which stored days make up a selection for one movie. Release-relative:
 // "Day 3" is always the movie's own third release day, never a calendar
@@ -198,7 +208,8 @@ export function resolveSelection(m: MovieAnalytics, s: Selection): Resolved {
   const target = m.days.find((d) => d.day === s.day);
   if (!target) return { kind: 'boxoffice', points: [], reason: `Not tracked for Day ${s.day}` };
   if (s.basis === 'day') return { kind: 'boxoffice', points: [target], reason: null };
-  return { kind: 'boxoffice', points: m.days.filter((d) => d.date <= target.date), reason: null };
+  const points = firstNDays(m, s.day);
+  return points ? { kind: 'boxoffice', points, reason: null } : { kind: 'boxoffice', points: [], reason: `Not tracked for Day ${s.day}` };
 }
 
 export async function selectionSummary(m: MovieAnalytics, r: Resolved): Promise<Metrics | null> {

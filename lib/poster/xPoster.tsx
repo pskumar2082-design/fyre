@@ -71,6 +71,12 @@ function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+// The bundled poster font (lib/poster/fonts, a small Latin subset) has no
+// "×"; label text that uses it is drawn with "/" instead of an empty box.
+function posterSafe(text: string): string {
+  return text.replace(/\s*×\s*/g, ' / ');
+}
+
 function val(m: Metrics | null | undefined, k: MetricKey): string {
   return formatMetric(k, m ? (m[k] as number | null) : null);
 }
@@ -183,11 +189,11 @@ function Breakdown({ c, o }: { c: Comparison; o: XPosterOptions }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', height: TABLE_TITLE, alignItems: 'center', fontSize: 20, fontWeight: 700, color: WHITE, letterSpacing: 2 }}>
-        {`${(c.dimensionLabel ?? '').toUpperCase()}${report ? '' : ` · ${METRIC_LABELS[o.metric].toUpperCase()}`}`}
+        {`${posterSafe(c.dimensionLabel ?? '').toUpperCase()}${report ? '' : ` · ${METRIC_LABELS[o.metric].toUpperCase()}`}`}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${BORDER}`, borderRadius: 16, background: CARD, padding: '0 20px' }}>
         <div style={{ display: 'flex', height: TABLE_HEAD, alignItems: 'center', borderBottom: `2px solid ${ACCENT}` }}>
-          <div style={{ display: 'flex', width: nameW, fontSize: 15, color: FAINT, letterSpacing: 2 }}>{(c.dimensionLabel ?? '').toUpperCase()}</div>
+          <div style={{ display: 'flex', width: nameW, fontSize: 15, color: FAINT, letterSpacing: 2 }}>{posterSafe(c.dimensionLabel ?? '').toUpperCase()}</div>
           {cols.map((col) => (
             <div key={col.title} style={{ display: 'flex', width: colW, justifyContent: 'flex-end', fontSize: 15, fontWeight: 700, color: col.color, letterSpacing: 1 }}>
               {col.title}
@@ -228,7 +234,7 @@ function Chart({ c }: { c: Comparison }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: CHART }}>
       <div style={{ display: 'flex', height: 36, alignItems: 'center', fontSize: 20, fontWeight: 700, color: WHITE, letterSpacing: 2 }}>
-        {`${METRIC_LABELS[t.metric].toUpperCase()} · DAY 1 → DAY ${t.points[n - 1].day}${t.cumulative ? ' (RUNNING TOTAL)' : ''}`}
+        {`${METRIC_LABELS[t.metric].toUpperCase()} · DAY 1 – DAY ${t.points[n - 1].day}${t.cumulative ? ' (RUNNING TOTAL)' : ''}`}
       </div>
       <div style={{ display: 'flex', border: `1px solid ${BORDER}`, borderRadius: 16, background: CARD }}>
         <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
