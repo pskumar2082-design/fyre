@@ -217,13 +217,18 @@ export async function syncDetail(targets: SyncTarget[], aliasMap: Map<string, st
     try {
       const final = isFinalDate(t.kind, t.date, today);
       const { data: prev } = await supabaseAdmin.from('bf_detail_file').select('*').eq('kind', t.kind).eq('date', t.date).maybeSingle();
-      // Raw show rows: box office for the last N final days; advance while the date is
-      // still open (refreshed at most every 2 hours -- it changes all day).
+      // Raw show rows: box office for the last N final days and for today's
+      // live day; advance while the date is still open. Live dates are
+      // refreshed at most every 2 hours (they change all day). The public
+      // show list reads only these stored rows -- visitors never cause a
+      // BFILMY request.
       const advanceOpen = t.kind === 'advance' && t.date >= today;
+      const liveToday = t.kind === 'boxoffice' && !final && t.date === today;
       const advanceStale = !prev?.synced_at || Date.now() - Date.parse(prev.synced_at) > 2 * 3600_000;
       const wantShows =
         !opts.partial &&
-        keepShowDays > 0 && ((t.kind === 'boxoffice' && final && t.date >= istDate(-keepShowDays, now)) || (advanceOpen && (advanceStale || !prev?.shows_stored)));
+        keepShowDays > 0 &&
+        ((t.kind === 'boxoffice' && final && t.date >= istDate(-keepShowDays, now)) || ((advanceOpen || liveToday) && (advanceStale || !prev?.shows_stored)));
       const showsDone = prev && prev.shows_total > 0 && prev.shows_stored >= prev.shows_total;
       if (!opts.force && !opts.partial && prev?.final && prev?.aggregates_complete && (!wantShows || showsDone)) {
         out.push({ ...t, status: 'skipped', sourceUpdated: prev.source_updated });

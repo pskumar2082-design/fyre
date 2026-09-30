@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { defaultUsTargets, loadTrackedMovies, processUsBackfills, runUsRetention, syncUsFile, type UsFileResult } from '@/lib/usa/sync';
+import { acquireUsLock, defaultUsTargets, loadTrackedMovies, processUsBackfills, releaseUsLock, runUsRetention, syncUsFile, type UsFileResult } from '@/lib/usa/sync';
+import { usSourceLog } from '@/lib/usa/fetch';
 import { usToday } from '@/lib/usa/days';
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,10 @@ export async function GET(req: NextRequest) {
   if (!secret || (bearer !== `Bearer ${secret}` && token !== secret)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (process.env.USA_SYNC_ENABLED !== '1') return NextResponse.json({ skipped: 'USA_SYNC_ENABLED is not 1' });
 
+  // Never two USA syncs at once.
+  const lock = await acquireUsLock(120_000);
+  if (!lock) return NextResponse.json({ skipped: 'another USA sync is running' });
+  const logStart = usSourceLog.length;
   const deadline = Date.now() + 50_000;
   const errors: string[] = [];
   const files: UsFileResult[] = [];
@@ -62,6 +67,9 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  await releaseUsLock(lock);
+  const sourceRequests = usSourceLog.slice(logStart);
   const failed = files.length > 0 && files.every((f) => f.status === 'error');
-  return NextResponse.json({ files, backfills, retention, errors }, { status: failed ? 502 : 200 });
+  // A failed sync changes nothing: the site keeps serving the last good data.
+  return NextResponse.json({ sourceRequests, files, backfills, retention, errors }, { status: failed ? 502 : 200 });
 }

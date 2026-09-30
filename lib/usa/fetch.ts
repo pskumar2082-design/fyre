@@ -17,6 +17,10 @@ export type UsFetch =
   | { status: 'not_modified'; url: string; etag: string | null }
   | { status: 'missing'; url: string };
 
+// Every request this process makes to the USA source (for the sync report
+// and the "no visitor ever reaches the source" check).
+export const usSourceLog: { url: string; status: number; at: string }[] = [];
+
 export async function fetchUsFile(kind: UsKind, date: string, etag?: string | null): Promise<UsFetch> {
   const url = usFileUrl(kind, date);
   const res = await axios.get(url, {
@@ -25,6 +29,7 @@ export async function fetchUsFile(kind: UsKind, date: string, etag?: string | nu
     responseType: 'json',
     validateStatus: () => true
   });
+  usSourceLog.push({ url, status: res.status, at: new Date().toISOString() });
   const tag = (res.headers['etag'] as string | undefined) ?? null;
   if (res.status === 304) return { status: 'not_modified', url, etag: tag ?? etag ?? null };
   if (res.status === 404) return { status: 'missing', url };

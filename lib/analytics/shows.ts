@@ -1,12 +1,10 @@
-// Show-level drilldown for one movie on one date. Read from bf_show while
-// the date is inside the raw-detail window; for today's (still changing)
-// file, read BFILMY's live show-level file directly (cached briefly).
+// Show-level drilldown for one movie on one date, read ONLY from bf_show
+// (stored by the scheduled sync: the last 7 final days, today's live day
+// and open advance dates). A visitor never causes a BFILMY request.
 // Nothing here feeds any aggregate number.
 import { supabase } from '@/lib/supabaseClient';
 import { publicTrackedSlugs } from '@/lib/tracking';
-import { fetchAliases, fetchDetail } from '@/lib/bfilmy/fetch';
-import { normalizeDetailFile, hourOrder } from '@/lib/bfilmy/detail';
-import { buildAliasMap } from '@/lib/bfilmy/normalize';
+import { hourOrder } from '@/lib/bfilmy/detail';
 import { cleanSlug, todayIST } from './load';
 import { round2 } from './metrics';
 
@@ -39,46 +37,6 @@ export type ShowList = {
   rows: ShowRow[];
   currency?: 'INR' | 'USD';
 };
-
-const liveCache = new Map<string, { at: number; value: Promise<{ updated: string | null; byKey: Map<string, ShowRow[]> } | null> }>();
-
-function loadLive(kind: 'boxoffice' | 'advance', date: string) {
-  const key = `${kind}:${date}`;
-  const hit = liveCache.get(key);
-  if (hit && Date.now() - hit.at < 5 * 60_000) return hit.value;
-  const value = (async () => {
-    const got = await fetchDetail(kind, date);
-    if (!got) return null;
-    const aliasMap = buildAliasMap(await fetchAliases());
-    const days = normalizeDetailFile(got.file, kind, date, aliasMap);
-    const byKey = new Map<string, ShowRow[]>();
-    for (const d of days) {
-      byKey.set(
-        d.key,
-        d.shows.map((s) => ({
-          venue: s.venueName,
-          city: s.city,
-          state: s.state,
-          chain: s.chain || null,
-          time: s.time,
-          hour: s.hour,
-          format: s.format,
-          language: s.language,
-          audi: s.audi || null,
-          seats: s.seats,
-          available: s.available,
-          sold: s.sold,
-          gross: s.gross,
-          occupancy: s.seats > 0 ? round2((s.sold / s.seats) * 100) : null
-        }))
-      );
-    }
-    return { updated: got.file.last_updated ?? null, byKey };
-  })();
-  liveCache.set(key, { at: Date.now(), value });
-  value.catch(() => liveCache.delete(key));
-  return value;
-}
 
 const sortShows = (rows: ShowRow[]) =>
   rows.sort((a, b) => b.gross - a.gross || b.sold - a.sold || hourOrder(a.hour ?? 12) - hourOrder(b.hour ?? 12) || a.venue.localeCompare(b.venue));
@@ -125,19 +83,14 @@ export async function loadShows(slug: string, date: string, kind: 'boxoffice' | 
   }
 
   const today = todayIST();
-  const isLive = kind === 'boxoffice' ? date === today : date > today;
-  if (!isLive) {
-    return {
-      ...base,
-      source: null,
-      available: false,
-      reason: 'Show-by-show rows are kept for the last 7 days only. Day totals stay permanently and breakdowns for 90 days.',
-      sourceUpdated: null
-    };
-  }
-  const { data: keys } = await supabase.from('bf_title_key').select('key').eq('slug', safe);
-  const live = await loadLive(kind, date);
-  if (!live) return { ...base, source: null, available: false, reason: 'No show-level file published for this date yet', sourceUpdated: null };
-  const rows = (keys ?? []).flatMap((k: any) => live.byKey.get(k.key) ?? []);
-  return { ...base, source: 'live', available: rows.length > 0, reason: rows.length ? null : 'No shows listed for this movie yet', sourceUpdated: live.updated, rows: sortShows(rows) };
+  const pending = kind === 'boxoffice' ? date === today : date >= today;
+  return {
+    ...base,
+    source: null,
+    available: false,
+    reason: pending
+      ? 'Show-by-show rows for this date appear after the next scheduled sync.'
+      : 'Show-by-show rows are kept for the last 7 days only. Day totals stay permanently and breakdowns for 90 days.',
+    sourceUpdated: null
+  };
 }

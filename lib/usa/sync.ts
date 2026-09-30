@@ -106,6 +106,8 @@ export type UsFileResult = {
   kind: UsKind;
   date: string;
   status: 'ok' | 'not_modified' | 'missing' | 'error';
+  requests?: number; // HTTP requests made to the source for this file (0 or 1)
+  writes?: number; // rows written to Supabase
   movies?: number;
   imported?: number;
   rows?: number;
@@ -132,17 +134,21 @@ export async function syncUsFile(kind: UsKind, date: string, opts: UsSyncOptions
   const today = usToday(now);
   try {
     const { data: prev } = await db.from('us_sync_file').select('etag,first_seen_at').eq('kind', kind).eq('report_date', date).maybeSingle();
+    const requests = opts.file ? 0 : 1;
+    // Unchanged file (304 via If-None-Match): no parsing, no data writes --
+    // only last_checked_at.
     const got = opts.file ?? (await fetchUsFile(kind, date, opts.force || opts.onlyMovieIds ? null : prev?.etag));
-    if (got.status === 'missing') return { kind, date, status: 'missing' };
+    if (got.status === 'missing') return { kind, date, status: 'missing', requests, writes: 0 };
     if (got.status === 'not_modified') {
-      await db.from('us_sync_file').update({ synced_at: now.toISOString() }).eq('kind', kind).eq('report_date', date);
-      return { kind, date, status: 'not_modified' };
+      await db.from('us_sync_file').update({ last_checked_at: now.toISOString() }).eq('kind', kind).eq('report_date', date);
+      return { kind, date, status: 'not_modified', requests, writes: 1 };
     }
     const file = parseUsFile(got.json);
     const seenAt = prev?.etag && prev.etag === got.etag ? prev.first_seen_at : now.toISOString();
     const movies = opts.movies ?? (await loadTrackedMovies());
     const movieById = new Map(movies.map((m) => [m.movieId, m]));
     const map = await recordSeenIds(file, date, movies);
+    const mapWrites = map.size;
 
     // Source ids per Fyre movie (a movie can own more than one id).
     const byMovie = new Map<string, number[]>();
@@ -262,12 +268,13 @@ export async function syncUsFile(kind: UsKind, date: string, opts: UsSyncOptions
     const rowsImported = [...aggs.values()].reduce((a, x) => a + x.shows, 0);
     await must(
       db.from('us_sync_file').upsert(
-        { kind, report_date: date, url: got.url, etag: got.etag, first_seen_at: seenAt, synced_at: syncedAt, status: 'ok', movies_total: file.summary.length, movies_imported: aggs.size, rows_total: file.shows.length, rows_imported: rowsImported, error: null },
+        { kind, report_date: date, url: got.url, etag: got.etag, first_seen_at: seenAt, last_checked_at: syncedAt, synced_at: syncedAt, status: 'ok', movies_total: file.summary.length, movies_imported: aggs.size, rows_total: file.shows.length, rows_imported: rowsImported, error: null },
         { onConflict: 'kind,report_date' }
       ),
       'us_sync_file'
     );
-    return { kind, date, status: 'ok', movies: file.summary.length, imported: aggs.size, rows: file.shows.length, rowsImported, showsStored: showRows.length, snapshots: snapRows.length, mismatches };
+    const writes = mapWrites + dayRows.length + dimRows.length + showRows.length + snapRows.length + 1;
+    return { kind, date, status: 'ok', requests, writes, movies: file.summary.length, imported: aggs.size, rows: file.shows.length, rowsImported, showsStored: showRows.length, snapshots: snapRows.length, mismatches };
   } catch (err: any) {
     const message = String(err?.message ?? err).slice(0, 500);
     await db.from('us_sync_file').upsert({ kind, report_date: date, url: '', status: 'error', error: message, synced_at: new Date().toISOString() }, { onConflict: 'kind,report_date' });
@@ -307,6 +314,22 @@ export async function refreshReleaseDays(movieIds: string[], movies?: Awaited<Re
   }
 }
 
+// One USA sync at a time: a lease row in bf_sync_state. A second
+// invocation while one is running (or within the lease) does nothing.
+export async function acquireUsLock(ms = 120_000): Promise<string | null> {
+  const now = new Date();
+  const token = `${now.getTime()}-${Math.random().toString(36).slice(2)}`;
+  const value = { token, until: new Date(now.getTime() + ms).toISOString() };
+  const { data } = await db.from('bf_sync_state').update({ value, updated_at: now.toISOString() }).eq('key', 'us_sync_lock').lt('value->>until', now.toISOString()).select('key');
+  if (data?.length) return token;
+  const { error } = await db.from('bf_sync_state').insert({ key: 'us_sync_lock', value, updated_at: now.toISOString() });
+  return error ? null : token;
+}
+
+export async function releaseUsLock(token: string) {
+  await db.from('bf_sync_state').update({ value: { token: null, until: new Date(0).toISOString() }, updated_at: new Date().toISOString() }).eq('key', 'us_sync_lock').eq('value->>token', token);
+}
+
 // The files a scheduled run looks at: box office for today and (until it
 // is final) yesterday; advance for today and the next three days.
 export function defaultUsTargets(now: Date = new Date()): { kind: UsKind; date: string }[] {
@@ -319,26 +342,39 @@ export function defaultUsTargets(now: Date = new Date()): { kind: UsKind; date: 
   return out;
 }
 
-// USA history for ids matched later (admin): every file from the id's
-// first date to its last date, only for that movie.
+// USA history for ids the admin matched later. One pass over the dates,
+// oldest first: each date file is fetched ONCE and imported for every
+// pending movie that needs it (never one request per movie). Resumes on
+// the next run where the deadline stopped it; finished ids are never
+// fetched again.
 export async function processUsBackfills(deadline: number): Promise<{ sourceMovieId: number; status: string; next?: string }[]> {
   const rows = await must<any[]>(db.from('us_movie_map').select('source_movie_id,movie_id,first_date,last_date,backfill_next').eq('backfill_status', 'requested').eq('match_status', 'matched'), 'us_movie_map backfills');
-  const out: { sourceMovieId: number; status: string; next?: string }[] = [];
-  if (!rows.length) return out;
+  if (!rows.length) return [];
   const movies = await loadTrackedMovies();
-  for (const r of rows) {
-    let next: string = r.backfill_next ?? r.first_date;
-    const last: string = r.last_date ?? usToday();
-    while (next && next <= last && Date.now() < deadline) {
+  const today = usToday();
+  const from = (r: any): string => r.backfill_next ?? r.first_date ?? today;
+  const to = (r: any): string => r.last_date ?? today;
+  let date = rows.map(from).sort()[0];
+  const end = rows.map(to).sort().pop()!;
+  const touched = new Set<string>();
+  while (date <= end && Date.now() < deadline) {
+    const ids = new Set(rows.filter((r) => from(r) <= date && date <= to(r)).map((r) => r.movie_id as string));
+    if (ids.size) {
       for (const kind of ['boxoffice', 'advance'] as UsKind[]) {
-        const res = await syncUsFile(kind, next, { onlyMovieIds: new Set([r.movie_id]), includeEnded: true, movies });
-        if (res.status === 'error') throw new Error(`${kind} ${next}: ${res.error}`);
+        const res = await syncUsFile(kind, date, { onlyMovieIds: ids, includeEnded: true, movies, skipReleaseDays: true });
+        if (res.status === 'error') throw new Error(`${kind} ${date}: ${res.error}`);
       }
-      next = addDays(next, 1);
+      ids.forEach((id) => touched.add(id));
     }
-    const done = !next || next > last;
-    await must(db.from('us_movie_map').update({ backfill_status: done ? 'done' : 'requested', backfill_next: done ? null : next }).eq('source_movie_id', r.source_movie_id), 'us_movie_map backfill');
-    out.push({ sourceMovieId: r.source_movie_id, status: done ? 'done' : 'running', next });
+    date = addDays(date, 1);
+  }
+  if (touched.size) await refreshReleaseDays([...touched], movies);
+  const out: { sourceMovieId: number; status: string; next?: string }[] = [];
+  for (const r of rows) {
+    const done = date > to(r);
+    const next = done ? null : from(r) > date ? from(r) : date;
+    await must(db.from('us_movie_map').update({ backfill_status: done ? 'done' : 'requested', backfill_next: next }).eq('source_movie_id', r.source_movie_id), 'us_movie_map backfill');
+    out.push({ sourceMovieId: r.source_movie_id, status: done ? 'done' : 'running', next: next ?? undefined });
   }
   return out;
 }

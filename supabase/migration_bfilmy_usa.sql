@@ -149,8 +149,9 @@ create table if not exists us_sync_file (
   report_date date not null,
   url text not null,
   etag text,
-  first_seen_at timestamptz,
-  synced_at timestamptz not null default now(),
+  first_seen_at timestamptz,             -- when Fyre first saw this ETag
+  last_checked_at timestamptz,           -- last time the sync asked the source (incl. 304 Not Modified)
+  synced_at timestamptz not null default now(), -- last time the file was processed
   status text not null,
   movies_total integer,
   movies_imported integer,
@@ -159,6 +160,7 @@ create table if not exists us_sync_file (
   error text,
   primary key (kind, report_date)
 );
+alter table us_sync_file add column if not exists last_checked_at timestamptz;
 
 alter table us_movie_map enable row level security;
 alter table us_movie_day enable row level security;
