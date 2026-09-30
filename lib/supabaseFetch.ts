@@ -10,5 +10,8 @@ export const supabaseFetch: typeof fetch = (input, init) => {
   // matter which shape came in.
   const headers = new Headers(init?.headers);
   headers.set('Accept-Encoding', 'identity');
-  return fetch(input, { ...init, headers });
+  // cache: 'no-store' keeps Next's server Data Cache out of it: without it
+  // Next stored every Supabase read for a year (revalidate 31536000), so
+  // live box-office numbers froze at their first read, in production too.
+  return fetch(input, { ...init, headers, cache: 'no-store' });
 };
