@@ -5,6 +5,8 @@ import { publicTrackedSlugs } from '@/lib/tracking';
 import { dayNumber, dayOneDate, formatDate, movieState, type BfMovieRow } from '@/lib/bfilmy/adapter';
 import { hourOrder, NO_SALES_BAND, PRICE_BANDS, TIME_SLOTS } from '@/lib/bfilmy/detail';
 import { makeMetrics, metricsFromTuple, sumMetrics } from './metrics';
+import { breakdownTotal } from './totals';
+import { formatGross } from './format';
 import type { Breakdown, BreakdownRow, DayPoint, Dimension, Metrics, MovieAnalytics, Selection } from './types';
 
 const MOVIE_COLUMNS =
@@ -33,8 +35,13 @@ export const DIMENSION_LABELS: Record<Dimension, string> = {
   price_band: 'Ticket-price band',
   pic: 'PIC (PVR · INOX · Cinepolis)',
   pic_state: 'PIC by state',
-  pic_city: 'PIC by city'
+  pic_city: 'PIC by city',
+  theater: 'Theater',
+  format_language: 'Format × Language'
 };
+
+// USA-only dimensions (lib/analytics/usa.ts).
+export const US_ONLY_DIMENSIONS: Dimension[] = ['theater', 'format_language'];
 
 // Dimensions that only exist where BFILMY's show-level file was imported.
 const DETAIL_ONLY: Dimension[] = ['language_state', 'language_city', 'venue', 'time_slot', 'show_hour', 'price_band', 'pic', 'pic_state', 'pic_city'];
@@ -66,11 +73,11 @@ async function selectAll<T>(build: (from: number, to: number) => PromiseLike<{ d
 }
 
 // Day 1 for a movie that hasn't released yet is its (advance) release date.
-function releaseDayOne(row: BfMovieRow): string | null {
+export function releaseDayOne(row: BfMovieRow): string | null {
   return dayOneDate(row) ?? (!row.first_date && !row.carried_over ? row.release_date : null);
 }
 
-function dayFor(date: string, dayOne: string | null, premiere: string | null | undefined): number | null {
+export function dayFor(date: string, dayOne: string | null, premiere: string | null | undefined): number | null {
   if (!dayOne) return null;
   if (premiere && date === premiere) return 0;
   const d = dayNumber(date, dayOne);
@@ -263,6 +270,7 @@ export async function loadBreakdown(m: MovieAnalytics, sel: Selection, dimension
   const r = resolveSelection(m, sel);
   const dates = r.points.map((p) => p.date);
   const base = { dimension, label: DIMENSION_LABELS[dimension], dates };
+  if (US_ONLY_DIMENSIONS.includes(dimension)) return { ...base, available: false, reason: 'Only available for the USA.', source: null, total: 0, rows: [] };
   if (r.points.length === 0) return { ...base, available: false, reason: r.reason, source: null, total: 0, rows: [] };
   if (r.points.some((p) => !p.breakdowns)) {
     return {
@@ -279,7 +287,7 @@ export async function loadBreakdown(m: MovieAnalytics, sel: Selection, dimension
     return {
       ...base,
       available: false,
-      reason: 'Show-level detail isn’t available for every date in this selection (BFILMY publishes it from mid-December 2025).',
+      reason: 'Show-level detail isn’t available for every date in this selection (it exists from mid-December 2025).',
       source: null,
       total: 0,
       rows: []
@@ -409,7 +417,21 @@ export async function loadBreakdown(m: MovieAnalytics, sel: Selection, dimension
       break;
     }
   }
-  return { ...base, available: true, reason: null, source, total: total || rows.length, rows };
+  // TOTAL row, reconciled with the selection's headline (summary file).
+  const headline = await selectionSummary(m, r);
+  const pic = dimension === 'pic' || dimension === 'pic_state' || dimension === 'pic_city';
+  const totalRow = breakdownTotal(
+    rows.filter((x) => x.key !== 'pic:total'),
+    headline,
+    {
+      exhaustive: true,
+      subset: pic ? 'pic' : undefined,
+      mayBeIncomplete: source === 'summary',
+      live: r.points.some((p) => !p.final),
+      money: formatGross
+    }
+  );
+  return { ...base, currency: 'INR', available: true, reason: null, source, total: total || rows.length, rows, totalRow };
 }
 
 export function isDetailOnly(d: Dimension): boolean {

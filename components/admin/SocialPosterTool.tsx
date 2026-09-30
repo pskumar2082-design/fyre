@@ -29,11 +29,26 @@ const DIMENSIONS: { key: Dimension | 'overview'; label: string }[] = [
   { key: 'time_slot', label: 'Time slot' },
   { key: 'price_band', label: 'Ticket price' }
 ];
+const US_DIMENSIONS: { key: Dimension | 'overview'; label: string }[] = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'state', label: 'State' },
+  { key: 'city', label: 'City' },
+  { key: 'theater', label: 'Theater' },
+  { key: 'chain', label: 'Chain' },
+  { key: 'format', label: 'Format' },
+  { key: 'language', label: 'Language' },
+  { key: 'format_language', label: 'Format × Language' }
+];
+// India + USA poster: dimensions both territories have.
+const BOTH_DIMENSIONS = DIMENSIONS.filter((d) => ['overview', 'state', 'city', 'language', 'format', 'chain'].includes(d.key));
 const METRICS: MetricKey[] = ['gross', 'tickets', 'shows', 'occupancy', 'atp'];
+type PosterTerritory = 'in' | 'us' | 'both';
 
 export default function SocialPosterTool() {
   const catalog = useMovieCatalog();
   const [type, setType] = useState<'report' | 'comparison'>('comparison');
+  const [territory, setTerritory] = useState<PosterTerritory>('in');
+  const dims = territory === 'us' ? US_DIMENSIONS : territory === 'both' ? BOTH_DIMENSIONS : DIMENSIONS;
   const [a, setA] = useState<TTListedMovie | null>(null);
   const [b, setB] = useState<TTListedMovie | null>(null);
   const [basis, setBasis] = useState<Selection['basis']>('day');
@@ -56,7 +71,7 @@ export default function SocialPosterTool() {
   useEffect(() => {
     if (!slugs.length) return;
     let cancelled = false;
-    Promise.all(slugs.map((s) => fetch(`/api/analytics/movie/${encodeURIComponent(s)}`).then((r) => (r.ok ? (r.json() as Promise<MovieAnalytics>) : null))))
+    Promise.all(slugs.map((s) => fetch(`/api/analytics/movie/${encodeURIComponent(s)}${territory === 'us' ? '?territory=us' : ''}`).then((r) => (r.ok ? (r.json() as Promise<MovieAnalytics>) : null))))
       .then((list) => {
         if (cancelled) return;
         const ms = list.filter((m): m is MovieAnalytics => !!m);
@@ -67,14 +82,21 @@ export default function SocialPosterTool() {
     return () => {
       cancelled = true;
     };
-  }, [slugs.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [slugs.join(','), territory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selection: Selection = basis === 'lifetime' ? { basis } : { basis, day };
   const url = useMemo(() => {
     if (!ready) return null;
-    const qs = compareQuery({ slugs, selection, dimension: dimension === 'overview' ? null : dimension, metric, limit: rows });
-    return `/api/social-poster/x-compare?${qs}${chart ? '&chart=1' : ''}${format !== 'auto' ? `&format=${format}` : ''}${watermark ? '' : '&watermark=0'}`;
-  }, [ready, slugs.join(','), basis, day, dimension, metric, rows, chart, format, watermark]); // eslint-disable-line react-hooks/exhaustive-deps
+    const qs = compareQuery({ slugs, selection, dimension: dimension === 'overview' ? null : dimension, metric, limit: rows, territory: territory === 'us' ? 'US' : 'IN' });
+    return `/api/social-poster/x-compare?${qs}${territory === 'both' ? '&territory=both' : ''}${chart && territory !== 'both' ? '&chart=1' : ''}${format !== 'auto' && territory !== 'both' ? `&format=${format}` : ''}${watermark ? '' : '&watermark=0'}`;
+  }, [ready, slugs.join(','), basis, day, dimension, metric, rows, chart, format, watermark, territory]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pickTerritory = (t: PosterTerritory) => {
+    setTerritory(t);
+    if (t === 'both') setType('report');
+    const next = t === 'us' ? US_DIMENSIONS : t === 'both' ? BOTH_DIMENSIONS : DIMENSIONS;
+    if (!next.some((d) => d.key === dimension)) setDimension('state');
+  };
 
   useEffect(() => {
     if (!url) return;
@@ -111,11 +133,28 @@ export default function SocialPosterTool() {
   return (
     <div className="grid lg:grid-cols-[360px_1fr] gap-5">
       <Card className="p-4 flex flex-col gap-4 h-fit">
+        <div>
+          <div className="mdtype-overline text-textFaint mb-1.5">Territory</div>
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                ['in', 'India'],
+                ['us', 'USA'],
+                ['both', 'India + USA']
+              ] as [PosterTerritory, string][]
+            ).map(([t, l]) => (
+              <button key={t} type="button" className={pill(territory === t)} onClick={() => pickTerritory(t)}>
+                {l}
+              </button>
+            ))}
+          </div>
+          {territory !== 'in' && <div className="text-[11px] text-textFaint mt-1">USA = Indian-language screenings, USD. India + USA is one movie, side by side; currencies are never added.</div>}
+        </div>
         <div className="flex gap-1.5">
           <button type="button" className={pill(type === 'report')} onClick={() => setType('report')}>
             Movie Report
           </button>
-          <button type="button" className={pill(type === 'comparison')} onClick={() => setType('comparison')}>
+          <button type="button" disabled={territory === 'both'} className={`${pill(type === 'comparison')} disabled:opacity-40`} onClick={() => setType('comparison')}>
             Movie Comparison
           </button>
         </div>
@@ -127,7 +166,7 @@ export default function SocialPosterTool() {
         <div>
           <div className="mdtype-overline text-textFaint mb-1.5">Comparison basis</div>
           <div className="flex flex-wrap gap-1.5 mb-2">
-            {[1, 7, 10, 30].map((n) => (
+            {[1, 3, 7, 10, 30].map((n) => (
               <button key={n} type="button" className={pill((n === 1 ? basis === 'day' : basis === 'cumulative') && day === n)} onClick={() => (setBasis(n === 1 ? 'day' : 'cumulative'), setDay(n))}>
                 {n === 1 ? 'Day 1' : `First ${n} days`}
               </button>
@@ -147,7 +186,7 @@ export default function SocialPosterTool() {
               <select className={select} value={day} onChange={(e) => setDay(Number(e.target.value))}>
                 {(opts.length ? opts : [day]).map((n) => (
                   <option key={n} value={n}>
-                    {n === 0 ? 'Day 0' : `Day ${n}`}
+                    {n === 0 ? (territory === 'us' ? 'Day 0 (Premieres)' : 'Day 0') : `Day ${n}`}
                   </option>
                 ))}
               </select>
@@ -158,7 +197,7 @@ export default function SocialPosterTool() {
         <div>
           <div className="mdtype-overline text-textFaint mb-1.5">Breakdown</div>
           <select className={`${select} w-full`} value={dimension} onChange={(e) => setDimension(e.target.value as Dimension | 'overview')}>
-            {DIMENSIONS.map((d) => (
+            {dims.map((d) => (
               <option key={d.key} value={d.key}>
                 {d.label}
               </option>

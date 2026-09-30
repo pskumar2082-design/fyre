@@ -1,6 +1,6 @@
 // Display formatting for Fyre Analytics numbers. Formatting only -- every
 // number is computed in ./metrics.ts and the loaders.
-import type { MetricKey } from './types';
+import type { Currency, MetricKey } from './types';
 
 export function formatGross(rupees: number | null): string {
   if (rupees == null) return '—';
@@ -27,19 +27,44 @@ export function formatAtp(v: number | null): string {
   return v == null ? '—' : `₹${Math.round(v).toLocaleString('en-IN')}`;
 }
 
-export function formatMetric(key: MetricKey, v: number | null): string {
+// USD (USA · Indian-language screenings): $1.32M, $123,456, ATP $22.63.
+export function formatUsd(dollars: number | null): string {
+  if (dollars == null) return '—';
+  if (Math.abs(dollars) >= 1e6) return `$${(dollars / 1e6).toFixed(2)}M`;
+  return `$${Math.round(dollars).toLocaleString('en-US')}`;
+}
+
+export function formatUsdAtp(v: number | null): string {
+  return v == null ? '—' : `$${v.toFixed(2)}`;
+}
+
+export function formatMoney(v: number | null, currency: Currency = 'INR'): string {
+  return currency === 'USD' ? formatUsd(v) : formatGross(v);
+}
+
+export function formatMetric(key: MetricKey, v: number | null, currency: Currency = 'INR'): string {
+  const usd = currency === 'USD';
   switch (key) {
     case 'gross':
     case 'picGross':
-      return formatGross(v);
+      return usd ? formatUsd(v) : formatGross(v);
     case 'tickets':
     case 'picTickets':
-      return formatTickets(v);
+      return usd ? (v == null ? '—' : Math.round(v).toLocaleString('en-US')) : formatTickets(v);
     case 'occupancy':
       return formatOccupancy(v);
     case 'atp':
-      return formatAtp(v);
+      return usd ? formatUsdAtp(v) : formatAtp(v);
     default:
-      return formatInt(v);
+      return usd ? (v == null ? '—' : Math.round(v).toLocaleString('en-US')) : formatInt(v);
   }
 }
+
+// Labels that differ by territory (USA "Theatres" = distinct theater
+// name + city + state; India "Venues" = BFILMY venue ids).
+export function metricLabel(key: MetricKey, currency: Currency = 'INR', fallback: string): string {
+  if (currency === 'USD' && key === 'venues') return 'Theatres';
+  return fallback;
+}
+
+export const USA_LABEL = 'USA · Indian-language screenings';

@@ -6,7 +6,8 @@ import { metricValue, sumMetrics } from './metrics';
 import type { Breakdown, Comparison, ComparisonMovie, Dimension, MetricKey, Metrics, MovieAnalytics } from './types';
 import { contextLine, type CompareRequest } from './query';
 
-export { compareQuery, contextLine, parseCompareParams, parseSelection, type CompareRequest } from './query';
+export { compareQuery, contextLine, parseCompareParams, parseSelection, parseTerritory, type CompareRequest } from './query';
+import { loadUsaAnalytics, loadUsaBreakdown, usSelectionSummary } from './usa';
 
 // Trend points Day 1..N for one metric: each movie's own release days,
 // daily or running (cumulative) values. Running values are exactly
@@ -72,13 +73,14 @@ const ORDERED_DIMENSIONS: Dimension[] = ['show_hour', 'time_slot', 'price_band']
 
 export async function getComparison(req: CompareRequest): Promise<Comparison> {
   const slugs = req.slugs.slice(0, 4);
-  const loaded = await Promise.all(slugs.map((s) => loadMovieAnalytics(s)));
+  const us = req.territory === 'US';
+  const loaded = await Promise.all(slugs.map((s) => (us ? loadUsaAnalytics(s) : loadMovieAnalytics(s))));
   const movies = loaded.filter((m): m is MovieAnalytics => !!m);
   const metric = req.metric ?? 'gross';
   const sel = req.selection;
 
   const resolved = movies.map((m) => resolveSelection(m, sel));
-  const summaries = await Promise.all(movies.map((m, i) => selectionSummary(m, resolved[i])));
+  const summaries = await Promise.all(movies.map((m, i) => (us ? usSelectionSummary(m, resolved[i]) : selectionSummary(m, resolved[i]))));
 
   const cmpMovies: ComparisonMovie[] = movies.map((m, i) => ({
     slug: m.slug,
@@ -95,9 +97,11 @@ export async function getComparison(req: CompareRequest): Promise<Comparison> {
   let rows: Comparison['rows'] = [];
   let totalRows = 0;
   let breakdownAvailable: boolean[] = movies.map(() => false);
+  let totals: Comparison['totals'] = movies.map(() => null);
   if (req.dimension) {
-    const bds = await Promise.all(movies.map((m) => loadBreakdown(m, sel, req.dimension!)));
+    const bds = await Promise.all(movies.map((m) => (us ? loadUsaBreakdown(m, sel, req.dimension!) : loadBreakdown(m, sel, req.dimension!))));
     breakdownAvailable = bds.map((b) => b.available);
+    totals = bds.map((b) => (b.available ? b.totalRow ?? null : null));
     const merged = mergeBreakdowns(bds, metric, req.limit ?? 'all', ORDERED_DIMENSIONS.includes(req.dimension));
     rows = merged.rows;
     totalRows = merged.totalRows;
@@ -114,8 +118,11 @@ export async function getComparison(req: CompareRequest): Promise<Comparison> {
 
   const updated = cmpMovies.map((m) => m.lastUpdated).filter((x): x is string => !!x).sort();
   return {
+    territory: us ? 'US' : 'IN',
+    currency: us ? 'USD' : 'INR',
+    totals,
     selection: sel,
-    context: contextLine(sel),
+    context: contextLine(sel, us ? 'US' : 'IN'),
     selectionLabel: selectionLabel(sel),
     movies: cmpMovies,
     dimension: req.dimension ?? null,

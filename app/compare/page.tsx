@@ -34,7 +34,7 @@ export async function generateMetadata({ searchParams }: { searchParams: SP }): 
     const titles = cmp.movies.map((m) => m.title);
     if (titles.length < 2) return fallback;
     return {
-      title: `${titles.join(' vs ')} — ${cmp.selectionLabel} Box Office Comparison`,
+      title: `${titles.join(' vs ')} — ${cmp.selectionLabel}${cmp.territory === 'US' ? ' USA (Indian-language screenings)' : ''} Box Office Comparison`,
       description: `${titles.join(' vs ')}: ${cmp.selectionLabel.toLowerCase()} gross, tickets, shows and occupancy side by side.`,
       alternates: { canonical: `${SITE_URL}/compare?movies=${slugs.join(',')}` }
     };

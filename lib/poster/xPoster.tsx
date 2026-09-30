@@ -2,10 +2,12 @@
 // "Movie Comparison" (Movie A vs Movie B). It renders a Comparison view
 // model from lib/analytics/compare.ts exactly as returned -- the same
 // numbers the Movie Comparison page shows. No calculation happens here;
-// only formatting and layout.
+// only formatting and layout. Territory: India (INR), USA · Indian-language
+// screenings (USD), or both side by side (TerritoryPoster) -- currencies
+// are never added together.
 import { formatMetric } from '../analytics/format';
 import { METRIC_LABELS } from '../analytics/metrics';
-import type { Comparison, MetricKey, Metrics } from '../analytics/types';
+import type { Comparison, Currency, MetricKey, Metrics } from '../analytics/types';
 
 export const X_WIDTH = 1080;
 
@@ -77,18 +79,22 @@ function posterSafe(text: string): string {
   return text.replace(/\s*×\s*/g, ' / ');
 }
 
-function val(m: Metrics | null | undefined, k: MetricKey): string {
-  return formatMetric(k, m ? (m[k] as number | null) : null);
+function val(m: Metrics | null | undefined, k: MetricKey, currency: Currency = 'INR'): string {
+  return formatMetric(k, m ? (m[k] as number | null) : null, currency);
 }
 
-function Header({ logoSrc, report }: { logoSrc: string; report: boolean }) {
+function label(k: MetricKey, currency: Currency = 'INR'): string {
+  return (currency === 'USD' && k === 'venues' ? 'Theatres' : METRIC_LABELS[k]).toUpperCase();
+}
+
+function Header({ logoSrc, report, subtitle }: { logoSrc: string; report: boolean; subtitle?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: HEADER }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={logoSrc} width={116} height={48} style={{ objectFit: 'contain' }} />
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', fontSize: 30, fontWeight: 700, color: WHITE, letterSpacing: 8 }}>FYRE</div>
-        <div style={{ display: 'flex', fontSize: 16, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 4 }}>{report ? 'MOVIE REPORT' : 'MOVIE COMPARISON'}</div>
+        <div style={{ display: 'flex', fontSize: 16, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 4 }}>{subtitle ?? (report ? 'MOVIE REPORT' : 'MOVIE COMPARISON')}</div>
       </div>
     </div>
   );
@@ -150,8 +156,8 @@ function Summary({ c, o }: { c: Comparison; o: XPosterOptions }) {
           <div key={p.join()} style={{ display: 'flex', height: SUMMARY_ROW, gap: 16 }}>
             {p.map((k) => (
               <div key={k} style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${BORDER}`, padding: '0 8px' }}>
-                <div style={{ display: 'flex', fontSize: 18, color: DIM, letterSpacing: 2 }}>{METRIC_LABELS[k].toUpperCase()}</div>
-                <div style={{ display: 'flex', fontSize: 36, fontWeight: 700, color: k === 'gross' ? ACCENT_TEXT : WHITE }}>{m.available ? val(m.summary, k) : '—'}</div>
+                <div style={{ display: 'flex', fontSize: 18, color: DIM, letterSpacing: 2 }}>{label(k, c.currency)}</div>
+                <div style={{ display: 'flex', fontSize: 36, fontWeight: 700, color: k === 'gross' ? ACCENT_TEXT : WHITE }}>{m.available ? val(m.summary, k, c.currency) : '—'}</div>
               </div>
             ))}
           </div>
@@ -168,9 +174,9 @@ function Summary({ c, o }: { c: Comparison; o: XPosterOptions }) {
         const lead = va != null && vb != null && va !== vb ? (va > vb ? 0 : 1) : -1;
         return (
           <div key={k} style={{ display: 'flex', height: SUMMARY_ROW, alignItems: 'center', borderBottom: `1px solid ${BORDER}` }}>
-            <div style={{ display: 'flex', flex: 1, fontSize: 38, fontWeight: 700, color: lead === 0 ? COLORS[0] : WHITE }}>{a.available ? val(a.summary, k) : '—'}</div>
-            <div style={{ display: 'flex', width: 260, justifyContent: 'center', fontSize: 18, color: DIM, letterSpacing: 3 }}>{METRIC_LABELS[k].toUpperCase()}</div>
-            <div style={{ display: 'flex', flex: 1, justifyContent: 'flex-end', fontSize: 38, fontWeight: 700, color: lead === 1 ? COLORS[1] : WHITE }}>{b.available ? val(b.summary, k) : '—'}</div>
+            <div style={{ display: 'flex', flex: 1, fontSize: 38, fontWeight: 700, color: lead === 0 ? COLORS[0] : WHITE }}>{a.available ? val(a.summary, k, c.currency) : '—'}</div>
+            <div style={{ display: 'flex', width: 260, justifyContent: 'center', fontSize: 18, color: DIM, letterSpacing: 3 }}>{label(k, c.currency)}</div>
+            <div style={{ display: 'flex', flex: 1, justifyContent: 'flex-end', fontSize: 38, fontWeight: 700, color: lead === 1 ? COLORS[1] : WHITE }}>{b.available ? val(b.summary, k, c.currency) : '—'}</div>
           </div>
         );
       })}
@@ -182,14 +188,14 @@ function Breakdown({ c, o }: { c: Comparison; o: XPosterOptions }) {
   if (!c.dimension || !c.rows.length) return null;
   const report = c.movies.length === 1;
   const cols: { title: string; get: (r: Comparison['rows'][number]) => string; color: string }[] = report
-    ? (['gross', 'tickets', 'occupancy'] as MetricKey[]).map((k) => ({ title: METRIC_LABELS[k].toUpperCase(), get: (r) => val(r.values[0], k), color: k === 'gross' ? ACCENT_TEXT : WHITE }))
-    : c.movies.slice(0, 2).map((m, i) => ({ title: clip(m.title, 16).toUpperCase(), get: (r) => (c.breakdownAvailable[i] ? val(r.values[i], o.metric) : 'n/a'), color: COLORS[i] }));
+    ? (['gross', 'tickets', 'occupancy'] as MetricKey[]).map((k) => ({ title: label(k, c.currency), get: (r) => val(r.values[0], k, c.currency), color: k === 'gross' ? ACCENT_TEXT : WHITE }))
+    : c.movies.slice(0, 2).map((m, i) => ({ title: clip(m.title, 16).toUpperCase(), get: (r) => (c.breakdownAvailable[i] ? val(r.values[i], o.metric, c.currency) : 'n/a'), color: COLORS[i] }));
   const nameW = report ? 420 : 460;
   const colW = Math.floor((X_WIDTH - PAD * 2 - 40 - nameW) / cols.length);
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', height: TABLE_TITLE, alignItems: 'center', fontSize: 20, fontWeight: 700, color: WHITE, letterSpacing: 2 }}>
-        {`${posterSafe(c.dimensionLabel ?? '').toUpperCase()}${report ? '' : ` · ${METRIC_LABELS[o.metric].toUpperCase()}`}`}
+        {`${posterSafe(c.dimensionLabel ?? '').toUpperCase()}${report ? '' : ` · ${label(o.metric, c.currency)}`}`}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${BORDER}`, borderRadius: 16, background: CARD, padding: '0 20px' }}>
         <div style={{ display: 'flex', height: TABLE_HEAD, alignItems: 'center', borderBottom: `2px solid ${ACCENT}` }}>
@@ -202,7 +208,7 @@ function Breakdown({ c, o }: { c: Comparison; o: XPosterOptions }) {
         </div>
         {c.rows.map((r, i) => (
           <div key={r.key} style={{ display: 'flex', height: TABLE_ROW, alignItems: 'center', borderBottom: i === c.rows.length - 1 ? 'none' : `1px solid ${BORDER}` }}>
-            <div style={{ display: 'flex', width: nameW, fontSize: 22, fontWeight: 700, color: WHITE }}>{clip(r.sub && c.dimension === 'language_state' ? `${r.name} · ${r.sub}` : r.name, 34)}</div>
+            <div style={{ display: 'flex', width: nameW, fontSize: 22, fontWeight: 700, color: WHITE }}>{clip(r.sub && (c.dimension === 'language_state' || c.dimension === 'format_language') ? `${r.name} · ${r.sub}` : r.name, 34)}</div>
             {cols.map((col) => (
               <div key={col.title} style={{ display: 'flex', width: colW, justifyContent: 'flex-end', fontSize: 22, fontWeight: 700, color: WHITE }}>
                 {col.get(r)}
@@ -246,18 +252,20 @@ function Chart({ c }: { c: Comparison }) {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: FAINT, marginTop: 6 }}>
         <div style={{ display: 'flex' }}>Day 1</div>
-        <div style={{ display: 'flex' }}>{`Peak ${formatMetric(t.metric, max)}`}</div>
+        <div style={{ display: 'flex' }}>{`Peak ${formatMetric(t.metric, max, c.currency)}`}</div>
         <div style={{ display: 'flex' }}>{`Day ${t.points[n - 1].day}`}</div>
       </div>
     </div>
   );
 }
 
-function Footer({ c }: { c: Comparison }) {
+// No data-source credit (Fyre licenses the data); the left side says what
+// the numbers cover instead.
+function Footer({ note, lastUpdated }: { note: string; lastUpdated: string | null }) {
   return (
     <div style={{ display: 'flex', height: FOOTER, alignItems: 'flex-end', justifyContent: 'space-between', borderTop: `1px solid ${BORDER}`, paddingBottom: 4 }}>
-      <div style={{ display: 'flex', fontSize: 16, color: DIM }}>Data: BFILMY</div>
-      <div style={{ display: 'flex', fontSize: 16, color: FAINT }}>{c.lastUpdated ? `Last updated: ${c.lastUpdated}` : ''}</div>
+      <div style={{ display: 'flex', fontSize: 16, color: DIM }}>{note}</div>
+      <div style={{ display: 'flex', fontSize: lastUpdated && lastUpdated.length > 32 ? 13 : 16, color: FAINT }}>{lastUpdated ? `Last updated: ${lastUpdated}` : ''}</div>
       <div style={{ display: 'flex', fontSize: 18, fontWeight: 700, color: WHITE }}>fyre.co.in</div>
     </div>
   );
@@ -278,7 +286,116 @@ export function XPoster({ c, o, images, logoSrc, watermark, height }: { c: Compa
         {o.chart && c.trend && c.trend.points.length > 1 && <div style={{ display: 'flex', height: SECTION_GAP }} />}
         {o.chart && <Chart c={c} />}
         <div style={{ display: 'flex', flex: 1, minHeight: SECTION_GAP }} />
-        <Footer c={c} />
+        <Footer note={c.currency === 'USD' ? 'USA · Indian-language screenings · USD' : 'India · INR'} lastUpdated={c.lastUpdated} />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// India + USA for one movie, side by side. Two getComparison() view models
+// (India and USA, same movie and selection); nothing is added across them.
+// ---------------------------------------------------------------------------
+const COL_HEAD = 76;
+const T_COLORS = ['#F5A524', '#2F6FED'];
+
+export function territoryPosterHeight(india: Comparison, usa: Comparison, o: XPosterOptions): number {
+  const rows = Math.max(india.rows.length, usa.rows.length);
+  let h = PAD * 2 + HEADER + POSTERS_REPORT + CONTEXT + COL_HEAD + o.summaryMetrics.length * SUMMARY_ROW + SECTION_GAP + FOOTER;
+  if ((india.dimension || usa.dimension) && rows) h += SECTION_GAP + TABLE_TITLE + TABLE_HEAD + rows * TABLE_ROW;
+  return Math.round(h);
+}
+
+export function TerritoryPoster({
+  india,
+  usa,
+  o,
+  image,
+  logoSrc,
+  watermark,
+  height,
+  context
+}: {
+  india: Comparison;
+  usa: Comparison;
+  o: XPosterOptions;
+  image: string | null;
+  logoSrc: string;
+  watermark: boolean;
+  height: number;
+  context: string;
+}) {
+  const a = india.movies[0];
+  const b = usa.movies[0];
+  const title = a?.title ?? b?.title ?? '';
+  const sides = [
+    { c: india, m: a, head: 'INDIA', sub: 'ALL LANGUAGES · INR' },
+    { c: usa, m: b, head: 'USA', sub: 'INDIAN-LANGUAGE SCREENINGS · USD' }
+  ];
+  const rows = Math.max(india.rows.length, usa.rows.length);
+  const dimLabel = posterSafe((india.dimensionLabel ?? usa.dimensionLabel ?? '').toUpperCase());
+  const half = (X_WIDTH - PAD * 2 - 40) / 2;
+  const updated = [india.lastUpdated ? `India ${india.lastUpdated}` : null, usa.lastUpdated ? `USA ${usa.lastUpdated}` : null].filter(Boolean).join(' · ') || null;
+  return (
+    <div style={{ width: X_WIDTH, height, display: 'flex', flexDirection: 'column', background: NAVY, fontFamily: 'Noto Sans', position: 'relative', padding: PAD }}>
+      {watermark && <PosterWatermark logoSrc={logoSrc} width={X_WIDTH} height={height} opacity={0.04} />}
+      <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', flex: 1 }}>
+        <Header logoSrc={logoSrc} report subtitle="INDIA + USA" />
+        <div style={{ display: 'flex', alignItems: 'center', height: POSTERS_REPORT, gap: 36 }}>
+          <PosterImage src={image} w={200} h={300} color={T_COLORS[0]} />
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div style={{ display: 'flex', fontSize: 50, fontWeight: 700, color: WHITE, lineHeight: 1.1 }}>{clip(title, 40)}</div>
+            <div style={{ display: 'flex', fontSize: 20, color: DIM, marginTop: 14 }}>{india.selectionLabel}</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', height: CONTEXT, alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', padding: '12px 26px', borderRadius: 999, background: ACCENT_TINT, color: ACCENT_TEXT, fontSize: 22, fontWeight: 700, letterSpacing: 2 }}>{context}</div>
+        </div>
+        <div style={{ display: 'flex', height: COL_HEAD, alignItems: 'flex-end', borderBottom: `2px solid ${ACCENT}`, paddingBottom: 10 }}>
+          {sides.map((sd, i) => (
+            <div key={sd.head} style={{ display: 'flex', flexDirection: 'column', flex: 1, alignItems: i === 0 ? 'flex-start' : 'flex-end' }}>
+              <div style={{ display: 'flex', fontSize: 26, fontWeight: 700, color: T_COLORS[i], letterSpacing: 4 }}>{sd.head}</div>
+              <div style={{ display: 'flex', fontSize: 14, color: FAINT, letterSpacing: 2 }}>{sd.sub}</div>
+            </div>
+          ))}
+        </div>
+        {o.summaryMetrics.map((k) => (
+          <div key={k} style={{ display: 'flex', height: SUMMARY_ROW, alignItems: 'center', borderBottom: `1px solid ${BORDER}` }}>
+            <div style={{ display: 'flex', flex: 1, fontSize: 38, fontWeight: 700, color: k === 'gross' ? T_COLORS[0] : WHITE }}>{a?.available ? val(a.summary, k, 'INR') : 'N/A'}</div>
+            <div style={{ display: 'flex', width: 240, justifyContent: 'center', fontSize: 18, color: DIM, letterSpacing: 3 }}>{METRIC_LABELS[k].toUpperCase()}</div>
+            <div style={{ display: 'flex', flex: 1, justifyContent: 'flex-end', fontSize: 38, fontWeight: 700, color: k === 'gross' ? ACCENT_TEXT : WHITE }}>{b?.available ? val(b.summary, k, 'USD') : 'N/A'}</div>
+          </div>
+        ))}
+        {dimLabel && rows > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', height: SECTION_GAP }} />
+            <div style={{ display: 'flex', height: TABLE_TITLE, alignItems: 'center', justifyContent: 'space-between' }}>
+              {sides.map((sd, i) => (
+                <div key={sd.head} style={{ display: 'flex', width: half, fontSize: 20, fontWeight: 700, color: T_COLORS[i], letterSpacing: 2 }}>{`${sd.head} TOP ${dimLabel} · ${METRIC_LABELS[o.metric].toUpperCase()}`}</div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              {sides.map((sd, i) => (
+                <div key={sd.head} style={{ display: 'flex', flexDirection: 'column', width: half, border: `1px solid ${BORDER}`, borderRadius: 16, background: CARD, padding: '0 18px' }}>
+                  <div style={{ display: 'flex', height: TABLE_HEAD, alignItems: 'center', borderBottom: `2px solid ${T_COLORS[i]}`, fontSize: 14, color: FAINT, letterSpacing: 2 }}>
+                    {sd.c.breakdownAvailable[0] ? dimLabel : 'NOT AVAILABLE FOR THIS SELECTION'}
+                  </div>
+                  {Array.from({ length: rows }).map((_, ri) => {
+                    const r = sd.c.breakdownAvailable[0] ? sd.c.rows[ri] : undefined;
+                    return (
+                      <div key={ri} style={{ display: 'flex', height: TABLE_ROW, alignItems: 'center', justifyContent: 'space-between', borderBottom: ri === rows - 1 ? 'none' : `1px solid ${BORDER}` }}>
+                        <div style={{ display: 'flex', fontSize: 20, fontWeight: 700, color: WHITE }}>{r ? clip(r.name, 18) : ''}</div>
+                        <div style={{ display: 'flex', fontSize: 20, fontWeight: 700, color: WHITE }}>{r ? val(r.values[0], o.metric, i === 0 ? 'INR' : 'USD') : ''}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{ display: 'flex', flex: 1, minHeight: SECTION_GAP }} />
+        <Footer note="INR and USD shown separately — never added" lastUpdated={updated} />
       </div>
     </div>
   );

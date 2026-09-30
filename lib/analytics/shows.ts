@@ -25,6 +25,8 @@ export type ShowRow = {
   sold: number;
   gross: number;
   occupancy: number | null;
+  price?: number | null; // USA: source ticket price for the show
+  occupancySource?: number | null; // USA: source figure
 };
 
 export type ShowList = {
@@ -35,6 +37,7 @@ export type ShowList = {
   reason: string | null;
   sourceUpdated: string | null;
   rows: ShowRow[];
+  currency?: 'INR' | 'USD';
 };
 
 const liveCache = new Map<string, { at: number; value: Promise<{ updated: string | null; byKey: Map<string, ShowRow[]> } | null> }>();

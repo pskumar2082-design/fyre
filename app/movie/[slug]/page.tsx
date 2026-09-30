@@ -1,14 +1,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getMovieDetails, parseReleaseDate } from '@/lib/bfilmy/source';
 import type { TTMovieMetaItem } from '@/lib/boxoffice/types';
 import { loadMovieAnalytics } from '@/lib/analytics/load';
 import { formatGross } from '@/lib/analytics/format';
-import SummaryCards from '@/components/analytics/SummaryCards';
-import MovieBreakdownExplorer from '@/components/analytics/MovieBreakdownExplorer';
+import TerritoryTabs from '@/components/analytics/TerritoryTabs';
+import { loadUsaAnalytics } from '@/lib/analytics/usa';
 import { STATE_BADGE } from '@/lib/boxoffice/stateStyle';
 import { Card } from '@/components/ui';
 import { SITE_URL } from '@/lib/siteConfig';
@@ -79,6 +79,9 @@ export default async function MoviePage({ params }: { params: { slug: string } }
     details = null;
   }
   if (!details || !analytics) notFound();
+  // USA (Indian-language screenings), when the movie has any. A USA
+  // failure never takes the India page down.
+  const usa = await loadUsaAnalytics(params.slug).catch(() => null);
 
   // Headline figure from Fyre Analytics -- the same numbers as the cards,
   // the breakdowns, Movie Comparison and the poster.
@@ -168,7 +171,7 @@ export default async function MoviePage({ params }: { params: { slug: string } }
             {headlineGross && (
               <div className="mt-3">
                 <div className="text-gold font-stat font-bold text-5xl sm:text-6xl leading-none">{headlineGross}</div>
-                {headlineLabel && <div className="text-textFaint text-xs mt-1">{headlineLabel}</div>}
+                {headlineLabel && <div className="text-textFaint text-xs mt-1">{usa ? `India · ${headlineLabel}` : headlineLabel}</div>}
               </div>
             )}
           </div>
@@ -195,17 +198,7 @@ export default async function MoviePage({ params }: { params: { slug: string } }
         </Card>
       )}
 
-      <SummaryCards m={analytics} />
-
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles size={16} className="text-gold" />
-          <h2 className="hdisplay text-lg">Performance breakdown</h2>
-        </div>
-        <Card className="p-4 sm:p-5">
-          <MovieBreakdownExplorer m={analytics} />
-        </Card>
-      </div>
+      <TerritoryTabs india={analytics} usa={usa} />
     </div>
   );
 }

@@ -8,7 +8,7 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
       - name: Trigger fyre sync
         env:
@@ -17,3 +17,11 @@ jobs:
           curl -fsS --max-time 90 \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             "https://fyre.co.in/api/cron/bfilmy" | head -c 2000
+      - name: Trigger fyre USA sync (no-op unless USA_SYNC_ENABLED=1)
+        if: always()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 90 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://fyre.co.in/api/cron/usa" | head -c 2000

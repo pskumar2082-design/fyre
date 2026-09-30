@@ -1,8 +1,8 @@
 // Pure request helpers for Fyre Analytics comparisons (safe to import in
 // client components): query string <-> CompareRequest, context line.
-import type { Dimension, MetricKey, Selection } from './types';
+import type { Dimension, MetricKey, Selection, Territory } from './types';
 
-const DIMENSION_KEYS: Dimension[] = ['state', 'city', 'language', 'language_state', 'language_city', 'format', 'chain', 'venue', 'time_slot', 'show_hour', 'price_band', 'pic', 'pic_state', 'pic_city'];
+const DIMENSION_KEYS: Dimension[] = ['state', 'city', 'language', 'language_state', 'language_city', 'format', 'chain', 'venue', 'time_slot', 'show_hour', 'price_band', 'pic', 'pic_state', 'pic_city', 'theater', 'format_language'];
 
 export type CompareRequest = {
   slugs: string[];
@@ -11,9 +11,14 @@ export type CompareRequest = {
   metric?: MetricKey;
   limit?: number | 'all';
   trend?: boolean;
+  territory?: Territory; // default IN
 };
 
-export function contextLine(sel: Selection): string {
+export function parseTerritory(v: string | null | undefined): Territory {
+  return String(v ?? '').toLowerCase() === 'us' ? 'US' : 'IN';
+}
+
+export function contextLine(sel: Selection, territory: Territory = 'IN'): string {
   const what =
     sel.basis === 'lifetime'
       ? 'LIFETIME'
@@ -24,7 +29,7 @@ export function contextLine(sel: Selection): string {
           : sel.day === 0
             ? 'DAY 0 (PRE-RELEASE)'
             : `DAY ${sel.day}`;
-  return `${what} · INDIA · ALL LANGUAGES`;
+  return territory === 'US' ? `${what} · USA · INDIAN-LANGUAGE SCREENINGS` : `${what} · INDIA · ALL LANGUAGES`;
 }
 
 export function parseSelection(q: URLSearchParams): Selection | { error: string } {
@@ -50,7 +55,7 @@ export function parseCompareParams(q: URLSearchParams): CompareRequest | { error
   const metric = (q.get('metric') ?? 'gross') as MetricKey;
   const limitRaw = q.get('limit');
   const limit = !limitRaw || limitRaw === 'all' ? 'all' : Math.max(1, Math.floor(Number(limitRaw)) || 10);
-  return { slugs, selection, dimension, metric, limit, trend: q.get('trend') !== '0' };
+  return { slugs, selection, dimension, metric, limit, trend: q.get('trend') !== '0', territory: parseTerritory(q.get('territory')) };
 }
 
 export function compareQuery(req: CompareRequest): string {
@@ -62,5 +67,6 @@ export function compareQuery(req: CompareRequest): string {
   if (req.metric) p.set('metric', req.metric);
   if (req.limit && req.limit !== 'all') p.set('limit', String(req.limit));
   if (req.trend === false) p.set('trend', '0');
+  if (req.territory === 'US') p.set('territory', 'us');
   return p.toString();
 }

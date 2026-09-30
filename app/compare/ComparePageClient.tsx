@@ -6,9 +6,9 @@ import { ArrowLeftRight, Plus, Sparkles, X, Image as ImageIcon } from 'lucide-re
 import type { TTListedMovie } from '@/lib/boxoffice/types';
 import { useMovieCatalog } from '@/lib/compare/useMovieCatalog';
 import { compareQuery, type CompareRequest } from '@/lib/analytics/query';
-import { formatMetric } from '@/lib/analytics/format';
+import { formatMetric, USA_LABEL } from '@/lib/analytics/format';
 import { METRIC_LABELS } from '@/lib/analytics/metrics';
-import type { Comparison, Dimension, MetricKey, Metrics, Selection } from '@/lib/analytics/types';
+import type { Comparison, Currency, Dimension, MetricKey, Metrics, Selection, Territory } from '@/lib/analytics/types';
 import { Card, SectionHeading, EmptyState } from '@/components/ui';
 import MovieSelector from '@/components/compare/MovieSelector';
 import { movieDotClass, movieTextClass } from '@/components/compare/movieColors';
@@ -32,7 +32,21 @@ const DIMENSIONS: { key: Dimension | 'overview'; label: string }[] = [
   { key: 'price_band', label: 'Ticket price' }
 ];
 
+// USA feed: only the dimensions it has.
+const US_DIMENSIONS: { key: Dimension | 'overview'; label: string }[] = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'state', label: 'State' },
+  { key: 'city', label: 'City' },
+  { key: 'theater', label: 'Theater' },
+  { key: 'chain', label: 'Chain' },
+  { key: 'format', label: 'Format' },
+  { key: 'language', label: 'Language' },
+  { key: 'format_language', label: 'Format × Language' }
+];
+
 const METRICS: MetricKey[] = ['gross', 'tickets', 'shows', 'occupancy', 'atp'];
+
+const label = (k: MetricKey, currency: Currency) => (currency === 'USD' && k === 'venues' ? 'Theatres' : METRIC_LABELS[k]);
 
 const SUMMARY_ROWS: MetricKey[] = ['gross', 'tickets', 'shows', 'occupancy', 'atp', 'venues', 'cities', 'states', 'picGross', 'picTickets', 'ff', 'hf'];
 
@@ -54,6 +68,7 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
   const [dimension, setDimension] = useState<Dimension | 'overview'>(initialRequest.dimension ?? 'overview');
   const [metric, setMetric] = useState<MetricKey>(initialRequest.metric ?? 'gross');
   const [limit, setLimit] = useState<number | 'all'>(initialRequest.limit ?? 10);
+  const [territory, setTerritory] = useState<Territory>(initialRequest.territory ?? 'IN');
   const [data, setData] = useState<Comparison | null>(initial);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +76,14 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
 
   const slugs = slots.filter((s): s is TTListedMovie => !!s).map((s) => s.slug);
   const selection: Selection = basis === 'lifetime' ? { basis } : { basis, day };
-  const req: CompareRequest = { slugs, selection, dimension: dimension === 'overview' ? null : dimension, metric, limit };
+  const req: CompareRequest = { slugs, selection, dimension: dimension === 'overview' ? null : dimension, metric, limit, territory };
+  const dims = territory === 'US' ? US_DIMENSIONS : DIMENSIONS;
+  const currency: Currency = data?.currency ?? (territory === 'US' ? 'USD' : 'INR');
+  const switchTerritory = (t: Territory) => {
+    setTerritory(t);
+    const next = t === 'US' ? US_DIMENSIONS : DIMENSIONS;
+    if (!next.some((d) => d.key === dimension)) setDimension('overview');
+  };
   const query = slugs.length >= 2 ? compareQuery(req) : '';
 
   useEffect(() => {
@@ -139,8 +161,21 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
         <EmptyState>Pick two movies to compare.</EmptyState>
       ) : (
         <>
+          <div className="flex flex-wrap items-center gap-1.5 mb-3" role="tablist" aria-label="Territory">
+            {(['IN', 'US'] as Territory[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => switchTerritory(t)}
+                className={`text-sm font-semibold px-4 py-2 rounded-full border transition ${territory === t ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim hover:text-text'}`}
+              >
+                {t === 'IN' ? 'India' : 'USA'}
+              </button>
+            ))}
+            <span className="text-[11px] text-textFaint ml-1">{territory === 'US' ? `${USA_LABEL} · USD — not total US box office` : 'India · all languages · INR'}</span>
+          </div>
           <div className="flex flex-wrap gap-1.5 mb-3">
-            {[1, 7, 10, 30].map((n) => {
+            {[1, 3, 7, 10, 30].map((n) => {
               const on = (n === 1 ? basis === 'day' : basis === 'cumulative') && day === n;
               return (
                 <button
@@ -175,7 +210,7 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
               <select className={select} value={day} onChange={(e) => setDay(Number(e.target.value))} aria-label="Day">
                 {(dayOptions.length ? dayOptions : [day]).filter((d) => basis !== 'cumulative' || d >= 1).map((d) => (
                   <option key={d} value={d}>
-                    {d === 0 ? 'Day 0 (Pre-release)' : `Day ${d}`}
+                    {d === 0 ? (territory === 'US' ? 'Day 0 (Premieres)' : 'Day 0 (Pre-release)') : `Day ${d}`}
                   </option>
                 ))}
               </select>
@@ -183,7 +218,7 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
             <select className={select} value={metric} onChange={(e) => setMetric(e.target.value as MetricKey)} aria-label="Metric">
               {METRICS.map((m) => (
                 <option key={m} value={m}>
-                  {METRIC_LABELS[m]}
+                  {label(m, currency)}
                 </option>
               ))}
             </select>
@@ -228,10 +263,10 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
                     )}
                     {SUMMARY_ROWS.filter((k) => data.movies.some((m) => m.summary && m.summary[k] != null)).map((k) => (
                       <tr key={k} className="border-b border-border last:border-b-0">
-                        <td className="py-2.5 px-4 text-textDim">{METRIC_LABELS[k]}</td>
+                        <td className="py-2.5 px-4 text-textDim">{label(k, currency)}</td>
                         {data.movies.map((m) => (
                           <td key={m.slug} className={`py-2.5 px-4 text-right tabular-nums ${k === metric ? 'font-bold text-text' : 'text-textDim'}`}>
-                            {formatMetric(k, m.summary ? (m.summary[k] as number | null) : null)}
+                            {formatMetric(k, m.summary ? (m.summary[k] as number | null) : null, currency)}
                           </td>
                         ))}
                       </tr>
@@ -261,7 +296,7 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
               )}
 
               <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 -mx-1 px-1">
-                {DIMENSIONS.map((d) => (
+                {dims.map((d) => (
                   <button
                     key={d.key}
                     type="button"
@@ -289,12 +324,16 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
 function BreakdownCompare({ data, metric, limit, setLimit }: { data: Comparison; metric: MetricKey; limit: number | 'all'; setLimit: (l: number | 'all') => void }) {
   if (!data.dimension) return null;
   const unavailable = data.movies.filter((_, i) => !data.breakdownAvailable[i]);
-  const val = (m: Metrics | null) => formatMetric(metric, m ? (m[metric] as number | null) : null);
+  const currency: Currency = data.currency ?? 'INR';
+  const val = (m: Metrics | null) => formatMetric(metric, m ? (m[metric] as number | null) : null, currency);
+  const totals = data.totals ?? [];
+  const showTotals = totals.some((t) => t);
   return (
     <Card className="p-4 sm:p-5">
       {unavailable.length > 0 && (
         <div className="text-xs text-textFaint mb-3">
-          {data.dimensionLabel} isn’t available for {unavailable.map((m) => m.title).join(', ')} for this selection (show-level detail is published from mid-December 2025).
+          {data.dimensionLabel} isn’t available for {unavailable.map((m) => m.title).join(', ')} for this selection
+          {currency === 'USD' ? ' (USA city/theater breakdowns are kept 30 days, others 90 days).' : ' (show-level detail is published from mid-December 2025).'}
         </div>
       )}
       {data.rows.length === 0 ? (
@@ -307,7 +346,7 @@ function BreakdownCompare({ data, metric, limit, setLimit }: { data: Comparison;
                 <th className="text-left mdtype-overline py-2.5 px-3 text-textFaint">{data.dimensionLabel}</th>
                 {data.movies.map((m, i) => (
                   <th key={m.slug} className={`text-right py-2.5 px-3 font-bold ${movieTextClass(i)}`}>
-                    {m.title} · {METRIC_LABELS[metric]}
+                    {m.title} · {label(metric, currency)}
                   </th>
                 ))}
               </tr>
@@ -327,6 +366,29 @@ function BreakdownCompare({ data, metric, limit, setLimit }: { data: Comparison;
                 </tr>
               ))}
             </tbody>
+            {showTotals && (
+              <tfoot>
+                <tr className="bg-gold/[0.08] border-t-2 border-gold/40">
+                  <td className="py-2.5 px-3 font-bold text-gold tracking-wide">TOTAL</td>
+                  {totals.map((t, i) => (
+                    <td key={i} className="py-2.5 px-3 text-right tabular-nums font-stat font-bold text-[13px] text-text">
+                      {!data.breakdownAvailable[i] || !t ? 'n/a' : t.metrics ? val(t.metrics) : 'Partial'}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td colSpan={1 + totals.length} className="px-3 py-2 text-[11px] text-textFaint">
+                    {totals.map((t, i) =>
+                      t ? (
+                        <span key={i} className="mr-3">
+                          {data.movies[i]?.title}: {t.status === 'MATCH' ? 'total matches headline' : t.status === 'PARTIAL' ? 'partial coverage' : `differs from headline — ${t.note ?? ''}`}
+                        </span>
+                      ) : null
+                    )}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       )}

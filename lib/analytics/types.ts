@@ -9,6 +9,13 @@
 // distinct venues can't be added across days for a language row) -- never
 // an invented zero.
 
+// Territory of a set of numbers. One Fyre movie can have both; their
+// currencies are never added together.
+//   IN  India (BFILMY), INR
+//   US  "USA · Indian-language screenings" (BFILMY USA feed), USD
+export type Territory = 'IN' | 'US';
+export type Currency = 'INR' | 'USD';
+
 export type Metrics = {
   gross: number;
   tickets: number;
@@ -53,7 +60,10 @@ export type Dimension =
   | 'price_band'
   | 'pic'
   | 'pic_state'
-  | 'pic_city';
+  | 'pic_city'
+  // USA only
+  | 'theater'
+  | 'format_language';
 
 export type DayPoint = {
   date: string;
@@ -64,9 +74,28 @@ export type DayPoint = {
   breakdowns: boolean; // breakdowns still kept (false once older than the retention window)
   metrics: Metrics;
   sourceUpdated: string | null;
+  provenance?: UsProvenance; // USA only
+};
+
+// USA: where a day's numbers came from and how they reconcile.
+export type UsProvenance = {
+  source: 'BFILMY_USA';
+  sourceUrl: string;
+  sourceMovieIds: number[];
+  etag: string | null;
+  seenAt: string | null; // when Fyre first saw this version of the file
+  syncedAt: string;
+  showsSource: number | null; // source summary show count (can differ from the rows)
+  occupancySource: number | null; // source figure, not seat-weighted
+  zeroSeatShows: number;
+  occupancyCoverage: 'MATCH' | 'PARTIAL';
+  recon: Record<string, unknown>;
 };
 
 export type MovieAnalytics = {
+  territory?: Territory; // default IN
+  currency?: Currency; // default INR
+  movieId?: string; // canonical Fyre movie (MovieMint id); set for USA
   slug: string;
   title: string;
   poster: string | null;
@@ -91,8 +120,23 @@ export type BreakdownRow = {
   cumulative?: Metrics; // show_hour only: running totals through this hour
 };
 
+// TOTAL row of a breakdown, reconciled with the selection's headline.
+//   MATCH     sums equal the headline
+//   MISMATCH  sums differ (numbers still shown, with the difference)
+//   PARTIAL   the breakdown doesn't cover every show -- no total is made up
+export type TotalStatus = 'MATCH' | 'PARTIAL' | 'MISMATCH';
+export type BreakdownTotal = {
+  label: string; // "TOTAL" / "PIC TOTAL"
+  metrics: Metrics | null; // null when PARTIAL
+  status: TotalStatus;
+  note: string | null;
+  occupancyCoverage?: 'MATCH' | 'PARTIAL';
+};
+
 export type Breakdown = {
   dimension: Dimension;
+  currency?: Currency;
+  totalRow?: BreakdownTotal | null;
   label: string;
   available: boolean;
   reason: string | null; // why not available
@@ -115,6 +159,9 @@ export type ComparisonMovie = {
 };
 
 export type Comparison = {
+  territory?: Territory;
+  currency?: Currency;
+  totals?: (BreakdownTotal | null)[]; // TOTAL row per movie for the breakdown
   selection: Selection;
   context: string; // "DAY 1 · INDIA · ALL LANGUAGES"
   selectionLabel: string; // "Day 1", "Cumulative through Day 7", "Lifetime", "Advance · Day 1"

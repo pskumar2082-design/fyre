@@ -7,6 +7,8 @@ import { Card } from '@/components/ui';
 import TableBuilder from '@/components/admin/TableBuilder';
 import SocialPosterTool from '@/components/admin/SocialPosterTool';
 import TrackedMoviesTool from '@/components/admin/TrackedMoviesTool';
+import DailyReportsTool from '@/components/admin/DailyReportsTool';
+import UsaMatchingTool from '@/components/admin/UsaMatchingTool';
 import FyreRichTextEditor from '@/components/admin/FyreRichTextEditor';
 import ArticleBody from '@/components/ArticleBody';
 import { sanitizeArticleHtml } from '@/lib/richText/sanitize';
@@ -319,6 +321,8 @@ function SignIn() {
 
 const SOCIAL_POSTER_KEY = 'social-poster';
 const TRACKED_KEY = 'tracked-movies';
+const DAILY_KEY = 'daily-reports';
+const USA_MAP_KEY = 'usa-matching';
 
 function AdminShell() {
   const [activeKey, setActiveKey] = useState<string>(SECTIONS[0].key);
@@ -363,6 +367,18 @@ function AdminShell() {
         >
           Tracked movies
         </button>
+        {[
+          [DAILY_KEY, 'Daily reports'],
+          [USA_MAP_KEY, 'USA matching']
+        ].map(([k, l]) => (
+          <button
+            key={k}
+            onClick={() => setActiveKey(k)}
+            className={`text-sm font-medium pb-3 border-b-[3px] -mb-px transition whitespace-nowrap ${activeKey === k ? 'text-gold border-gold' : 'text-textFaint border-transparent hover:text-gold'}`}
+          >
+            {l}
+          </button>
+        ))}
         <button
           onClick={() => setActiveKey(SOCIAL_POSTER_KEY)}
           className={`text-sm font-medium pb-3 border-b-[3px] -mb-px transition whitespace-nowrap ${
@@ -377,7 +393,17 @@ function AdminShell() {
 
       {/* key={active.key} remounts the Dashboard on tab switch, which resets
           all its form/list state for free instead of a manual reset effect. */}
-      {active ? <Dashboard key={active.key} section={active} /> : activeKey === TRACKED_KEY ? <TrackedMoviesTool /> : <SocialPosterTool />}
+      {active ? (
+        <Dashboard key={active.key} section={active} />
+      ) : activeKey === TRACKED_KEY ? (
+        <TrackedMoviesTool />
+      ) : activeKey === DAILY_KEY ? (
+        <DailyReportsTool />
+      ) : activeKey === USA_MAP_KEY ? (
+        <UsaMatchingTool />
+      ) : (
+        <SocialPosterTool />
+      )}
     </div>
   );
 }

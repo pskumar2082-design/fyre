@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import MetricsTable, { type MetricsTableRow } from './MetricsTable';
 import { formatDate } from '@/lib/bfilmy/adapter';
-import { formatGross, formatInt, formatOccupancy, formatTickets } from '@/lib/analytics/format';
+import { formatInt, formatMoney, formatUsdAtp } from '@/lib/analytics/format';
 import { sumMetrics } from '@/lib/analytics/metrics';
 import type { Breakdown, Dimension, MovieAnalytics, Selection } from '@/lib/analytics/types';
 import type { ShowList } from '@/lib/analytics/shows';
@@ -29,6 +29,19 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'shows', label: 'Shows' }
 ];
 
+// USA feed: only the dimensions it actually has.
+const US_TABS: { key: Tab; label: string }[] = [
+  { key: 'daywise', label: 'Day-wise' },
+  { key: 'state', label: 'State' },
+  { key: 'city', label: 'City' },
+  { key: 'theater', label: 'Theater' },
+  { key: 'chain', label: 'Chain' },
+  { key: 'format', label: 'Format' },
+  { key: 'language', label: 'Language' },
+  { key: 'format_language', label: 'Format × Language' },
+  { key: 'shows', label: 'Shows' }
+];
+
 const NAME_HEADERS: Partial<Record<Tab, [string, string?]>> = {
   state: ['State'],
   city: ['City', 'State'],
@@ -43,20 +56,26 @@ const NAME_HEADERS: Partial<Record<Tab, [string, string?]>> = {
   pic_city: ['City', 'State'],
   time_slot: ['Time slot'],
   show_hour: ['Shows starting by'],
-  price_band: ['Avg ticket price']
+  price_band: ['Avg ticket price'],
+  theater: ['Theater', 'Location'],
+  format_language: ['Language', 'Format']
 };
 
 function selectionQuery(s: Selection): string {
   return s.basis === 'lifetime' ? 'basis=lifetime' : `basis=${s.basis}&day=${s.day}`;
 }
 
-export default function MovieBreakdownExplorer({ m }: { m: MovieAnalytics }) {
+export default function MovieBreakdownExplorer({ m, initial }: { m: MovieAnalytics; initial?: { basis: 'day' | 'advance'; day: number } }) {
+  const us = m.territory === 'US';
+  const currency = m.currency ?? 'INR';
+  const tq = us ? '&territory=us' : '';
+  const tabs = us ? US_TABS : TABS;
   const releaseDays = useMemo(() => m.days.filter((d) => d.day != null).sort((a, b) => a.day! - b.day!), [m.days]);
   const advanceDays = useMemo(() => m.advance.filter((d) => d.day != null).sort((a, b) => a.day! - b.day!), [m.advance]);
   const latestDay = releaseDays[releaseDays.length - 1]?.day ?? null;
 
-  const [basis, setBasis] = useState<Selection['basis']>(latestDay != null ? 'day' : m.days.length ? 'lifetime' : 'advance');
-  const [day, setDay] = useState<number>(latestDay ?? advanceDays[0]?.day ?? 1);
+  const [basis, setBasis] = useState<Selection['basis']>(initial?.basis ?? (latestDay != null ? 'day' : m.days.length ? 'lifetime' : 'advance'));
+  const [day, setDay] = useState<number>(initial?.day ?? latestDay ?? advanceDays[0]?.day ?? 1);
   const [tab, setTab] = useState<Tab>(m.days.length ? 'state' : 'state');
   const [limit, setLimit] = useState<number | 'all'>(25);
   const [data, setData] = useState<Breakdown | null>(null);
@@ -81,9 +100,9 @@ export default function MovieBreakdownExplorer({ m }: { m: MovieAnalytics }) {
     const url =
       tab === 'shows'
         ? singleDate
-          ? `/api/analytics/shows?slug=${encodeURIComponent(m.slug)}&date=${singleDate}${basis === 'advance' ? '&kind=advance' : ''}`
+          ? `/api/analytics/shows?slug=${encodeURIComponent(m.slug)}&date=${singleDate}${basis === 'advance' ? '&kind=advance' : ''}${tq}`
           : null
-        : `/api/analytics/breakdown?slug=${encodeURIComponent(m.slug)}&${selectionQuery(selection)}&dimension=${tab}`;
+        : `/api/analytics/breakdown?slug=${encodeURIComponent(m.slug)}&${selectionQuery(selection)}&dimension=${tab}${tq}`;
     if (!url) {
       setLoading(false);
       setShows(null);
@@ -115,11 +134,15 @@ export default function MovieBreakdownExplorer({ m }: { m: MovieAnalytics }) {
         name: d.label,
         sub: `${formatDate(d.date)}${d.final ? '' : ' · live'}`,
         metrics: d.metrics,
-        extra: { Cumulative: formatGross(sumMetrics(running).gross) }
+        extra: { Cumulative: formatMoney(sumMetrics(running).gross, currency) }
       };
     });
     const total = m.days.length > 1 ? { key: 'total', name: 'TOTAL', sub: '', metrics: { ...sumMetrics(m.days.map((d) => d.metrics)), venues: m.lifetime.venues, cities: m.lifetime.cities, states: m.lifetime.states } } : null;
-    body = rows.length ? <MetricsTable rows={rows} nameHeader="Day" subHeader="Date" extraHeaders={['Cumulative']} totalRow={total} /> : <Empty text="No box office tracked yet." />;
+    body = rows.length ? (
+      <MetricsTable rows={rows} nameHeader="Day" subHeader="Date" extraHeaders={['Cumulative']} totalRow={total} currency={currency} showSeats={us} />
+    ) : (
+      <Empty text="No box office tracked yet." />
+    );
   } else if (tab === 'shows') {
     if (!singleDate) body = <Empty text="Pick a single day (Day N or Advance) to see individual shows." />;
     else if (loading && !shows) body = <Empty text="Loading shows…" />;
@@ -129,15 +152,27 @@ export default function MovieBreakdownExplorer({ m }: { m: MovieAnalytics }) {
       body = (
         <>
           <MetricsTable
-            nameHeader="Venue"
+            currency={currency}
+            nameHeader={us ? 'Theater' : 'Venue'}
             subHeader="City"
-            extraHeaders={['Time', 'Version', 'Seats', 'Sold']}
+            extraHeaders={us ? ['Time', 'Language', 'Format', 'Chain', 'Seats', 'Sold', 'Available', 'Price'] : ['Time', 'Version', 'Seats', 'Sold']}
             rows={list.map((s, i) => ({
               key: `${i}`,
               name: s.venue,
               sub: `${s.city}, ${s.state}`,
               metrics: { gross: s.gross, tickets: s.sold, shows: 1, seats: s.seats, occupancy: s.occupancy, atp: s.sold > 0 ? s.gross / s.sold : null, ff: null, hf: null, venues: null, cities: null, states: null, picGross: null, picTickets: null },
-              extra: { Time: s.time, Version: `${s.language} ${s.format}`, Seats: formatInt(s.seats), Sold: formatInt(s.sold) }
+              extra: (us
+                ? {
+                    Time: s.time,
+                    Language: s.language,
+                    Format: s.format,
+                    Chain: s.chain ?? '',
+                    Seats: s.seats > 0 ? s.seats.toLocaleString('en-US') : 'N/A',
+                    Sold: s.sold.toLocaleString('en-US'),
+                    Available: s.available == null ? 'N/A' : s.available.toLocaleString('en-US'),
+                    Price: formatUsdAtp(s.price ?? null)
+                  }
+                : { Time: s.time, Version: `${s.language} ${s.format}`, Seats: formatInt(s.seats), Sold: formatInt(s.sold) }) as Record<string, string>
             }))}
           />
           <Foot
@@ -158,18 +193,30 @@ export default function MovieBreakdownExplorer({ m }: { m: MovieAnalytics }) {
     const rows = limit === 'all' ? data.rows : data.rows.slice(0, limit);
     const tableRows: MetricsTableRow[] = rows.map((r) =>
       tab === 'show_hour' && r.cumulative
-        ? { key: r.key, name: r.name, sub: r.sub, metrics: r.cumulative, extra: { 'This hour': formatGross(r.metrics.gross), 'Shows this hour': formatInt(r.metrics.shows) } }
+        ? { key: r.key, name: r.name, sub: r.sub, metrics: r.cumulative, extra: { 'This hour': formatMoney(r.metrics.gross, currency), 'Shows this hour': formatInt(r.metrics.shows) } }
         : { key: r.key, name: r.name, sub: r.sub, metrics: r.metrics }
     );
     body = (
       <>
-        <MetricsTable rows={tableRows} nameHeader={nameHeader} subHeader={subHeader} extraHeaders={tab === 'show_hour' ? ['This hour', 'Shows this hour'] : []} />
+        <MetricsTable
+          rows={tableRows}
+          nameHeader={nameHeader}
+          subHeader={subHeader}
+          extraHeaders={tab === 'show_hour' ? ['This hour', 'Shows this hour'] : []}
+          currency={currency}
+          showSeats={us}
+          totalRow={data.totalRow?.metrics ? { key: '__total', name: data.totalRow.label, sub: '', metrics: data.totalRow.metrics } : null}
+          totalStatus={data.totalRow?.status}
+          totalNote={data.totalRow?.note}
+          totalLabel={data.totalRow?.label}
+          occupancyPartial={data.totalRow?.occupancyCoverage === 'PARTIAL'}
+        />
         <Foot
           count={rows.length}
           total={data.rows.length}
           limit={limit}
           setLimit={setLimit}
-          note={tab === 'show_hour' ? 'Running totals by show start time (BFILMY’s “hourly trending”).' : data.source === 'summary' ? 'From the daily summary file (show-level detail not available for every date).' : null}
+          note={tab === 'show_hour' ? 'Running totals by show start time.' : data.source === 'summary' ? 'From the daily summary file (show-level detail not available for every date).' : null}
         />
       </>
     );
@@ -197,7 +244,7 @@ export default function MovieBreakdownExplorer({ m }: { m: MovieAnalytics }) {
         )}
       </div>
       <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 -mx-1 px-1">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             type="button"
