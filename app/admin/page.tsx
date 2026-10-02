@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 import { Card } from '@/components/ui';
 import TableBuilder from '@/components/admin/TableBuilder';
-import SocialPosterTool from '@/components/admin/SocialPosterTool';
+import SocialPosterSection from '@/components/admin/SocialPosterSection';
 import TrackedMoviesTool from '@/components/admin/TrackedMoviesTool';
 import DailyReportsTool from '@/components/admin/DailyReportsTool';
 import UsaMatchingTool from '@/components/admin/UsaMatchingTool';
@@ -333,7 +333,7 @@ function AdminShell() {
   const active = SECTIONS.find((s) => s.key === activeKey) ?? null;
 
   return (
-    <div className="px-5 md:px-10 py-8 max-w-4xl">
+    <div className={`px-5 md:px-10 py-8 ${activeKey === SOCIAL_POSTER_KEY ? 'max-w-7xl' : 'max-w-4xl'}`}>
       <div className="flex justify-between items-center mb-6">
         <h1 className="hdisplay gtext text-2xl">fyre admin</h1>
         <button
@@ -412,7 +412,7 @@ function AdminShell() {
       ) : activeKey === CATALOG_KEY ? (
         <CatalogTool />
       ) : (
-        <SocialPosterTool />
+        <SocialPosterSection />
       )}
     </div>
   );

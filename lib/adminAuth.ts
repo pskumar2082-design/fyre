@@ -18,3 +18,11 @@ export async function requireAdmin(req: NextRequest): Promise<boolean> {
   if (error) console.warn('requireAdmin:', error.message);
   return !error && !!data?.user;
 }
+
+// The signed-in admin (for "imported by" records), or null.
+export async function adminUser(req: NextRequest): Promise<{ id: string; email: string | null } | null> {
+  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+  const { data, error } = await authClient.auth.getUser(token);
+  return error || !data?.user ? null : { id: data.user.id, email: data.user.email ?? null };
+}
