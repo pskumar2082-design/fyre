@@ -1,11 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Search, Film, ListFilter, IndianRupee } from 'lucide-react';
+import { Search, Film, ListFilter } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
-import { getLiveMovies, getCompletedMovies, getMovieDetails, parseReleaseDate, parseAmountToCr } from '@/lib/bfilmy/source';
+import { getLiveMovies, getCompletedMovies, getMovieDetails, parseReleaseDate } from '@/lib/bfilmy/source';
 import { STATE_LABEL, STATE_BADGE } from '@/lib/boxoffice/stateStyle';
-import { Card, IconBadge, SectionHeading, EmptyState, Pill } from '@/components/ui';
-import { Donut } from '@/components/charts';
+import { Card, SectionHeading, EmptyState, Pill } from '@/components/ui';
 import MovieCard from '@/components/MovieCard';
 import ReviewCard from '@/components/ReviewCard';
 import HomeCompareSection from '@/components/compare/HomeCompareSection';
@@ -59,30 +58,18 @@ async function getData() {
     })
   );
 
-  // Today's aggregate gross -- summed live from each live movie's own
-  // "today" figure (todayText), not from the snapshot table, so this is
-  // always accurate to the minute rather than lagging a day behind.
-  const todaysGrossCr = nowShowing.reduce((sum, m) => sum + (parseAmountToCr(m.todayText) ?? 0), 0);
-
   return {
     news: news ?? [],
     reviews: reviews ?? [],
     nowShowing,
     upcoming,
     upcomingRow,
-    completed,
-    completedCount: completed.length,
-    todaysGrossCr
+    completed
   };
 }
 
-function formatCr(cr: number): string {
-  if (cr <= 0) return '—';
-  return cr >= 1 ? `₹${cr.toFixed(2)} Cr` : `₹${(cr * 100).toFixed(1)} L`;
-}
-
 export default async function HomePage() {
-  const { news, reviews, nowShowing, upcoming, upcomingRow, completed, completedCount, todaysGrossCr } = await getData();
+  const { news, reviews, nowShowing, upcoming, upcomingRow, completed } = await getData();
   // Already ordered by the latest day's gross (lib/bfilmy/source.ts).
   const liveTable = nowShowing.slice(0, 8);
   const boxOfficeRow = [...completed].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
@@ -102,63 +89,12 @@ export default async function HomePage() {
   });
 
   return (
-    <div className="px-5 md:px-8 py-8 flex flex-col lg:flex-row gap-6">
-      {/* LEFT — the cream "Today's Statistics" column from the reference:
-          today's real aggregate gross, a live count, and the real
-          Live/Upcoming/Completed split as a donut. No "vs yesterday"
-          comparison line on the two stat cards -- there's no persisted
-          history to back that number honestly (see
-          lib/bfilmy/sync.ts for what now collects it going
-          forward). */}
-      <aside className="order-2 lg:order-1 lg:w-[300px] flex-none bg-bgAlt -mx-5 px-5 pt-8 pb-8 md:-mx-8 md:px-8 mt-6 lg:mt-0 lg:mx-0 lg:px-5 lg:py-6 lg:rounded-2xl">
-        <h2 className="hdisplay text-lg text-text mb-5">Live Snapshot</h2>
-
-        <Card className="p-5 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <IconBadge icon={IndianRupee} tint="blue" size={48} />
-            <span className="text-[11px] font-semibold bg-white/[0.06] text-textDim px-2.5 py-1 rounded-full">Today</span>
-          </div>
-          <div className="text-textFaint text-xs mb-1">Today's Tracked Gross</div>
-          <div className="font-stat font-bold text-5xl text-gold leading-none">{formatCr(todaysGrossCr)}</div>
-          <div className="text-textFaint text-xs mt-2.5">across {nowShowing.length} movie{nowShowing.length === 1 ? '' : 's'} live right now</div>
-        </Card>
-
-        <Card className="p-5 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <IconBadge icon={Film} tint="indigo" size={48} />
-            <span className="text-[11px] font-semibold bg-white/[0.06] text-textDim px-2.5 py-1 rounded-full">Today</span>
-          </div>
-          <div className="text-textFaint text-xs mb-1">Live Now</div>
-          <div className="font-stat font-bold text-5xl text-indigo leading-none">{nowShowing.length}</div>
-          <div className="text-textFaint text-xs mt-2.5">{upcoming.length} upcoming · {completedCount} completed archive</div>
-        </Card>
-
-        {/* Live/Upcoming/Completed all read as one blue-adjacent family
-            here (indigo / blue / faint-white) rather than the red-vs-green
-            pairing this replaced -- red stays reserved for the actual
-            live-tracking badges and pulse dots elsewhere in the app
-            (see lib/boxoffice/stateStyle.ts), not this summary. */}
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-text font-medium">Live vs Upcoming vs Completed</span>
-            <span className="text-[11px] font-semibold bg-white/[0.06] text-textDim px-2.5 py-1 rounded-full">Today</span>
-          </div>
-          <Donut
-            segments={[
-              { label: 'Live', value: nowShowing.length, colorClass: 'text-indigo', dotClass: 'bg-indigo' },
-              { label: 'Upcoming', value: upcoming.length, colorClass: 'text-gold', dotClass: 'bg-gold' },
-              { label: 'Completed', value: completedCount, colorClass: 'text-textFaint', dotClass: 'bg-textFaint' }
-            ]}
-          />
-        </Card>
-      </aside>
-
-      {/* RIGHT — the white main column. Order follows how users actually
-          want to browse: find/compare a movie first, then what's new
+    <div className="px-5 md:px-8 py-8">
+      {/* Main column. Order follows how users actually want to browse: find/compare a movie first, then what's new
           (News, Reviews) and what's coming (Upcoming), then what's
           playing right now (Now Showing) and the full completed archive
           (Box Office). */}
-      <div className="flex-1 min-w-0 order-1 lg:order-2">
+      <div className="min-w-0">
         <Card className="p-5 mb-6">
           <h2 className="hdisplay text-lg text-text mb-4">Find a movie</h2>
           <form action="/search" className="flex flex-wrap items-center gap-3">
