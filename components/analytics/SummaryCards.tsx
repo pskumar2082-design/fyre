@@ -2,8 +2,17 @@ import { Card } from '@/components/ui';
 import { formatMetric, formatMoney, formatOccupancy } from '@/lib/analytics/format';
 import type { MovieAnalytics } from '@/lib/analytics/types';
 
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const shortDate = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d} ${MONTHS_SHORT[(m || 1) - 1]} ${y}`;
+};
+
 // Headline figures for a movie, straight from Fyre Analytics. "Lifetime" is
-// every tracked box-office date added up (advance never included).
+// every tracked box-office date added up (advance never included) -- and
+// only when that is the movie's whole run. A tracked period (carried over,
+// or only the recent part imported under the 90-day rule) is labelled
+// "Tracked ... (since <date>)", never lifetime.
 // USA figures are in USD and labelled as Indian-language screenings.
 export default function SummaryCards({ m }: { m: MovieAnalytics }) {
   const cur = m.currency ?? 'INR';
@@ -11,7 +20,9 @@ export default function SummaryCards({ m }: { m: MovieAnalytics }) {
   const f = (k: Parameters<typeof formatMetric>[0], v: number | null) => formatMetric(k, v, cur);
   const latest = m.latestDay;
   const lt = m.lifetime;
-  const since = m.carriedOver ? ' (since 1 Jan 2025)' : '';
+  const partial = m.carriedOver;
+  const since = partial ? ` (since ${shortDate(m.historyStart ?? '2025-01-01')})` : '';
+  const total = (what: string) => (partial ? `Tracked ${what}` : us ? `Total ${what}` : `Lifetime ${what}`);
   const cards: { label: string; value: string; note?: string | null; accent?: boolean }[] = [];
   if (latest) {
     const p = latest.provenance;
@@ -23,11 +34,11 @@ export default function SummaryCards({ m }: { m: MovieAnalytics }) {
     });
   }
   if (m.days.length) {
-    cards.push({ label: `${us ? 'Total Gross' : 'Lifetime Gross'}${since}`, value: formatMoney(lt.gross, cur), note: `${lt.days} tracked days`, accent: true });
-    cards.push({ label: us ? 'Total Tickets' : 'Lifetime Tickets', value: f('tickets', lt.tickets) });
-    cards.push({ label: us ? 'Total Shows' : 'Lifetime Shows', value: f('shows', lt.shows) });
+    cards.push({ label: `${total('Gross')}${since}`, value: formatMoney(lt.gross, cur), note: `${lt.days} tracked days`, accent: true });
+    cards.push({ label: total('Tickets'), value: f('tickets', lt.tickets) });
+    cards.push({ label: total('Shows'), value: f('shows', lt.shows) });
     cards.push({
-      label: us ? 'Occupancy' : 'Lifetime Occupancy',
+      label: us ? 'Occupancy' : partial ? 'Tracked Occupancy' : 'Lifetime Occupancy',
       value: formatOccupancy(lt.occupancy),
       note: us && m.days.some((d) => (d.provenance?.zeroSeatShows ?? 0) > 0) ? 'tickets ÷ seats; shows with no seat count excluded' : us ? 'tickets ÷ seats' : null
     });

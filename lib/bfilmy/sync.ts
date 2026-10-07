@@ -5,8 +5,11 @@
 // synced numbers) even if BFILMY is briefly unreachable.
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { fetchAliases, fetchPosterRows, fetchSummary } from './fetch';
-import { buildAliasMap, buildPosterMap, normalizeSummaryFile, slugify, titleKey, toStoredBreakdown } from './normalize';
+import { buildPosterMap, normalizeSummaryFile, slugify, titleKey, toStoredBreakdown } from './normalize';
 import type { BfKind, BfMovieDay } from './types';
+import { fyreAliasMap } from '@/lib/catalog/aliases';
+import { discoverIndia, type DiscoveryCache } from '@/lib/catalog/listings';
+import { refreshCatalogMetadata } from '@/lib/catalog/admin';
 
 // Calendar date in India (BFILMY's day boundaries), offset by whole days.
 export function istDate(offsetDays = 0, now: Date = new Date()): string {
@@ -33,6 +36,8 @@ export type SyncResult = {
   moviesRefreshed: number;
   postersSet: number;
   advancePruned: number;
+  // Discovery (scheduled runs): India titles that became Fyre movies this run.
+  listings?: { writes: number; attached: string[]; created: string[]; review: number; newSlugs: string[]; titles: number };
   errors: string[];
 };
 
@@ -173,7 +178,7 @@ async function refreshMovies(slugs: string[]): Promise<void> {
 // Fills in posters (from BFILMY's District movie list) for movies that
 // don't have one yet. Titles are matched loosely (case/punctuation/spacing
 // ignored); a movie with no match simply keeps no poster.
-async function fillPosters(): Promise<number> {
+async function fillPosters(): Promise<{ set: number; map: Map<string, string> | null }> {
   const missing: { slug: string; title: string }[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabaseAdmin
@@ -185,7 +190,7 @@ async function fillPosters(): Promise<number> {
     missing.push(...(data ?? []));
     if (!data || data.length < 1000) break;
   }
-  if (missing.length === 0) return 0;
+  if (missing.length === 0) return { set: 0, map: null };
 
   const posters = buildPosterMap(await fetchPosterRows());
   const updates = missing
@@ -195,7 +200,7 @@ async function fillPosters(): Promise<number> {
     const { error } = await supabaseAdmin.from('bf_movie').upsert(batch, { onConflict: 'slug' });
     if (error) throw new Error(`bf_movie poster upsert: ${error.message}`);
   }
-  return updates.length;
+  return { set: updates.length, map: posters };
 }
 
 const debug = (msg: string) => {
@@ -204,17 +209,27 @@ const debug = (msg: string) => {
 
 export async function syncBfilmy(
   targets: SyncTarget[] = defaultTargets(),
-  // tracked: the BFILMY title keys to import (Fyre only stores the movies
-  // MovieMint lists -- see lib/tracking.ts). Every other title in a file is
-  // skipped and never stored.
-  opts: { posters?: boolean; prune?: boolean; recordState?: boolean; tracked?: Set<string> } = {}
+  // tracked: the BFILMY title keys to import -- the titles filed under a
+  // Fyre movie (lib/tracking.ts). Every other title in a file is skipped and
+  // its figures are never stored.
+  // listings (scheduled runs only): discovery -- record every title seen
+  // (identity only), attach it to its Fyre movie or create one when that is
+  // certain, else leave it for the admin (lib/catalog/listings.ts). Titles
+  // that become Fyre movies are added to `tracked` and imported from the
+  // same file, in the same run (one fetch per file).
+  // importKeys (catalog bootstrap): import only these titles' figures (plus
+  // any discovered in this call) -- `tracked` is then used for discovery only.
+  // budget: automatic creations allowed, shared across calls.
+  opts: { posters?: boolean; prune?: boolean; recordState?: boolean; tracked?: Set<string>; listings?: boolean; importKeys?: Set<string>; budget?: { left: number } } = {}
 ): Promise<SyncResult> {
   const startedAt = new Date().toISOString();
   const errors: string[] = [];
   const files: SyncFileResult[] = [];
   const touched = new Set<string>();
 
-  const aliasMap = buildAliasMap(await fetchAliases());
+  const aliasMap = await fyreAliasMap(await fetchAliases());
+  const discoveryCache: DiscoveryCache = opts.budget ? { budget: opts.budget } : {};
+  const listings = { writes: 0, attached: [] as string[], created: [] as string[], review: 0, newSlugs: [] as string[], titles: 0 };
 
   for (const t of targets) {
     try {
@@ -225,7 +240,27 @@ export async function syncBfilmy(
         continue;
       }
       const all = normalizeSummaryFile(got.file, t.kind, t.date, aliasMap);
-      const days = opts.tracked ? all.filter((d) => opts.tracked!.has(d.key)) : all;
+      if (opts.listings && opts.tracked) {
+        try {
+          const present = all.filter((d) => opts.tracked!.has(d.key));
+          await applyStableSlugs(present);
+          const r = await discoverIndia(all, t.date, new Map(present.map((d) => [d.key, d.slug])), discoveryCache);
+          for (const [k, slug] of r.newKeys) {
+            opts.tracked.add(k);
+            opts.importKeys?.add(k);
+            listings.newSlugs.push(slug);
+          }
+          listings.writes += r.writes;
+          listings.attached.push(...r.attached);
+          listings.created.push(...r.created);
+          listings.review += r.review;
+          listings.titles += r.titles;
+        } catch (err: any) {
+          errors.push(`discovery ${t.kind} ${t.date}: ${err?.message ?? err}`);
+        }
+      }
+      const only = opts.importKeys ?? opts.tracked;
+      const days = only ? all.filter((d) => only.has(d.key)) : all;
       debug(`  fetched ${got.url.includes(`${t.date.slice(0, 4)}.pages`) ? 'archive' : 'current'}; slugs`);
       await applyStableSlugs(days);
       debug(`  upsert ${days.length}`);
@@ -252,7 +287,10 @@ export async function syncBfilmy(
   let postersSet = 0;
   if (opts.posters !== false) {
     try {
-      postersSet = await fillPosters();
+      const p = await fillPosters();
+      postersSet = p.set;
+      // Fyre-created movies still missing a poster: same list, no extra request.
+      if (p.map && opts.listings) await refreshCatalogMetadata(undefined, p.map).catch(() => undefined);
     } catch (err: any) {
       errors.push(err?.message ?? String(err));
     }
@@ -265,7 +303,7 @@ export async function syncBfilmy(
     else advancePruned = Number(data) || 0;
   }
 
-  const result: SyncResult = { startedAt, finishedAt: new Date().toISOString(), files, moviesRefreshed, postersSet, advancePruned, errors };
+  const result: SyncResult = { startedAt, finishedAt: new Date().toISOString(), files, moviesRefreshed, postersSet, advancePruned, ...(opts.listings ? { listings } : {}), errors };
 
   if (opts.recordState !== false) {
     const { error } = await supabaseAdmin

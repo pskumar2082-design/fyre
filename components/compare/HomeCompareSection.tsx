@@ -70,7 +70,7 @@ export default function HomeCompareSection({ movies }: { movies: TTListedMovie[]
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             {ROWS.map((k) => (
               <div key={k} className="rounded-xl border border-border p-3">
-                <div className="mdtype-overline text-textFaint mb-1.5">Lifetime {METRIC_LABELS[k]}</div>
+                <div className="mdtype-overline text-textFaint mb-1.5">{data.selectionLabel || 'Lifetime'} {METRIC_LABELS[k]}</div>
                 {data.movies.map((m, i) => (
                   <div key={m.slug} className="flex justify-between text-sm">
                     <span className="text-textDim truncate mr-2">{m.title}</span>

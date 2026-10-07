@@ -33,9 +33,11 @@ export async function GET(req: NextRequest) {
   const files: UsFileResult[] = [];
   try {
     const movies = await loadTrackedMovies();
+    // Discovery budget for this run (new Fyre movies from new USA listings).
+    const discover = process.env.CATALOG_AUTO_CREATE === '0' ? null : { left: Number(process.env.CATALOG_AUTO_CREATE_MAX ?? 25) };
     for (const t of defaultUsTargets()) {
       if (Date.now() > deadline) break;
-      const r = await syncUsFile(t.kind, t.date, { movies });
+      const r = await syncUsFile(t.kind, t.date, { movies, discover });
       files.push(r);
       if (r.status === 'error') errors.push(`${t.kind} ${t.date}: ${r.error}`);
     }

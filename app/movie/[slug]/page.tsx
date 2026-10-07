@@ -4,9 +4,10 @@ import { ArrowLeft } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getMovieDetails, parseReleaseDate } from '@/lib/bfilmy/source';
+import { formatDate } from '@/lib/bfilmy/adapter';
 import type { TTMovieMetaItem } from '@/lib/boxoffice/types';
 import { loadMovieAnalytics } from '@/lib/analytics/load';
-import { formatGross } from '@/lib/analytics/format';
+import { formatGross, formatMoney } from '@/lib/analytics/format';
 import TerritoryTabs from '@/components/analytics/TerritoryTabs';
 import { loadUsaAnalytics } from '@/lib/analytics/usa';
 import { STATE_BADGE } from '@/lib/boxoffice/stateStyle';
@@ -31,14 +32,15 @@ function metaValue(meta: TTMovieMetaItem[], pattern: RegExp): string | null {
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   let details;
   let analytics;
+  let usa;
   try {
-    [details, analytics] = await Promise.all([getMovieDetails(params.slug, 'summary'), loadMovieAnalytics(params.slug)]);
+    [details, analytics, usa] = await Promise.all([getMovieDetails(params.slug, 'summary'), loadMovieAnalytics(params.slug), loadUsaAnalytics(params.slug).catch(() => null)]);
   } catch {
     details = null;
   }
-  if (!details || !analytics) return {};
+  if (!details || (!analytics && !usa)) return {};
 
-  const gross = analytics.days.length ? formatGross(analytics.lifetime.gross) : null;
+  const gross = analytics?.days.length ? formatGross(analytics.lifetime.gross) : usa?.days.length ? `${formatMoney(usa.lifetime.gross, 'USD')} (USA)` : null;
   const title = `${details.title} Box Office Collection${gross ? ` — ${gross}` : ''}`;
   const description = [
     `${details.title} live box office collection`,
@@ -73,40 +75,44 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 export default async function MoviePage({ params }: { params: { slug: string } }) {
   let details;
   let analytics;
+  let usa;
   try {
-    [details, analytics] = await Promise.all([getMovieDetails(params.slug, 'summary'), loadMovieAnalytics(params.slug)]);
+    // India and USA (Indian-language screenings) load independently: a Fyre
+    // movie can have either or both, and a USA failure never takes the
+    // India page down.
+    [details, analytics, usa] = await Promise.all([getMovieDetails(params.slug, 'summary'), loadMovieAnalytics(params.slug), loadUsaAnalytics(params.slug).catch(() => null)]);
   } catch {
     details = null;
   }
-  if (!details || !analytics) notFound();
-  // USA (Indian-language screenings), when the movie has any. A USA
-  // failure never takes the India page down.
-  const usa = await loadUsaAnalytics(params.slug).catch(() => null);
+  if (!details || (!analytics && !usa)) notFound();
 
   // Headline figure from Fyre Analytics -- the same numbers as the cards,
-  // the breakdowns, Movie Comparison and the poster.
-  const lt = analytics.lifetime;
-  const latestAdvance = analytics.advance[analytics.advance.length - 1];
+  // the breakdowns, Movie Comparison and the poster. India leads when the
+  // movie has India data; a USA-only movie leads with its USA figure (USD).
+  const lead = analytics ?? usa!;
+  const cur = lead.currency ?? 'INR';
+  const lt = lead.lifetime;
+  const latestAdvance = lead.advance[lead.advance.length - 1];
   const badgeText =
-    analytics.state === 'live'
-      ? `Live Tracking${analytics.latestDay && analytics.latestDay.day != null ? ` · ${analytics.latestDay.label}` : ''}`
-      : analytics.state === 'advance'
+    lead.state === 'live'
+      ? `Live Tracking${lead.latestDay && lead.latestDay.day != null ? ` · ${lead.latestDay.label}` : ''}`
+      : lead.state === 'advance'
         ? 'Advance Booking'
-        : analytics.state === 'final'
+        : lead.state === 'final'
           ? 'Final'
           : details.badgeText || details.state;
-  const headlineGross = analytics.days.length ? formatGross(lt.gross) : latestAdvance ? formatGross(latestAdvance.metrics.gross) : details.headlineGross;
-  const headlineLabel = analytics.days.length
-    ? analytics.carriedOver
-      ? 'Tracked gross since 1 Jan 2025'
-      : `Tracked Gross · ${analytics.state === 'live' ? `${analytics.latestDay?.label ?? ''} running` : `Final · ${lt.days} days with shows`}`
+  const headlineGross = lead.days.length ? formatMoney(lt.gross, cur) : latestAdvance ? formatMoney(latestAdvance.metrics.gross, cur) : details.headlineGross;
+  const headlineLabel = lead.days.length
+    ? lead.carriedOver
+      ? `Tracked gross since ${formatDate(lead.historyStart ?? '2025-01-01')}`
+      : `Tracked Gross · ${lead.state === 'live' ? `${lead.latestDay?.label ?? ''} running` : `Final · ${lt.days} days with shows`}`
     : latestAdvance
       ? `Advance Gross · ${latestAdvance.label}`
       : details.headlineLabel;
-  const backHref =
-    details.state === 'final' ? '/box-office' : details.state === 'live' ? '/now-showing' : '/upcoming';
-  const backLabel =
-    details.state === 'final' ? 'Box office archive' : details.state === 'live' ? 'Now showing' : 'Upcoming releases';
+  const headlinePrefix = analytics ? (usa ? 'India · ' : '') : 'USA · Indian-language screenings · ';
+  const state = analytics ? details.state : usa!.state;
+  const backHref = state === 'final' ? '/box-office' : state === 'live' ? '/now-showing' : '/upcoming';
+  const backLabel = state === 'final' ? 'Box office archive' : state === 'live' ? 'Now showing' : 'Upcoming releases';
 
   // Schema.org structured data -- what actually earns a movie a rich
   // result (poster, cast, release date) in Google rather than a plain
@@ -156,9 +162,9 @@ export default async function MoviePage({ params }: { params: { slug: string } }
             )}
           </div>
           <div className="min-w-0 flex flex-col justify-center">
-            {analytics.state !== 'unknown' && (
-              <span className={`inline-flex items-center gap-1.5 w-fit text-[11px] font-bold uppercase px-2.5 py-1 rounded-lg mb-2.5 ${STATE_BADGE[analytics.state]}`}>
-                {analytics.state === 'live' && (
+            {lead.state !== 'unknown' && (
+              <span className={`inline-flex items-center gap-1.5 w-fit text-[11px] font-bold uppercase px-2.5 py-1 rounded-lg mb-2.5 ${STATE_BADGE[lead.state]}`}>
+                {lead.state === 'live' && (
                   <span className="relative flex w-1.5 h-1.5">
                     <span className="absolute inline-flex w-full h-full rounded-full bg-white/60 animate-ping" />
                     <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-white" />
@@ -171,7 +177,7 @@ export default async function MoviePage({ params }: { params: { slug: string } }
             {headlineGross && (
               <div className="mt-3">
                 <div className="text-gold font-stat font-bold text-5xl sm:text-6xl leading-none">{headlineGross}</div>
-                {headlineLabel && <div className="text-textFaint text-xs mt-1">{usa ? `India · ${headlineLabel}` : headlineLabel}</div>}
+                {headlineLabel && <div className="text-textFaint text-xs mt-1">{`${headlinePrefix}${headlineLabel}`}</div>}
               </div>
             )}
           </div>
@@ -198,7 +204,7 @@ export default async function MoviePage({ params }: { params: { slug: string } }
         </Card>
       )}
 
-      <TerritoryTabs india={analytics} usa={usa} />
+      <TerritoryTabs india={analytics ?? null} usa={usa ?? null} />
     </div>
   );
 }

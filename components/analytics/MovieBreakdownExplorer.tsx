@@ -8,6 +8,12 @@ import { sumMetrics } from '@/lib/analytics/metrics';
 import type { Breakdown, Dimension, MovieAnalytics, Selection } from '@/lib/analytics/types';
 import type { ShowList } from '@/lib/analytics/shows';
 
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const shortDate = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d} ${MONTHS_SHORT[(m || 1) - 1]} ${y}`;
+};
+
 type Tab = 'daywise' | Dimension | 'shows';
 
 const TABS: { key: Tab; label: string }[] = [
@@ -230,7 +236,7 @@ export default function MovieBreakdownExplorer({ m, initial }: { m: MovieAnalyti
         <select className={select} value={basis} onChange={(e) => setBasis(e.target.value as Selection['basis'])} aria-label="Basis">
           {releaseDays.length > 0 && <option value="day">Tracked day</option>}
           {releaseDays.length > 0 && <option value="cumulative">Cumulative through day</option>}
-          {m.days.length > 0 && <option value="lifetime">{m.carriedOver ? 'Tracked since 1 Jan 2025' : 'Lifetime'}</option>}
+          {m.days.length > 0 && <option value="lifetime">{m.carriedOver ? `Tracked since ${shortDate(m.historyStart ?? '2025-01-01')}` : 'Lifetime'}</option>}
           {advanceDays.length > 0 && <option value="advance">Advance booking</option>}
         </select>
         {basis !== 'lifetime' && !noDays && (

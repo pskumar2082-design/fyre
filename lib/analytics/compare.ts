@@ -123,7 +123,7 @@ export async function getComparison(req: CompareRequest): Promise<Comparison> {
     totals,
     selection: sel,
     context: contextLine(sel, us ? 'US' : 'IN'),
-    selectionLabel: selectionLabel(sel),
+    selectionLabel: selectionLabel(sel, movies),
     movies: cmpMovies,
     dimension: req.dimension ?? null,
     dimensionLabel: req.dimension ? DIMENSION_LABELS[req.dimension] : null,

@@ -28,21 +28,33 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { dateRange, syncBfilmy, type SyncTarget } from '../lib/bfilmy/sync';
 import { syncDetail } from '../lib/bfilmy/detailSync';
 import { fetchAliases } from '../lib/bfilmy/fetch';
-import { buildAliasMap } from '../lib/bfilmy/normalize';
+import { fyreAliasMap } from '../lib/catalog/aliases';
 import { trackedKeys } from '../lib/tracking';
+import { ACTIVE_WINDOW_DAYS, windowStart } from '../lib/catalog/core';
+import { istDate } from '../lib/bfilmy/sync';
 
-// Only movies Fyre tracks (MovieMint's list, matched to BFILMY) are ever
-// imported; every other title in BFILMY's files is skipped.
+// 90-day rule: BFILMY history older than the active window is not imported
+// just because it exists. --allow-old overrides (deliberate one-off fixes).
+function checkWindow(from: string, args: string[]) {
+  const floor = windowStart(istDate(0));
+  if (from && from < floor && !args.includes('--allow-old')) {
+    console.error(`${from} is older than the ${ACTIVE_WINDOW_DAYS}-day window (from ${floor}). Add --allow-old only for a deliberate one-off fix.`);
+    process.exit(1);
+  }
+}
+
+// Only movies in Fyre's catalog are ever imported; every other title in
+// BFILMY's files is skipped.
 async function tracked() {
   const t = await trackedKeys(supabaseAdmin as any);
-  if (t.keys.size === 0) throw new Error('No tracked movies yet: run scripts/moviemint-sync.ts --catalog first.');
+  if (t.keys.size === 0) throw new Error('No catalog movies yet: run scripts/catalog-bootstrap.ts --start first.');
   return t;
 }
 
 async function detailRange(from: string, to: string, withAdvance: boolean, keepShowDays: number) {
   const dates = dateRange(from, to);
   if (dates.length === 0) throw new Error('invalid date range');
-  const aliasMap = buildAliasMap(await fetchAliases());
+  const aliasMap = await fyreAliasMap(await fetchAliases());
   const t = await tracked();
   let failed = 0;
   for (const date of dates) {
@@ -105,6 +117,7 @@ async function main() {
   const args = process.argv.slice(2);
   if (args[0] === '--detail') {
     const [from, to] = args.slice(1).filter((a) => !a.startsWith('--') && /^\d{4}-\d{2}-\d{2}$/.test(a));
+    checkWindow(from, args);
     const k = args.indexOf('--keep-shows');
     await detailRange(from, to ?? from, !args.includes('--no-advance'), k >= 0 ? Number(args[k + 1]) : 7);
     return;
@@ -114,6 +127,7 @@ async function main() {
     return;
   }
   const [from, to] = args.filter((a) => !a.startsWith('--'));
+  checkWindow(from, args);
   const withAdvance = !args.includes('--no-advance');
   if (args.includes('--reset')) await resetTables();
   if (!from || !to) {

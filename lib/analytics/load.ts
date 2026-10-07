@@ -1,7 +1,7 @@
 // Supabase reads for Fyre Analytics. Server-side only (uses the public
 // anon client; every table read here is public-read).
 import { supabase } from '@/lib/supabaseClient';
-import { publicTrackedSlugs } from '@/lib/tracking';
+import { applyCatalogHistory, publicTrackedSlugs } from '@/lib/tracking';
 import { dayNumber, dayOneDate, formatDate, movieState, type BfMovieRow } from '@/lib/bfilmy/adapter';
 import { hourOrder, NO_SALES_BAND, PRICE_BANDS, TIME_SLOTS } from '@/lib/bfilmy/detail';
 import { makeMetrics, metricsFromTuple, sumMetrics } from './metrics';
@@ -100,7 +100,9 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
     const { data: rowData, error } = await supabase.from('bf_movie').select(MOVIE_COLUMNS).eq('slug', safe).maybeSingle();
     if (error) throw new Error(`bf_movie: ${error.message}`);
     if (!rowData) return null;
-    const row = rowData as BfMovieRow;
+    // 90-day rule: a long-running movie Fyre imported only the recent part
+    // of is shown like a carried-over one (no Day numbers, tracked period).
+    const [row] = await applyCatalogHistory([rowData as BfMovieRow]);
 
     const [dayRows, detailRows] = await Promise.all([
       selectAll<any>((f, t) => supabase.from('bf_movie_day').select('kind,date,totals,source_updated,breakdown_pruned').eq('slug', safe).order('date').range(f, t), 'bf_movie_day'),
@@ -168,6 +170,7 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
       dayOne,
       premiereDate: premiere,
       carriedOver: !!row.carried_over,
+      historyStart: row.carried_over ? row.history_start ?? row.first_date ?? null : null,
       latestDay: days[days.length - 1] ?? null,
       days,
       advance,
@@ -181,11 +184,17 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
 // Selections
 // ---------------------------------------------------------------------------
 
-export function selectionLabel(s: Selection): string {
-  if (s.basis === 'lifetime') return 'Lifetime';
+// "Lifetime" only when every movie's full run is stored; a tracked period
+// (carried over, or only the recent part imported) is never called lifetime.
+export function selectionLabel(s: Selection, movies: Pick<MovieAnalytics, 'carriedOver'>[] = []): string {
+  if (s.basis === 'lifetime') return movies.some((m) => m.carriedOver) ? 'Total tracked' : 'Lifetime';
   if (s.basis === 'cumulative') return s.day === 1 ? 'First 1 day' : `First ${s.day} days`;
   if (s.basis === 'advance') return `Advance · Day ${s.day}`;
   return s.day === 0 ? 'Day 0 (Pre-release)' : `Day ${s.day}`;
+}
+
+export function sinceText(m: Pick<MovieAnalytics, 'historyStart'>): string {
+  return `Tracked since ${formatDate(m.historyStart ?? '2025-01-01')}`;
 }
 
 export type Resolved = { kind: 'boxoffice' | 'advance'; points: DayPoint[]; reason: string | null };
@@ -205,9 +214,9 @@ export function firstNDays(m: MovieAnalytics, n: number): DayPoint[] | null {
 // date shared with another movie.
 export function resolveSelection(m: MovieAnalytics, s: Selection): Resolved {
   if (s.basis === 'lifetime') {
-    return { kind: 'boxoffice', points: m.days, reason: m.days.length ? null : 'No box office tracked yet' };
+    return { kind: 'boxoffice', points: m.days, reason: m.days.length ? (m.carriedOver ? `${sinceText(m)} — not full lifetime` : null) : 'No box office tracked yet' };
   }
-  if (m.carriedOver) return { kind: 'boxoffice', points: [], reason: 'Released before tracking began (1 Jan 2025); release days unknown' };
+  if (m.carriedOver) return { kind: 'boxoffice', points: [], reason: `Released before tracking began (${formatDate(m.historyStart ?? '2025-01-01')}); release days unknown` };
   if (s.basis === 'advance') {
     const p = m.advance.find((a) => a.day === s.day);
     return { kind: 'advance', points: p ? [p] : [], reason: p ? null : `No advance snapshot for Day ${s.day}` };

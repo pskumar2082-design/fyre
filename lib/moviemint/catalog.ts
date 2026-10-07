@@ -75,10 +75,10 @@ export function parseTrackedPage(html: string): MovieMintMovie[] {
 
 const INTERACTIVE_CHALLENGE = /attention required|cf-chl-widget|g-recaptcha|h-captcha|verify you are human/i;
 
-export async function fetchTrackedList(): Promise<{ movies: MovieMintMovie[]; fetchedAt: string }> {
+export async function fetchTrackedList(timeoutMs = 30000): Promise<{ movies: MovieMintMovie[]; fetchedAt: string }> {
   const res = await axios.get<string>(TRACKED_URL, {
     headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' },
-    timeout: 30000,
+    timeout: timeoutMs,
     responseType: 'text',
     validateStatus: () => true
   });
@@ -87,7 +87,7 @@ export async function fetchTrackedList(): Promise<{ movies: MovieMintMovie[]; fe
   if (INTERACTIVE_CHALLENGE.test(html)) throw new Error('MovieMint answered with an interactive challenge; not retrying');
   const movies = parseTrackedPage(html);
   // A page-structure change must never be mistaken for "every movie left
-  // MovieMint" (which would end tracking for all of them).
+  // MovieMint's list".
   if (movies.length < 10) throw new Error(`MovieMint /tracked parsed only ${movies.length} movies; page format may have changed`);
   return { movies, fetchedAt: new Date().toISOString() };
 }

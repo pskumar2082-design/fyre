@@ -27,7 +27,8 @@ export type BfMovieRow = {
   poster: string | null;
   release_date: string | null;
   premiere_date?: string | null; // the day just before Day 1, if it had shows (Day 0)
-  carried_over?: boolean | null; // already running when the archive starts (2025-01-01)
+  carried_over?: boolean | null; // already running when the archive starts (2025-01-01), or only its recent part imported (90-day rule)
+  history_start?: string | null; // set when carried over by the 90-day rule: first imported date
   first_date: string | null;
   last_date: string | null;
   days_tracked: number | null;
@@ -132,6 +133,11 @@ export function dayOneDate(row: Pick<BfMovieRow, 'first_date' | 'release_date' |
 // lifetime numbers or with invented Day counts.
 export const ARCHIVE_START = '2025-01-01';
 const SINCE_ARCHIVE = 'Tracked gross since 1 Jan 2025';
+// A movie Fyre imported only the recent part of (90-day rule): "since <its
+// first imported date>"; otherwise the archive start.
+function sinceLabel(row: Pick<BfMovieRow, 'history_start'>): string {
+  return row.history_start ? `Tracked gross since ${formatDate(row.history_start)}` : SINCE_ARCHIVE;
+}
 
 // Report headings stay "Day N" (including "Day 0") because the movie
 // page's grouping matches /^Day \d+$/. Day 0 is the day just before
@@ -196,7 +202,7 @@ export function listedFromRow(row: BfMovieRow, today: string): TTListedMovie {
     releaseText: row.release_date && !row.carried_over ? `${released ? 'Released' : 'Releasing'} ${formatDate(row.release_date)}` : null,
     genre: primaryLanguages(row),
     poster: row.poster,
-    grossLabel: row.carried_over ? SINCE_ARCHIVE : released ? 'Tracked Gross' : 'Advance Gross',
+    grossLabel: row.carried_over ? sinceLabel(row) : released ? 'Tracked Gross' : 'Advance Gross',
     gross: grossRupees > 0 ? formatMoney(grossRupees) : null,
     grossCr: grossRupees > 0 ? Math.round((grossRupees / 1e7) * 100) / 100 : null,
     todayText: todayGross != null ? formatMoney(todayGross) : null,
@@ -363,7 +369,7 @@ export function detailsFromData(
   const totalSeats = n(row.total_seats);
   const dayNote = (date: string) => (first ? dayLabelFor(date, first, row.premiere_date) || null : formatDate(date));
   if (released) {
-    stats.push({ label: row.carried_over ? SINCE_ARCHIVE : 'Tracked Gross', value: formatMoney(totalGross), note: null });
+    stats.push({ label: row.carried_over ? sinceLabel(row) : 'Tracked Gross', value: formatMoney(totalGross), note: null });
     if (row.latest?.date) {
       stats.push({
         label: row.latest.date === today ? "Today's Gross" : 'Latest Day',
@@ -382,7 +388,8 @@ export function detailsFromData(
   }
 
   const meta: TTMovieMetaItem[] = [];
-  if (row.carried_over) meta.push({ label: 'Released', value: 'Before 1 Jan 2025 (figures shown are from 1 Jan 2025)', wide: true });
+  if (row.carried_over && row.history_start) meta.push({ label: 'Released', value: `Before ${formatDate(row.history_start)} (figures shown are from ${formatDate(row.history_start)})`, wide: true });
+  else if (row.carried_over) meta.push({ label: 'Released', value: 'Before 1 Jan 2025 (figures shown are from 1 Jan 2025)', wide: true });
   else if (row.release_date) meta.push({ label: released ? 'Released On' : 'Releasing On', value: formatDate(row.release_date), wide: false });
   if (row.languages?.length) meta.push({ label: 'Languages', value: row.languages.join(', '), wide: false });
   if (row.formats?.length) meta.push({ label: 'Formats', value: row.formats.join(', '), wide: true });
@@ -392,7 +399,7 @@ export function detailsFromData(
   const headlineGross = released ? formatMoney(totalGross) : row.advance ? formatMoney(n(row.advance.gross)) : null;
   const headlineLabel = released
     ? row.carried_over
-      ? `${SINCE_ARCHIVE} · released earlier`
+      ? `${sinceLabel(row)} · released earlier`
       : state === 'live'
         ? `Tracked Gross · Day ${dayN} running`
         : `Tracked Gross · Final · ${daysWithShows} days with shows`

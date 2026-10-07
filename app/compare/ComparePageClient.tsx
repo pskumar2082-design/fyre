@@ -256,7 +256,7 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
                         <td className="py-2 px-4 text-textFaint text-xs">Availability</td>
                         {data.movies.map((m) => (
                           <td key={m.slug} className="py-2 px-4 text-right text-xs text-textFaint">
-                            {m.available ? 'Tracked' : m.reason}
+                            {m.available ? m.reason ?? 'Tracked' : m.reason}
                           </td>
                         ))}
                       </tr>

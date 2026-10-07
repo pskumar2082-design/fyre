@@ -6,9 +6,9 @@ import { supabase } from '@/lib/supabaseClient';
 import { Card } from '@/components/ui';
 import { formatDate } from '@/lib/bfilmy/adapter';
 
-// Admin → Tracked movies. MovieMint decides which movies Fyre tracks; each
-// one is matched to a BFILMY movie (automatically when certain, otherwise
-// here). See lib/moviemint and app/api/admin/tracked.
+// Admin → MovieMint (legacy). Read-mostly view of the stored MovieMint list
+// next to Fyre's catalog. MovieMint is enrichment only: it never decides
+// which movies Fyre tracks (BFILMY discovery + the Catalog tab do).
 
 type Row = {
   moviemint: { moviemint_id: string; title: string; language: string | null; release_date: string | null; poster: string | null; badge: string | null; source_url: string; last_tracked_date: string | null; on_list: boolean };
@@ -107,7 +107,7 @@ export default function TrackedMoviesTool() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="text-xs text-textFaint">
-          MovieMint list: {mmSync ? `${mmSync.movies} movies · checked ${new Date(mmSync.fetchedAt).toLocaleString('en-IN')}` : 'not synced yet'} · {groups.active.length} tracking · {groups.review.length} need review · {groups.ended.length} ended
+          MovieMint (legacy, enrichment only): {mmSync ? `${mmSync.movies} movies · checked ${new Date(mmSync.fetchedAt).toLocaleString('en-IN')}` : 'not synced yet'} · {groups.active.length} tracking · {groups.review.length} need review · {groups.ended.length} ended
         </div>
         <button
           type="button"
@@ -115,7 +115,7 @@ export default function TrackedMoviesTool() {
           onClick={() => act('catalog')}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold border border-gold/30 rounded-full px-3 py-1.5 hover:bg-gold/10 disabled:opacity-50"
         >
-          <RefreshCw size={13} className={busy === 'catalog:' ? 'animate-spin' : ''} /> Refresh MovieMint list
+          <RefreshCw size={13} className={busy === 'catalog:' ? 'animate-spin' : ''} /> Refresh MovieMint data (optional)
         </button>
       </div>
       <div className="flex gap-1.5 mb-4">

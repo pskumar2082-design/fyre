@@ -1,10 +1,14 @@
 // USA import: BFILMY USA files -> us_* tables (supabase/migration_bfilmy_usa.sql).
-// Only source ids matched to a MovieMint-tracked Fyre movie are imported.
+// Only source ids matched to a Fyre movie are imported. Scheduled runs also
+// discover: a new USA listing can become a Fyre movie (no MovieMint needed).
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { dayOneDate } from '@/lib/bfilmy/adapter';
 import { fetchUsFile, type UsFetch } from './fetch';
 import { aggregateMovie, listSourceMovies, parseUsFile, US_DETAIL_DIMENSIONS, US_DIMENSIONS, type UsFile, type UsKind, type UsMovieDay } from './normalize';
 import { matchUsIds, usTitleKey, type TrackedMovie } from './match';
+import { discoveryAction, findRelated, historyComplete, NOTE, windowStart } from '@/lib/catalog/core';
+import { bootstrapRunning } from '@/lib/catalog/bootstrapState';
+import { createCatalogMovie } from '@/lib/catalog/create';
 import { usDayOne, usFinal, usReleaseDay, usToday } from './days';
 
 const db = supabaseAdmin as any;
@@ -28,44 +32,99 @@ async function must<T>(p: PromiseLike<{ data: T; error: { message: string } | nu
   return data;
 }
 
-// Tracked Fyre movies (matched on MovieMint) with the titles a USA listing
-// may use and the India Day 1.
-export async function loadTrackedMovies(): Promise<(TrackedMovie & { active: boolean; indiaDayOne: string | null })[]> {
-  const tracked = await must<any[]>(db.from('fyre_tracked_movie').select('moviemint_id,bf_slug,tracking_status').eq('match_status', 'matched').not('bf_slug', 'is', null), 'fyre_tracked_movie');
+// Fyre movies (the canonical catalog: MovieMint-discovered or created by an
+// admin from a source listing) with every title a source listing may use
+// and the India Day 1.
+//   indiaDayOne: India Day 1 (or a known release date) -- the USA Day 1 rule
+//   dayOne:      the same, else the first date the creating listing had
+//                shows (matching window only)
+export async function loadTrackedMovies(): Promise<(TrackedMovie & { active: boolean; indiaDayOne: string | null; origin: string; title: string | null; hasIndia: boolean; languages: string[] })[]> {
+  let tracked: any[];
+  try {
+    tracked = await must<any[]>(
+      db.from('fyre_tracked_movie').select('moviemint_id,bf_slug,tracking_status,origin,title,release_date,first_source_date,languages').eq('match_status', 'matched').not('bf_slug', 'is', null),
+      'fyre_tracked_movie'
+    );
+  } catch (err: any) {
+    // Before migration_catalog.sql: the original columns only.
+    if (!/origin|first_source_date|release_date|title|languages/.test(String(err?.message))) throw err;
+    tracked = await must<any[]>(db.from('fyre_tracked_movie').select('moviemint_id,bf_slug,tracking_status').eq('match_status', 'matched').not('bf_slug', 'is', null), 'fyre_tracked_movie');
+  }
   const ids = tracked.map((t) => t.moviemint_id);
   const slugs = tracked.map((t) => t.bf_slug);
+  // MovieMint's stored list is optional enrichment (an extra title spelling,
+  // a release date); if it is missing or unreadable nothing here changes.
   const mm = new Map<string, any>();
-  for (const c of chunks(ids, 200)) for (const r of await must<any[]>(db.from('mm_movie').select('moviemint_id,title,release_date').in('moviemint_id', c), 'mm_movie')) mm.set(r.moviemint_id, r);
+  try {
+    for (const c of chunks(ids.filter((i) => !String(i).startsWith('fyre-')), 200)) for (const r of await must<any[]>(db.from('mm_movie').select('moviemint_id,title,release_date').in('moviemint_id', c), 'mm_movie')) mm.set(r.moviemint_id, r);
+  } catch {
+    mm.clear();
+  }
   const bf = new Map<string, any>();
-  for (const c of chunks(slugs, 200)) for (const r of await must<any[]>(db.from('bf_movie').select('slug,title,release_date,first_date,carried_over').in('slug', c), 'bf_movie')) bf.set(r.slug, r);
+  for (const c of chunks(slugs, 200)) for (const r of await must<any[]>(db.from('bf_movie').select('slug,title,release_date,first_date,carried_over,languages').in('slug', c), 'bf_movie')) bf.set(r.slug, r);
+  // Confirmed source titles (spelling variants) of each movie.
+  const aliases = new Map<string, string[]>();
+  const { data: aliasRows } = await db.from('fyre_movie_alias').select('movie_id,source_title').in('decision', ['created', 'matched']);
+  for (const a of aliasRows ?? []) aliases.set(a.movie_id, [...(aliases.get(a.movie_id) ?? []), a.source_title]);
   return tracked.map((t) => {
     const b = bf.get(t.bf_slug);
     const m = mm.get(t.moviemint_id);
-    const indiaDayOne = b ? dayOneDate(b) ?? (!b.first_date && !b.carried_over ? b.release_date : null) : m?.release_date ?? null;
+    const indiaDayOne = b ? dayOneDate(b) ?? (!b.first_date && !b.carried_over ? b.release_date : null) : m?.release_date ?? t.release_date ?? null;
     return {
       movieId: t.moviemint_id,
       slug: t.bf_slug,
-      titles: [m?.title, b?.title].filter(Boolean),
-      dayOne: indiaDayOne,
+      titles: [...new Set([m?.title, b?.title, t.title, ...(aliases.get(t.moviemint_id) ?? [])].filter(Boolean))],
+      dayOne: indiaDayOne ?? t.first_source_date ?? null,
       indiaDayOne,
-      active: t.tracking_status === 'active'
+      active: t.tracking_status === 'active' || t.tracking_status === 'ended', // 'ended' = legacy MovieMint state; only an admin 'stopped' stops tracking
+      origin: t.origin ?? 'moviemint',
+      title: t.title ?? b?.title ?? m?.title ?? null,
+      hasIndia: !!b,
+      languages: [...new Set([...(b?.languages ?? []), ...(t.languages ?? [])])]
     };
   });
 }
 
 type MapRow = { source_movie_id: number; source_title: string; movie_id: string | null; match_status: string; match_method: string | null; first_date: string | null; last_date: string | null; languages: string[] | null };
 
+// Undecided India listings by title key (an India title still waiting for
+// its Fyre movie). [] when the table is not there yet.
+async function pendingIndiaTitles(date: string): Promise<Map<string, string> & { titles?: string[] }> {
+  const out: Map<string, string> & { titles?: string[] } = new Map<string, string>();
+  out.titles = [];
+  try {
+    const since = addDays(date, -60);
+    const { data, error } = await db.from('bf_listing').select('source_title,match_status,match_note').in('match_status', ['unmatched', 'needs_review']).gte('last_date', since);
+    if (!error)
+      for (const r of data ?? []) {
+        // 'unmatched' here = an India listing with theatrical shows that is
+        // about to become a Fyre movie; advance-only / filtered / show-less
+        // India candidates never hold a USA listing back.
+        const creating = r.match_note === 'Creating a Fyre movie' || r.match_note === NOTE.deferred;
+        out.set(usTitleKey(r.source_title), r.match_status === 'needs_review' ? 'needs_review' : creating ? 'unmatched' : 'candidate');
+        out.titles!.push(r.source_title);
+      }
+  } catch {
+    // no India listings table yet
+  }
+  return out;
+}
+
 // Records every source id in a file (first/last date, languages) and
 // (re)decides the ones not yet settled. Manual decisions and 'rejected'
 // are never changed; an automatic 'matched' is kept.
-export async function recordSeenIds(file: UsFile, date: string, movies: TrackedMovie[]): Promise<Map<number, MapRow>> {
+// discover (scheduled runs only): a USA listing with no Fyre movie near it,
+// a real title and real shows becomes a Fyre movie (lib/catalog/create),
+// added to `movies` so this same file imports it. Ambiguous -> review.
+export async function recordSeenIds(file: UsFile, date: string, movies: TrackedMovie[], discover?: { budget: { left: number }; kind: UsKind } | null): Promise<Map<number, MapRow>> {
   const seen = listSourceMovies(file);
   const ids = seen.map((s) => s.sourceMovieId);
   const existing = new Map<number, MapRow>();
   for (const c of chunks(ids, 200)) for (const r of await must<MapRow[]>(db.from('us_movie_map').select('source_movie_id,source_title,movie_id,match_status,match_method,first_date,last_date,languages').in('source_movie_id', c), 'us_movie_map')) existing.set(Number(r.source_movie_id), r);
 
   const rows: any[] = [];
-  const toDecide: { sourceMovieId: number; title: string; firstDate: string | null }[] = [];
+  const toDecide: { sourceMovieId: number; title: string; firstDate: string | null; languages: string[] }[] = [];
+  const statsOf = new Map(seen.map((s) => [s.sourceMovieId, { shows: s.shows, sold: s.sold, places: s.places, seats: s.seats }]));
   for (const s of seen) {
     const e = existing.get(s.sourceMovieId);
     const first = e?.first_date && e.first_date < date ? e.first_date : date;
@@ -73,7 +132,7 @@ export async function recordSeenIds(file: UsFile, date: string, movies: TrackedM
     const languages = [...new Set([...(e?.languages ?? []), ...s.languages])];
     rows.push({ source_movie_id: s.sourceMovieId, source_title: s.title, title_key: usTitleKey(s.title), first_date: first, last_date: last, languages, updated_at: new Date().toISOString() });
     const settled = e && (e.match_status === 'rejected' || e.match_method === 'manual' || e.match_status === 'matched');
-    if (!settled) toDecide.push({ sourceMovieId: s.sourceMovieId, title: s.title, firstDate: first });
+    if (!settled) toDecide.push({ sourceMovieId: s.sourceMovieId, title: s.title, firstDate: first, languages });
   }
   const taken = new Map<string, number[]>();
   if (toDecide.length) {
@@ -82,6 +141,36 @@ export async function recordSeenIds(file: UsFile, date: string, movies: TrackedM
   }
   const decisions = new Map(matchUsIds(toDecide, movies, taken).map((d) => [d.sourceMovieId, d]));
   const now = new Date().toISOString();
+  const toCreate: { id: number; title: string; languages: string[]; firstDate: string | null }[] = [];
+  if (discover && toDecide.length) {
+    const india = await pendingIndiaTitles(date);
+    const keyCount = new Map<string, number>();
+    for (const t of toDecide) keyCount.set(usTitleKey(t.title), (keyCount.get(usTitleKey(t.title)) ?? 0) + 1);
+    for (const t of toDecide) {
+      const d = decisions.get(t.sourceMovieId)!;
+      const key = usTitleKey(t.title);
+      const st = statsOf.get(t.sourceMovieId) ?? { shows: 0, sold: 0 };
+      // A related title (catalog movie, another undecided USA id, a waiting
+      // India listing -- but not this exact title) -> review, never created.
+      const related =
+        d.status === 'unmatched'
+          ? findRelated(t.title, movies.flatMap((m) => m.titles)) ??
+            findRelated(t.title, toDecide.filter((o) => o.sourceMovieId !== t.sourceMovieId).map((o) => o.title)) ??
+            findRelated(t.title, (india.titles ?? []).filter((x) => usTitleKey(x) !== key))
+          : null;
+      const act = discoveryAction(d, t.title, { kind: discover.kind, ...st }, { sameTitleElsewhere: (keyCount.get(key) ?? 0) > 1 || india.get(key) === 'needs_review', related });
+      if (act.action === 'review') Object.assign(d, { status: 'needs_review', note: act.note });
+      else if (act.action === 'wait') d.note = act.note;
+      else if (act.action === 'create') {
+        if (india.get(key) === 'unmatched') d.note = 'An India listing with this title is about to become a Fyre movie; matched to it next';
+        else if (discover.budget.left > 0) {
+          discover.budget.left--;
+          toCreate.push({ id: t.sourceMovieId, title: t.title, languages: t.languages, firstDate: t.firstDate });
+          d.note = 'Creating a Fyre movie';
+        } else d.note = NOTE.deferred;
+      }
+    }
+  }
   for (const r of rows) {
     const d = decisions.get(r.source_movie_id);
     if (d) Object.assign(r, { movie_id: d.movieId, match_status: d.status, match_confidence: d.confidence, match_method: d.method, match_note: d.note, candidates: d.candidates, ...(d.status === 'matched' ? { reviewed_at: null } : {}) });
@@ -93,6 +182,22 @@ export async function recordSeenIds(file: UsFile, date: string, movies: TrackedM
   const settledRows = rows.filter((r) => r.match_status === undefined);
   for (const c of chunks(decided, 200)) await must(db.from('us_movie_map').upsert(c, { onConflict: 'source_movie_id' }), 'us_movie_map upsert');
   for (const c of chunks(settledRows, 200)) await must(db.from('us_movie_map').upsert(c, { onConflict: 'source_movie_id' }), 'us_movie_map upsert');
+  // Automatic matches go on the movie's permanent mapping record too.
+  const autoRows = decided
+    .filter((r) => r.match_status === 'matched' && r.movie_id)
+    .map((r) => ({ movie_id: r.movie_id, source: 'bfilmy_usa', source_title: r.source_title, source_key: r.title_key, source_movie_id: String(r.source_movie_id), match_method: r.match_method, match_confidence: r.match_confidence, decision: 'matched', decided_by: 'auto', note: r.match_note }));
+  if (autoRows.length) await db.from('fyre_movie_alias').insert(autoRows);
+  // New Fyre movies (each also maps its USA id and requests its history).
+  for (const c of toCreate) {
+    try {
+      const m = await createCatalogMovie({ source: 'bfilmy_usa', sourceId: String(c.id), sourceTitle: c.title, languages: c.languages, firstDate: c.firstDate, decidedBy: 'auto', metadata: { checkedAt: undefined } });
+      const r = rows.find((x) => x.source_movie_id === c.id);
+      if (r) Object.assign(r, { movie_id: m.movieId, match_status: 'matched', match_method: 'discovered', match_note: 'Discovered by the BFILMY sync' });
+      movies.push({ movieId: m.movieId, slug: m.slug, titles: [m.title, c.title], dayOne: c.firstDate, languages: c.languages, ...({ active: true, indiaDayOne: null, origin: 'bfilmy_usa', title: m.title, hasIndia: false } as any) });
+    } catch {
+      // e.g. an overlapping run created it first (unique created_from)
+    }
+  }
   void now;
   const out = new Map<number, MapRow>();
   for (const r of rows) {
@@ -115,6 +220,7 @@ export type UsFileResult = {
   showsStored?: number;
   snapshots?: number;
   mismatches?: string[];
+  listings?: number; // distinct source ids in the file
   error?: string;
 };
 
@@ -122,10 +228,11 @@ export type UsSyncOptions = {
   force?: boolean; // ignore the stored ETag
   now?: Date;
   onlyMovieIds?: Set<string>; // import just these Fyre movies (history for a new match)
-  includeEnded?: boolean; // import matched movies that are no longer active (backfill)
+  includeEnded?: boolean; // legacy flag: 'ended' movies are always imported now; an admin-'stopped' movie never is
   movies?: Awaited<ReturnType<typeof loadTrackedMovies>>;
   file?: UsFetch; // already fetched (backfill cache)
   skipReleaseDays?: boolean; // backfill: refreshReleaseDays once at the end
+  discover?: { left: number } | null; // scheduled runs: create Fyre movies for new listings (shared budget)
 };
 
 // One source file -> the us_* tables, for every matched tracked movie in it.
@@ -146,8 +253,12 @@ export async function syncUsFile(kind: UsKind, date: string, opts: UsSyncOptions
     const file = parseUsFile(got.json);
     const seenAt = prev?.etag && prev.etag === got.etag ? prev.first_seen_at : now.toISOString();
     const movies = opts.movies ?? (await loadTrackedMovies());
+    const before = movies.length;
+    const map = await recordSeenIds(file, date, movies, opts.discover ? { budget: opts.discover, kind } : null);
+    // Movies discovered from this file are imported from it too (also when
+    // the caller limits the import to a set of movies, e.g. the bootstrap).
+    if (opts.onlyMovieIds) for (const m of movies.slice(before)) opts.onlyMovieIds.add(m.movieId);
     const movieById = new Map(movies.map((m) => [m.movieId, m]));
-    const map = await recordSeenIds(file, date, movies);
     const mapWrites = map.size;
 
     // Source ids per Fyre movie (a movie can own more than one id).
@@ -155,7 +266,8 @@ export async function syncUsFile(kind: UsKind, date: string, opts: UsSyncOptions
     for (const [id, r] of map) {
       if (r.match_status !== 'matched' || !r.movie_id) continue;
       const m = movieById.get(r.movie_id);
-      if (!m || (!m.active && !opts.includeEnded)) continue;
+      // Only an admin 'stopped' (m.active false) is skipped -- by every job.
+      if (!m || !m.active) continue;
       if (opts.onlyMovieIds && !opts.onlyMovieIds.has(r.movie_id)) continue;
       byMovie.set(r.movie_id, [...(byMovie.get(r.movie_id) ?? []), id]);
     }
@@ -274,7 +386,7 @@ export async function syncUsFile(kind: UsKind, date: string, opts: UsSyncOptions
       'us_sync_file'
     );
     const writes = mapWrites + dayRows.length + dimRows.length + showRows.length + snapRows.length + 1;
-    return { kind, date, status: 'ok', requests, writes, movies: file.summary.length, imported: aggs.size, rows: file.shows.length, rowsImported, showsStored: showRows.length, snapshots: snapRows.length, mismatches };
+    return { kind, date, status: 'ok', requests, writes, listings: mapWrites, movies: file.summary.length, imported: aggs.size, rows: file.shows.length, rowsImported, showsStored: showRows.length, snapshots: snapRows.length, mismatches };
   } catch (err: any) {
     const message = String(err?.message ?? err).slice(0, 500);
     await db.from('us_sync_file').upsert({ kind, report_date: date, url: '', status: 'error', error: message, synced_at: new Date().toISOString() }, { onConflict: 'kind,report_date' });
@@ -347,12 +459,30 @@ export function defaultUsTargets(now: Date = new Date()): { kind: UsKind; date: 
 // pending movie that needs it (never one request per movie). Resumes on
 // the next run where the deadline stopped it; finished ids are never
 // fetched again.
+// A Fyre movie's USA history range, written once its USA import is done.
+export async function recordUsHistory(movieId: string, range: { start: string; clamped: boolean }) {
+  const { data } = await db.from('us_movie_day').select('report_date').eq('movie_id', movieId).eq('kind', 'boxoffice').order('report_date').limit(1);
+  const first = data?.[0]?.report_date ?? null;
+  await db
+    .from('fyre_tracked_movie')
+    .update({ us_history_start_date: first, us_history_complete: historyComplete(first, range) })
+    .eq('moviemint_id', movieId)
+    .then(() => undefined, () => undefined);
+}
+
+// 90-day rule: never before today - 89 days (lib/catalog/core). Waits while
+// the catalog bootstrap is importing the same dates.
 export async function processUsBackfills(deadline: number): Promise<{ sourceMovieId: number; status: string; next?: string }[]> {
+  if (await bootstrapRunning()) return [];
   const rows = await must<any[]>(db.from('us_movie_map').select('source_movie_id,movie_id,first_date,last_date,backfill_next').eq('backfill_status', 'requested').eq('match_status', 'matched'), 'us_movie_map backfills');
   if (!rows.length) return [];
   const movies = await loadTrackedMovies();
   const today = usToday();
-  const from = (r: any): string => r.backfill_next ?? r.first_date ?? today;
+  const floor = windowStart(today);
+  const from = (r: any): string => {
+    const f = r.backfill_next ?? r.first_date ?? today;
+    return f < floor ? floor : f;
+  };
   const to = (r: any): string => r.last_date ?? today;
   let date = rows.map(from).sort()[0];
   const end = rows.map(to).sort().pop()!;
@@ -374,6 +504,10 @@ export async function processUsBackfills(deadline: number): Promise<{ sourceMovi
     const done = date > to(r);
     const next = done ? null : from(r) > date ? from(r) : date;
     await must(db.from('us_movie_map').update({ backfill_status: done ? 'done' : 'requested', backfill_next: next }).eq('source_movie_id', r.source_movie_id), 'us_movie_map backfill');
+    if (done && r.movie_id) {
+      const start = r.first_date && r.first_date > floor ? r.first_date : floor;
+      await recordUsHistory(r.movie_id, { start, clamped: start === floor });
+    }
     out.push({ sourceMovieId: r.source_movie_id, status: done ? 'done' : 'running', next: next ?? undefined });
   }
   return out;

@@ -104,7 +104,8 @@ export type MovieAnalytics = {
   state: import('../boxoffice/types').TTMovieState;
   dayOne: string | null; // Day 1 date (release date as tracked)
   premiereDate: string | null; // Day 0 date, if it had shows
-  carriedOver: boolean; // already running on 1 Jan 2025 (release-day numbers unknown)
+  carriedOver: boolean; // history is not the whole run (running on 1 Jan 2025, or only the recent part imported -- 90-day rule): release-day numbers unknown, totals are a tracked period
+  historyStart?: string | null; // first date of that tracked period
   latestDay: DayPoint | null;
   days: DayPoint[]; // box office, date order
   advance: DayPoint[]; // advance snapshots, date order

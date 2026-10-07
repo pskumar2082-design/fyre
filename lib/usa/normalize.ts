@@ -267,14 +267,25 @@ export function aggregateMovie(file: UsFile, sourceMovieIds: number[]): UsMovieD
 }
 
 // Every source movie id in a file with its title and languages.
-export function listSourceMovies(file: UsFile): { sourceMovieId: number; title: string; languages: string[]; shows: number }[] {
-  const by = new Map<number, { title: string; languages: Set<string>; shows: number }>();
-  for (const s of file.summary) by.set(s.sourceMovieId, { title: s.title, languages: new Set(), shows: 0 });
+// shows = distinct show records (a show repeated in the file counts once),
+// places = distinct theatres, seats = seats on sale in those shows.
+export function listSourceMovies(file: UsFile): { sourceMovieId: number; title: string; languages: string[]; shows: number; sold: number; places: number; seats: number }[] {
+  const by = new Map<number, { title: string; languages: Set<string>; showKeys: Set<string>; theatres: Set<string>; sold: number; seats: number }>();
+  const entry = (id: number, title: string) => {
+    let e = by.get(id);
+    if (!e) by.set(id, (e = { title, languages: new Set(), showKeys: new Set(), theatres: new Set(), sold: 0, seats: 0 }));
+    return e;
+  };
+  for (const s of file.summary) entry(s.sourceMovieId, s.title);
   for (const s of file.shows) {
-    let e = by.get(s.sourceMovieId);
-    if (!e) by.set(s.sourceMovieId, (e = { title: s.title, languages: new Set(), shows: 0 }));
-    e.shows++;
+    const e = entry(s.sourceMovieId, s.title);
+    const key = s.showId ? `id:${s.showId}` : `${theatreId(s)}|${clean(s.local)}|${clean(s.format)}|${clean(s.language)}`;
     if (s.language) e.languages.add(clean(s.language));
+    if (e.showKeys.has(key)) continue;
+    e.showKeys.add(key);
+    if (clean(s.theater)) e.theatres.add(theatreId(s));
+    e.sold += Number(s.sold) || 0;
+    e.seats += Number(s.seats) || 0;
   }
-  return [...by.entries()].map(([sourceMovieId, e]) => ({ sourceMovieId, title: e.title, languages: [...e.languages], shows: e.shows }));
+  return [...by.entries()].map(([sourceMovieId, e]) => ({ sourceMovieId, title: e.title, languages: [...e.languages], shows: e.showKeys.size, sold: e.sold, places: e.theatres.size, seats: e.seats }));
 }

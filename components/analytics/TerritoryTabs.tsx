@@ -8,17 +8,17 @@ import MovieBreakdownExplorer from './MovieBreakdownExplorer';
 import { formatDate } from '@/lib/bfilmy/adapter';
 import { formatMetric, formatMoney, formatOccupancy, USA_LABEL } from '@/lib/analytics/format';
 import type { MetricKey, MovieAnalytics } from '@/lib/analytics/types';
+import { territoryTabs, type Tab } from '@/lib/analytics/territoryTabs';
 
-type Tab = 'overview' | 'india' | 'usa';
-
-// One Fyre movie, two territories: [ Overview ] [ India ] [ USA ].
-// India and USA figures sit side by side; INR and USD are never added.
-export default function TerritoryTabs({ india, usa }: { india: MovieAnalytics; usa: MovieAnalytics | null }) {
-  const [tab, setTab] = useState<Tab>(usa ? 'overview' : 'india');
+// One Fyre movie, up to two territories; tabs follow the data it has
+// (lib/analytics/territoryTabs.ts). INR and USD are never added.
+export default function TerritoryTabs({ india, usa }: { india: MovieAnalytics | null; usa: MovieAnalytics | null }) {
+  const { tabs, initial } = territoryTabs(india, usa);
+  const [tab, setTab] = useState<Tab>(initial);
   useEffect(() => {
-    const h = window.location.hash.replace('#', '');
-    if (usa && (h === 'usa' || h === 'overview' || h === 'india')) setTab(h as Tab);
-  }, [usa]);
+    const h = window.location.hash.replace('#', '') as Tab;
+    if (tabs.includes(h)) setTab(h);
+  }, [india, usa]); // eslint-disable-line react-hooks/exhaustive-deps
   const pick = (t: Tab) => {
     setTab(t);
     history.replaceState(null, '', `#${t}`);
@@ -36,16 +36,8 @@ export default function TerritoryTabs({ india, usa }: { india: MovieAnalytics; u
     </div>
   );
 
-  if (!usa) {
-    return (
-      <>
-        <SummaryCards m={india} />
-        {explorer(india)}
-      </>
-    );
-  }
-
-  const btn = (t: Tab, label: string) => (
+  const label: Record<Tab, string> = { overview: 'Overview', india: 'India', usa: 'USA' };
+  const btn = (t: Tab) => (
     <button
       key={t}
       type="button"
@@ -54,25 +46,23 @@ export default function TerritoryTabs({ india, usa }: { india: MovieAnalytics; u
         tab === t ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim hover:text-text hover:border-gold/30'
       }`}
     >
-      {label}
+      {label[t]}
     </button>
   );
 
   return (
     <div>
       <div className="flex gap-2 mb-6 overflow-x-auto" role="tablist" aria-label="Territory">
-        {btn('overview', 'Overview')}
-        {btn('india', 'India')}
-        {btn('usa', 'USA')}
+        {tabs.map(btn)}
       </div>
       {tab === 'overview' && <Overview india={india} usa={usa} />}
-      {tab === 'india' && (
+      {tab === 'india' && india && (
         <>
           <SummaryCards m={india} />
           {explorer(india)}
         </>
       )}
-      {tab === 'usa' && (
+      {tab === 'usa' && usa && (
         <>
           <p className="text-textFaint text-xs mb-3">
             {USA_LABEL}: shows of Indian-language films tracked in the USA — not total US theatrical box office. Amounts in US dollars.
@@ -129,14 +119,21 @@ function Column({ m, title, subtitle }: { m: MovieAnalytics; title: string; subt
   );
 }
 
-function Overview({ india, usa }: { india: MovieAnalytics; usa: MovieAnalytics }) {
+// A tracked period (not the whole run) says so -- never read as lifetime.
+const since = (m: MovieAnalytics) => (m.carriedOver ? ` · tracked period since ${formatDate(m.historyStart ?? '2025-01-01')}` : '');
+
+function Overview({ india, usa }: { india: MovieAnalytics | null; usa: MovieAnalytics | null }) {
   return (
     <div className="mb-8">
-      <div className="grid sm:grid-cols-2 gap-4">
-        <Column m={india} title="India" subtitle={`All languages · INR · ${india.days.length} tracked days`} />
-        <Column m={usa} title={USA_LABEL} subtitle={`USD · ${usa.days.length} tracked days · not total US box office`} />
+      <div className={`grid gap-4 ${india && usa ? 'sm:grid-cols-2' : ''}`}>
+        {india && <Column m={india} title="India" subtitle={`All languages · INR · ${india.days.length} tracked days${since(india)}`} />}
+        {usa && <Column m={usa} title={USA_LABEL} subtitle={`USD · ${usa.days.length} tracked days${since(usa)} · not total US box office`} />}
       </div>
-      <p className="text-textFaint text-[11px] mt-3">Totals are per territory in their own currency; they are never added together.</p>
+      {india && usa ? (
+        <p className="text-textFaint text-[11px] mt-3">Totals are per territory in their own currency; they are never added together.</p>
+      ) : (
+        <p className="text-textFaint text-[11px] mt-3">{india ? 'India' : 'USA'} is the only territory tracked for this movie so far.</p>
+      )}
     </div>
   );
 }

@@ -9,6 +9,8 @@ import SocialPosterTool from '@/components/admin/SocialPosterTool';
 import TrackedMoviesTool from '@/components/admin/TrackedMoviesTool';
 import DailyReportsTool from '@/components/admin/DailyReportsTool';
 import UsaMatchingTool from '@/components/admin/UsaMatchingTool';
+import ListingMatchingTool from '@/components/admin/ListingMatchingTool';
+import CatalogTool from '@/components/admin/CatalogTool';
 import FyreRichTextEditor from '@/components/admin/FyreRichTextEditor';
 import ArticleBody from '@/components/ArticleBody';
 import { sanitizeArticleHtml } from '@/lib/richText/sanitize';
@@ -323,6 +325,8 @@ const SOCIAL_POSTER_KEY = 'social-poster';
 const TRACKED_KEY = 'tracked-movies';
 const DAILY_KEY = 'daily-reports';
 const USA_MAP_KEY = 'usa-matching';
+const INDIA_MAP_KEY = 'india-matching';
+const CATALOG_KEY = 'fyre-catalog';
 
 function AdminShell() {
   const [activeKey, setActiveKey] = useState<string>(SECTIONS[0].key);
@@ -365,11 +369,13 @@ function AdminShell() {
             activeKey === TRACKED_KEY ? 'text-gold border-gold' : 'text-textFaint border-transparent hover:text-gold'
           }`}
         >
-          Tracked movies
+          MovieMint (legacy)
         </button>
         {[
           [DAILY_KEY, 'Daily reports'],
-          [USA_MAP_KEY, 'USA matching']
+          [USA_MAP_KEY, 'USA matching'],
+          [INDIA_MAP_KEY, 'India matching'],
+          [CATALOG_KEY, 'Fyre catalog']
         ].map(([k, l]) => (
           <button
             key={k}
@@ -401,6 +407,10 @@ function AdminShell() {
         <DailyReportsTool />
       ) : activeKey === USA_MAP_KEY ? (
         <UsaMatchingTool />
+      ) : activeKey === INDIA_MAP_KEY ? (
+        <ListingMatchingTool territory="india" />
+      ) : activeKey === CATALOG_KEY ? (
+        <CatalogTool />
       ) : (
         <SocialPosterTool />
       )}

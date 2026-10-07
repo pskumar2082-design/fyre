@@ -24,11 +24,11 @@ const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 type Row = { slug: string; title: string; day: number | null; metrics: Metrics; lastUpdated: string | null; extra?: Record<string, unknown> };
 
 async function trackedMovies(movie: string | null) {
-  let q = db.from('fyre_tracked_movie').select('moviemint_id,bf_slug').eq('match_status', 'matched').not('bf_slug', 'is', null);
+  let q = db.from('fyre_tracked_movie').select('moviemint_id,bf_slug,title').eq('match_status', 'matched').not('bf_slug', 'is', null);
   if (movie) q = q.eq('bf_slug', movie);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
-  return (data ?? []) as { moviemint_id: string; bf_slug: string }[];
+  return (data ?? []) as { moviemint_id: string; bf_slug: string; title: string | null }[];
 }
 
 async function india(date: string, kind: string, movie: string | null) {
@@ -78,6 +78,8 @@ async function india(date: string, kind: string, movie: string | null) {
 async function usa(date: string, kind: string, movie: string | null) {
   const tracked = await trackedMovies(movie);
   const bySlug = new Map(tracked.map((t) => [t.moviemint_id, t.bf_slug]));
+  // USA-only Fyre movies have no India row: their canonical title.
+  const canonTitle = new Map<string, string>(tracked.filter((t) => t.title).map((t) => [t.bf_slug, t.title as string]));
   const ids = tracked.map((t) => t.moviemint_id);
   const rows: Row[] = [];
   const theatres = new Set<string>();
@@ -107,7 +109,7 @@ async function usa(date: string, kind: string, movie: string | null) {
       if (r.occupancy != null) metrics.occupancy = Math.round(Number(r.occupancy) * 100) / 100;
       rows.push({
         slug,
-        title: title.get(slug) ?? slug,
+        title: title.get(slug) ?? canonTitle.get(slug) ?? slug,
         day: r.release_day,
         lastUpdated: etStamp(r.source_seen_at ?? r.synced_at),
         metrics,

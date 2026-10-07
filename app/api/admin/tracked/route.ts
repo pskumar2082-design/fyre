@@ -20,6 +20,8 @@ async function all<T>(build: (from: number, to: number) => PromiseLike<{ data: T
   return out;
 }
 
+// LEGACY MovieMint view. MovieMint is enrichment only: being on or off its
+// list never changes a Fyre movie's tracking (only the admin's stop/resume).
 // GET: every MovieMint movie with its BFILMY match and Fyre tracking state.
 // GET ?search=title: BFILMY movies whose title contains the text (manual match).
 export async function GET(req: NextRequest) {
@@ -78,7 +80,7 @@ export async function GET(req: NextRequest) {
 //   stop      stop tracking (history kept)
 //   resume    resume tracking
 //   refresh   re-import this movie's history now
-//   catalog   refresh MovieMint's list now
+//   catalog   refresh the stored MovieMint list now (enrichment only)
 export async function POST(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const body = await req.json().catch(() => ({}));
@@ -88,8 +90,12 @@ export async function POST(req: NextRequest) {
   try {
     if (action === 'catalog') return NextResponse.json({ ok: true, result: await syncMovieMintCatalog() });
     if (!id) return NextResponse.json({ error: 'moviemint_id required' }, { status: 400 });
-    const { data: mm } = await supabaseAdmin.from('mm_movie').select('on_list').eq('moviemint_id', id).maybeSingle();
-    if (!mm) return NextResponse.json({ error: 'Unknown MovieMint movie' }, { status: 404 });
+    const { data: known } = await supabaseAdmin.from('fyre_tracked_movie').select('moviemint_id').eq('moviemint_id', id).maybeSingle();
+    if (!known && action !== 'match') return NextResponse.json({ error: 'Unknown movie' }, { status: 404 });
+    if (!known) {
+      const { data: mm } = await supabaseAdmin.from('mm_movie').select('moviemint_id').eq('moviemint_id', id).maybeSingle();
+      if (!mm) return NextResponse.json({ error: 'Unknown MovieMint movie' }, { status: 404 });
+    }
 
     if (action === 'match') {
       const slug = String(body.bf_slug ?? '').trim();
@@ -108,7 +114,7 @@ export async function POST(req: NextRequest) {
             match_confidence: 'manual',
             match_method: 'manual',
             match_note: 'Matched by admin',
-            tracking_status: mm.on_list ? 'active' : 'ended',
+            tracking_status: 'active',
             backfill_status: 'requested',
             backfill_requested_at: now,
             reviewed_at: now,
@@ -124,7 +130,7 @@ export async function POST(req: NextRequest) {
         .eq('moviemint_id', id);
       if (error) throw new Error(error.message);
     } else if (action === 'stop' || action === 'resume') {
-      const status = action === 'stop' ? 'stopped' : mm.on_list ? 'active' : 'ended';
+      const status = action === 'stop' ? 'stopped' : 'active';
       const { error } = await supabaseAdmin.from('fyre_tracked_movie').update({ tracking_status: status, updated_at: now }).eq('moviemint_id', id).eq('match_status', 'matched');
       if (error) throw new Error(error.message);
     } else if (action === 'refresh') {

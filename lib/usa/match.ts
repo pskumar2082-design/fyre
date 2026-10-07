@@ -1,10 +1,12 @@
-// USA source movie id -> Fyre movie. MovieMint decides which movies exist;
-// a USA id is only ever attached to one of those. HIGH confidence (auto)
+// Source listing (BFILMY USA id, or BFILMY India title) -> Fyre movie.
+// Fyre's own catalog (fyre_tracked_movie) is what a listing can attach to;
+// a listing with no match stays unmatched until an admin matches it,
+// creates a Fyre movie from it, or rejects it. HIGH confidence (auto)
 // needs all of:
-//   - the USA title key equals the key of the movie's MovieMint title,
-//     Fyre (India) title or one of its FYRE_ALIASES spellings
-//   - exactly one tracked movie has that key, and exactly one USA id does
-//   - the USA id's first date is within -10/+30 days of the movie's Day 1
+//   - the listing's title key equals the key of one of the movie's known
+//     titles (canonical, MovieMint, India, confirmed aliases, FYRE_ALIASES)
+//   - exactly one Fyre movie has that key, and exactly one listing does
+//   - the listing's first date is within -10/+30 days of the movie's Day 1
 // Anything close but not certain -> needs_review (admin). Never guessed.
 import { FYRE_ALIASES, titleKey } from '@/lib/bfilmy/normalize';
 
@@ -16,11 +18,21 @@ export function usTitleKey(title: string): string {
   );
 }
 
-export type TrackedMovie = { movieId: string; slug: string; titles: string[]; dayOne: string | null };
-export type UsIdInfo = { sourceMovieId: number; title: string; firstDate: string | null };
+export type TrackedMovie = { movieId: string; slug: string; titles: string[]; dayOne: string | null; languages?: string[] };
+export type UsIdInfo<I extends string | number = number> = { sourceMovieId: I; title: string; firstDate: string | null; languages?: string[] };
+
+// Two language lists that share no language (unknown/empty never conflicts).
+export function languagesConflict(a: string[] | undefined, b: string[] | undefined): boolean {
+  const norm = (x: string[] | undefined) => new Set((x ?? []).map((l) => l.trim().toLowerCase()).filter((l) => l && l !== 'unknown'));
+  const A = norm(a);
+  const B = norm(b);
+  if (!A.size || !B.size) return false;
+  for (const l of A) if (B.has(l)) return false;
+  return true;
+}
 export type Candidate = { movieId: string; slug: string; reason: string; dateGap: number | null };
-export type MatchDecision = {
-  sourceMovieId: number;
+export type MatchDecision<I extends string | number = number> = {
+  sourceMovieId: I;
   status: 'matched' | 'needs_review' | 'unmatched';
   movieId: string | null;
   confidence: 'high' | 'medium' | 'low' | null;
@@ -65,11 +77,15 @@ const gapDays = (a: string, b: string) => Math.round((Date.parse(`${a}T00:00:00Z
 
 // `taken`: Fyre movies that already have a matched USA id (a second id for
 // the same movie is a split listing -> admin review, never automatic).
-export function matchUsIds(ids: UsIdInfo[], movies: TrackedMovie[], taken: Map<string, number[]> = new Map()): MatchDecision[] {
+export const NO_MATCH_NOTE = 'No existing Fyre movie match';
+
+export function matchUsIds<I extends string | number = number>(ids: UsIdInfo<I>[], movies: TrackedMovie[], taken: Map<string, I[]> = new Map(), territory: 'USA' | 'India' = 'USA'): MatchDecision<I>[] {
+  const idWord = territory === 'USA' ? 'USA id' : 'India listing';
+  const dateWord = territory === 'USA' ? 'first US date' : 'first India date';
   const movieKeys = movies.map((m) => ({ m, keys: new Set(m.titles.flatMap(aliasKeys)) }));
   const idKey = new Map(ids.map((i) => [i.sourceMovieId, usTitleKey(i.title)]));
   // How many USA ids share each exact key (split listings under one name).
-  const idsPerKey = new Map<string, number>();
+  const idsPerKey = new Map<string, number>(); // key -> listing count
   for (const k of idKey.values()) idsPerKey.set(k, (idsPerKey.get(k) ?? 0) + 1);
 
   return ids.map((info) => {
@@ -89,15 +105,17 @@ export function matchUsIds(ids: UsIdInfo[], movies: TrackedMovie[], taken: Map<s
       const c = candidates[0];
       const inWindow = c.dateGap != null && c.dateGap >= -10 && c.dateGap <= 30;
       const other = (taken.get(c.movieId) ?? []).filter((x) => x !== info.sourceMovieId);
-      if (other.length) return { ...base, status: 'needs_review', movieId: null, confidence: 'medium', method: 'title', note: `Same title, but USA id ${other.join(', ')} is already matched to this movie (split listing?)` };
+      if (other.length) return { ...base, status: 'needs_review', movieId: null, confidence: 'medium', method: 'title', note: `Same title, but ${idWord} ${other.join(', ')} is already matched to this movie (split listing?)` };
+      const m = exact[0];
+      if (languagesConflict(info.languages, m.languages)) return { ...base, status: 'needs_review', movieId: null, confidence: 'medium', method: 'title', note: `Same title but different languages (${(info.languages ?? []).join(', ')} vs ${(m.languages ?? []).join(', ')})` };
       if (inWindow && (idsPerKey.get(key) ?? 0) === 1 && fuzzy.length === 0) {
-        return { ...base, status: 'matched', movieId: c.movieId, confidence: 'high', method: 'title+date', note: `Same title; first US date ${c.dateGap! >= 0 ? '+' : ''}${c.dateGap} days from Day 1` };
+        return { ...base, status: 'matched', movieId: c.movieId, confidence: 'high', method: 'title+date', note: `Same title; ${dateWord} ${c.dateGap! >= 0 ? '+' : ''}${c.dateGap} days from Day 1` };
       }
-      const why = c.dateGap == null ? 'release date unknown' : !inWindow ? `first US date ${c.dateGap} days from Day 1` : (idsPerKey.get(key) ?? 0) > 1 ? 'more than one USA listing with this title' : 'another similar title exists';
+      const why = c.dateGap == null ? 'release date unknown' : !inWindow ? `${dateWord} ${c.dateGap} days from Day 1` : (idsPerKey.get(key) ?? 0) > 1 ? `more than one ${territory} listing with this title` : 'another similar title exists';
       return { ...base, status: 'needs_review', movieId: null, confidence: 'medium', method: 'title', note: `Same title but ${why}` };
     }
-    if (exact.length > 1) return { ...base, status: 'needs_review', movieId: null, confidence: 'low', method: 'title', note: 'Title matches more than one tracked movie' };
+    if (exact.length > 1) return { ...base, status: 'needs_review', movieId: null, confidence: 'low', method: 'title', note: 'Title matches more than one Fyre movie' };
     if (fuzzy.length > 0) return { ...base, status: 'needs_review', movieId: null, confidence: 'low', method: 'similar-title', note: 'Similar title only (spelling variant?)' };
-    return { ...base, status: 'unmatched', movieId: null, confidence: null, method: 'none', note: 'Not a MovieMint-tracked movie' };
+    return { ...base, status: 'unmatched', movieId: null, confidence: null, method: 'none', note: NO_MATCH_NOTE };
   });
 }

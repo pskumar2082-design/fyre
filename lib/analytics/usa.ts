@@ -11,7 +11,8 @@
 // theatres / cities / states = distinct counts. FF/HF and PIC don't exist
 // for the USA: null (shown as N/A), never zero.
 import { supabase } from '@/lib/supabaseClient';
-import { publicTrackedSlugs } from '@/lib/tracking';
+import { catalogHistory, publicTrackedSlugs } from '@/lib/tracking';
+import { catalogMovie } from '@/lib/catalog/public';
 import { formatDate } from '@/lib/bfilmy/adapter';
 import { usDayLabel, usToday } from '@/lib/usa/days';
 import { makeMetrics, round2, sumMetrics } from './metrics';
@@ -73,13 +74,22 @@ export async function loadUsaAnalytics(slug: string, now: Date = new Date()): Pr
     if (error) throw new Error(`us_movie_day: ${error.message}`);
     if (!rows || rows.length === 0) return null;
     const safe = cleanSlug(slug);
-    const { data: movie } = await db.from('bf_movie').select('slug,title,poster').eq('slug', safe).maybeSingle();
+    const { data: india } = await db.from('bf_movie').select('slug,title,poster').eq('slug', safe).maybeSingle();
+    // A Fyre movie with USA data only: title and poster from Fyre's catalog.
+    const canon = await catalogMovie(safe);
+    const movie = india ? { ...india, poster: india.poster ?? canon?.poster ?? null } : canon ? { slug: safe, title: canon.title, poster: canon.poster } : null;
     const bo = rows.filter((r: any) => r.kind === 'boxoffice');
-    const dayOne = bo.find((r: any) => r.release_day === 1)?.report_date ?? rows.find((r: any) => r.release_day === 1)?.report_date ?? null;
+    // 90-day rule: only the recent part of this movie's USA run was imported
+    // -> tracked period, no release-day numbers (unless India knows Day 1).
+    const hist = (await catalogHistory().catch(() => new Map())).get(safe);
+    const partial = hist?.usa === false;
+    const keepDays = !partial || (!!india && hist?.india !== false);
+    const dayOneStored = bo.find((r: any) => r.release_day === 1)?.report_date ?? rows.find((r: any) => r.release_day === 1)?.report_date ?? null;
+    const dayOne = keepDays ? dayOneStored : null;
     const toPoint = (r: any): DayPoint => ({
       date: r.report_date,
-      day: r.release_day,
-      label: usDayLabel(r.release_day, r.report_date, dayOne, formatDate),
+      day: keepDays ? r.release_day : null,
+      label: usDayLabel(keepDays ? r.release_day : null, r.report_date, dayOne, formatDate),
       final: !!r.final,
       detail: !r.detail_pruned,
       breakdowns: !r.breakdown_pruned,
@@ -122,7 +132,8 @@ export async function loadUsaAnalytics(slug: string, now: Date = new Date()): Pr
       state: last && last >= usToday(now, -1) ? 'live' : last ? 'final' : advance.some((a) => a.date >= today) ? 'advance' : 'unknown',
       dayOne,
       premiereDate: bo.find((r: any) => r.release_day === 0)?.report_date ?? null,
-      carriedOver: false,
+      carriedOver: partial,
+      historyStart: partial ? hist?.usaStart ?? bo[0]?.report_date ?? null : null,
       latestDay: days[days.length - 1] ?? null,
       days,
       advance,
