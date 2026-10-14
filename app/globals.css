@@ -1,90 +1,71 @@
 /* ============================================================
-   Typography system -- Walmart's documented typesetting rules
-   (brandcenter.walmart.com/brand/brand-identity/typography),
-   applied with an open-license typeface standing in for their
-   proprietary "Everyday Sans" (not obtainable outside Walmart --
-   no public listing, files gated behind Walmart Creative Studio
-   authorization). Public Sans covers the brief: a clean,
-   corporate-neutral grotesque with the same weight range their
-   system calls for (Light 300 / Regular 400 / Medium 500 / Bold
-   700 / Black 900). Their "Data + Code" tier specifically calls
-   for a mono cut (Everyday Sans Mono); Noto Sans Mono stands in
-   for that -- picked over other open monospace faces specifically
-   for its full Unicode coverage, since this site's numbers are
-   almost always prefixed with the Indian Rupee sign (₹).
-
-   Every tier below follows the brand center's own cheatsheet
-   (hierarchy / leading ratio / tracking), not an approximation:
-     XL Headline    -- Light,  leading 1.0, tracking -0.015em (5X)
-     Headline       -- Medium, leading 1.2, tracking 0        (4X)
-     Subhead        -- Medium, leading 1.2, tracking 0        (2X)
-     Inline Header  -- Bold,   leading 1.2, tracking 0        (1X)
-     Body Copy      -- Regular,leading 1.2, tracking 0        (1X)
-     Captions/Legal -- Regular,leading 1.3, tracking 0        (1X)
-     Data + Code    -- Mono Regular, leading 1.3, tracking 0  (1X)
-   "Scale" (5X/4X/2X/1X) is relative to body copy and is left to
-   each usage site's own Tailwind text-size utility -- same
-   pattern the codebase already used for .hdisplay -- rather than
-   hard-coded here, so one rule works across every context a tier
-   appears in. ============================================== */
-@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;700;900&family=Noto+Sans+Mono:wght@400&display=swap');
-
+   Typography -- system UI stack (tailwind.config.js `font-body`), as in
+   the frameXTV reference: bold, tightly tracked display headings; the
+   platform monospace for badges, metadata and counts.
+   ============================================================ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Dark theme, matching the Fyre social-poster's own palette (see
-   tailwind.config.js's token comment for the full reasoning) -- near-black
-   navy page, soft-white high-emphasis text.
-   Body Copy tier: Regular weight (the browser/Tailwind default,
-   nothing to set), leading 1.2, tracking 0 (the default). */
 body {
-  background-color: #14161C;
-  color: #F2F3F5;
-  line-height: 1.2;
+  background-color: #000;
+  color: #fafafa;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Section titles, page headings, movie titles -- covers both the
-   Headline and Subhead tiers (Medium weight, leading 1.2, tracking
-   0 for both; only their Scale differs, which is whatever
-   Tailwind text-size utility a usage site pairs this with). */
+/* Headings: bold, tight tracking (reference: font-bold tracking-tight). */
 .hdisplay {
-  font-family: 'Public Sans', sans-serif;
-  font-weight: 500;
-  letter-spacing: 0;
+  font-weight: 700;
+  letter-spacing: -0.025em;
   line-height: 1.2;
 }
 
-/* XL Headline tier -- Light weight, tight (1.0) leading, tracking
-   pulled in to -0.015em (Walmart's "-15" units) so letters don't
-   gap out at very large sizes. Not used by any page today (this
-   site has no cover/splash/signage-style screen), defined here so
-   the full 7-tier system exists and is ready for one. */
+/* Hero / page titles: extra-bold, tighter, leading 1. */
 .type-xl-headline {
-  font-family: 'Public Sans', sans-serif;
-  font-weight: 300;
-  letter-spacing: -0.015em;
-  line-height: 1.0;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
 
-/* Small uppercase eyebrow/meta labels (section tags, table column
-   heads) -- closest fit is the Captions + Legal tier: Regular
-   weight, leading 1.3, tracking 0. Kept uppercase: that specific
-   Walmart "don't" is scoped to headlines/subheads, not tags. */
+/* Small uppercase eyebrow / table-head labels: platform mono. */
 .mdtype-overline {
-  font-family: 'Public Sans', sans-serif;
-  font-weight: 400;
-  font-size: 10px;
-  line-height: 13px;
-  letter-spacing: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-/* Kept for any element still combining .gtext with .hdisplay -- a subtle
-   white-to-accent-blue fade, back to matching a dark page (this file's
-   previous light-theme pass had inverted it to dark-on-light). */
+/* Horizontal rails: native scrolling, no visible scrollbar. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Page container: the reference's content edge sits ~5.8vw in from
+   the window edge at every desktop width (118px at 2048). */
+.fx-container {
+  width: 100%;
+  padding-inline: max(16px, 5.8vw);
+}
+/* Detail pages sit wider in the reference (poster edge 84px at 2048). */
+.fx-container-detail {
+  width: 100%;
+  padding-inline: max(16px, 4.1vw);
+}
+
+/* Thin dark scrollbars (desktop). */
+* {
+  scrollbar-color: #3f3f46 transparent;
+}
+
 .gtext {
-  background: linear-gradient(90deg, #F2F3F5 0%, #2f6fed 100%);
+  background: linear-gradient(90deg, #fafafa 0%, #a1a1aa 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -103,38 +84,25 @@ body {
    poster image and white/light text on it, same purpose as a photo
    scrim in any theme. */
 .card-gradient-primary {
-  background: linear-gradient(120deg, #0c0d10 0%, #14161c 55%, #05060a 100%);
+  background: linear-gradient(120deg, #09090b 0%, #18181b 55%, #000 100%);
 }
 .card-gradient-secondary {
-  background: linear-gradient(115deg, #14161c 2.6%, #2f6fed 140%);
+  background: linear-gradient(115deg, #09090b 2.6%, #27272a 140%);
 }
 
-/* Centralized keyboard-focus treatment -- every interactive element on
-   the site (form inputs, selects, textareas, links, buttons) gets the
-   same blue focus-visible ring, defined once here rather than repeated
-   as a Tailwind class on 15+ individual <input>/<select>/<button>
-   call sites across app/admin/page.tsx, components/admin/TableBuilder.tsx,
-   components/admin/SocialPosterTool.tsx, etc. #2f6fed is the same value
-   as the `gold` design token (tailwind.config.js) -- this file already
-   mirrors token values as literal hex for the body background and the
-   .gtext/.card-gradient-secondary gradients above, so this follows the
-   same established pattern rather than introducing a new one. Native
-   `outline` is used (not a Tailwind `ring` box-shadow utility) so it
-   survives on any element regardless of which component class strings
-   it happens to carry, and never clips against a parent's
-   `overflow: hidden`. :focus-visible only, so mouse/touch clicks that
-   already show their own state (hover backgrounds, pill fills) don't
-   also gain an outline. */
+/* Centralized keyboard-focus treatment (zinc ring, as in the
+   reference's focus-visible:ring-zinc-400/50) for every interactive
+   element; :focus-visible only, so mouse clicks don't show it. */
 :focus-visible {
-  outline: 2px solid #2f6fed;
+  outline: 2px solid rgba(161, 161, 170, 0.7);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline-offset: 0;
-  border-color: #2f6fed;
+  border-color: #71717a;
 }
 
 /* ============================================================
@@ -170,10 +138,10 @@ textarea:focus-visible {
 .fyre-article h2,
 .fyre-article h3,
 .fyre-article h4 {
-  font-family: 'Public Sans', sans-serif;
   font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1.25;
-  color: #F2F3F5;
+  color: #fafafa;
   margin: 1.4em 0 0.6em;
 }
 .fyre-article h2:first-child,
@@ -203,19 +171,19 @@ textarea:focus-visible {
      plain white the moment both were applied together. */
 }
 .fyre-article a {
-  color: #2F6FED;
+  color: #FBBF24;
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: rgba(47, 111, 237, 0.4);
+  text-decoration-color: rgba(251, 191, 36, 0.4);
 }
 .fyre-article a:hover {
-  color: #5B93FF;
+  color: #FCD34D;
 }
 .fyre-article blockquote {
   margin: 1.2em 0;
   padding: 0.2em 0 0.2em 1em;
-  border-left: 3px solid #2F6FED;
-  color: rgba(255, 255, 255, 0.62);
+  border-left: 3px solid #FBBF24;
+  color: #a1a1aa;
   font-style: italic;
 }
 .fyre-article ul,
@@ -234,7 +202,7 @@ textarea:focus-visible {
 }
 .fyre-article hr {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid #27272a;
   margin: 2em 0;
 }
 .fyre-article mark {
@@ -256,27 +224,27 @@ textarea:focus-visible {
   border-collapse: collapse;
   margin: 1.2em 0;
   font-size: 0.8125rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
+  border: 1px solid #27272a;
+  border-radius: 12px;
 }
 .fyre-article th,
 .fyre-article td {
   padding: 0.6em 0.9em;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #27272a;
   text-align: left;
   white-space: nowrap;
 }
 .fyre-article th {
   background: rgba(255, 255, 255, 0.03);
-  border-bottom: 2px solid #2F6FED;
-  color: rgba(255, 255, 255, 0.38);
+  border-bottom: 2px solid #FBBF24;
+  color: #71717a;
   font-size: 10px;
   font-weight: 400;
   letter-spacing: 0;
   text-transform: uppercase;
 }
 .fyre-article td {
-  color: rgba(255, 255, 255, 0.62);
+  color: #a1a1aa;
 }
 
 /* Editor-only chrome (never present on the public render, since it only
@@ -288,14 +256,14 @@ textarea:focus-visible {
   content: attr(data-placeholder);
   float: left;
   height: 0;
-  color: rgba(255, 255, 255, 0.38);
+  color: #71717a;
   pointer-events: none;
 }
 .fyre-editor-content .selectedCell::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(47, 111, 237, 0.15);
+  background: rgba(251, 191, 36, 0.15);
   pointer-events: none;
 }
 .fyre-editor-content td,

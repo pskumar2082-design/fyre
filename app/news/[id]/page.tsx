@@ -57,7 +57,7 @@ export default async function NewsDetailPage({ params }: { params: { id: string 
   const readMins = Math.max(1, Math.round(words / 200));
 
   return (
-    <div className="px-5 md:px-10 py-8 max-w-3xl">
+    <div className="fx-container py-8 sm:py-12 max-w-3xl">
       <Link href="/" className="inline-flex items-center gap-1.5 text-gold text-sm font-semibold">
         <ArrowLeft size={15} /> Back to fyre
       </Link>

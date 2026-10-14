@@ -8,7 +8,7 @@ import XPostDesigner from './XPostDesigner';
 // Designer (X post → Fyre social card), side by side as sub-tools.
 export default function SocialPosterSection() {
   const [tool, setTool] = useState<'boxoffice' | 'xpost'>('boxoffice');
-  const tab = (on: boolean) => `text-sm font-semibold px-4 py-2 rounded-full border transition ${on ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim hover:text-text'}`;
+  const tab = (on: boolean) => `text-sm font-semibold px-4 py-2 rounded-lg border transition-colors ${on ? 'bg-white border-white text-black' : 'border-border bg-surface text-textDim hover:text-white hover:border-borderStrong'}`;
   return (
     <div>
       <div className="flex gap-2 mb-5" role="tablist" aria-label="Social poster tools">

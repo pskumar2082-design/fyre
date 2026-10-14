@@ -64,7 +64,7 @@ async function authHeader(): Promise<Record<string, string>> {
 
 const input = 'w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-gold/50';
 const label = 'block text-[11px] font-semibold uppercase tracking-wider text-textFaint mb-1';
-const pill = (on: boolean) => `text-xs font-semibold px-3 py-1.5 rounded-full border transition ${on ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim hover:text-text'}`;
+const pill = (on: boolean) => `text-xs font-semibold px-3 py-1.5 rounded-full border transition ${on ? 'bg-white border-white text-black' : 'border-border bg-surface text-textDim hover:text-white hover:border-borderStrong'}`;
 
 function defaultsFrom(imp: Imported): Fields {
   return {
@@ -343,7 +343,7 @@ export default function XPostDesigner() {
             }}
           >
             <input className={input} placeholder="https://x.com/account/status/1234567890" value={url} onChange={(e) => setUrl(e.target.value)} />
-            <button type="submit" disabled={busy || !url.trim()} className="text-sm font-semibold bg-gold text-white rounded-lg px-4 disabled:opacity-40 inline-flex items-center gap-1.5">
+            <button type="submit" disabled={busy || !url.trim()} className="text-sm font-semibold bg-white text-black hover:bg-zinc-200 rounded-lg px-4 disabled:opacity-40 inline-flex items-center gap-1.5">
               {busy && <Loader2 size={14} className="animate-spin" />} Import
             </button>
           </form>
@@ -526,7 +526,7 @@ export default function XPostDesigner() {
                     </button>
                   ))}
                   {selKind !== 'lifetime' && <input type="number" min={selKind === 'day' ? 0 : 1} max={120} className="w-20 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text" value={selN} onChange={(e) => setSelN(Math.max(0, Number(e.target.value) || 0))} />}
-                  <button type="button" onClick={loadFyre} className="text-xs font-semibold bg-gold text-white rounded-full px-4 py-1.5 ml-auto">
+                  <button type="button" onClick={loadFyre} className="text-xs font-semibold bg-white text-black hover:bg-zinc-200 rounded-full px-4 py-1.5 ml-auto">
                     Use Fyre data
                   </button>
                 </div>
@@ -650,7 +650,7 @@ export default function XPostDesigner() {
           </div>
           {renderErr && <div className="text-red text-xs mt-2">{renderErr}</div>}
           {preview?.removed && <div className="text-amber text-xs mt-2">Not drawable on the poster and left out: {preview.removed}</div>}
-          <button type="button" disabled={!preview || rendering} onClick={download} className="mt-3 w-full text-sm font-semibold bg-gold text-white rounded-lg py-2 disabled:opacity-40 inline-flex items-center justify-center gap-2">
+          <button type="button" disabled={!preview || rendering} onClick={download} className="mt-3 w-full text-sm font-semibold bg-white text-black hover:bg-zinc-200 rounded-lg py-2 disabled:opacity-40 inline-flex items-center justify-center gap-2">
             <Download size={15} /> Download Poster
           </button>
         </Card>

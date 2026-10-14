@@ -20,12 +20,14 @@ export const STATE_LABEL: Record<TTMovieState, string> = {
   unknown: ''
 };
 
+// Redesign: monospace chips on a black/80 scrim (reference "MOVIE"
+// badge); live keeps red for urgency, advance uses the amber accent.
 export const STATE_BADGE: Record<TTMovieState, string> = {
   live: 'bg-red text-white',
-  advance: 'bg-gold text-white',
-  upcoming: 'bg-black/60 text-white/90 border border-white/10',
-  final: 'bg-goldDim text-white',
-  unknown: 'bg-black/60 text-white/70 border border-white/10'
+  advance: 'bg-gold text-black',
+  upcoming: 'bg-black/80 text-white border border-white/10',
+  final: 'bg-black/80 text-white border border-white/10',
+  unknown: 'bg-black/80 text-white/70 border border-white/10'
 };
 
 // Contrast color for the small pulse dot on the "live" badge -- white

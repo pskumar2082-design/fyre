@@ -128,7 +128,7 @@ export default function MovieBreakdownExplorer({ m, initial }: { m: MovieAnalyti
     return () => ctrl.abort();
   }, [tab, basis, day, m.slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const select = 'text-sm bg-surface border border-border rounded-full h-10 px-4 text-text hover:border-gold/30 transition';
+  const select = 'text-sm bg-surface border border-border rounded-lg h-10 px-3.5 text-text hover:border-borderStrong transition-colors';
 
   let body: React.ReactNode = null;
   if (tab === 'daywise') {
@@ -255,8 +255,8 @@ export default function MovieBreakdownExplorer({ m, initial }: { m: MovieAnalyti
             key={t.key}
             type="button"
             onClick={() => setTab(t.key)}
-            className={`whitespace-nowrap text-xs font-semibold px-3.5 py-2 rounded-full border transition ${
-              tab === t.key ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim hover:text-text hover:border-gold/30'
+            className={`whitespace-nowrap text-xs font-semibold px-3.5 py-2 rounded-lg border transition-colors ${
+              tab === t.key ? 'bg-white border-white text-black' : 'border-border bg-surface text-textDim hover:text-white hover:border-borderStrong'
             }`}
           >
             {t.label}

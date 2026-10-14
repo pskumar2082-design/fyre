@@ -38,7 +38,7 @@ export default async function UpcomingPage({ searchParams }: { searchParams: { s
     );
 
   return (
-    <div className="px-5 md:px-10 py-8">
+    <div className="fx-container py-8 sm:py-12">
       <SectionHeading title="Upcoming releases" />
 
       <div className="flex items-center gap-2 mb-6">

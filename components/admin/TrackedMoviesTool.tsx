@@ -124,7 +124,7 @@ export default function TrackedMoviesTool() {
             key={f}
             type="button"
             onClick={() => setFilter(f)}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${filter === f ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim'}`}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${filter === f ? 'bg-white border-white text-black' : 'border-border text-textDim'}`}
           >
             {f === 'all' ? 'All' : f === 'review' ? `Needs review (${groups.review.length})` : f === 'active' ? `Tracking (${groups.active.length})` : `Ended (${groups.ended.length})`}
           </button>
@@ -160,7 +160,7 @@ function MovieRow({ r, open, onToggle, busy, act }: { r: Row; open: boolean; onT
 
   const matchTone = t?.match_status === 'matched' ? 'good' : t?.match_status === 'rejected' ? 'bad' : 'warn';
   const fyreText = t?.match_status !== 'matched' ? 'Not tracked' : t.tracking_status === 'active' ? 'Active' : t.tracking_status === 'ended' ? 'Ended' : t.tracking_status === 'stopped' ? 'Stopped' : t.tracking_status;
-  const btn = 'text-xs font-semibold px-3 py-1.5 rounded-full border border-border text-textDim hover:text-text hover:border-gold/30 disabled:opacity-50';
+  const btn = 'text-xs font-semibold px-3 py-1.5 rounded-full border border-border bg-surface text-textDim hover:text-white hover:border-borderStrong disabled:opacity-50';
 
   return (
     <Card className="p-3.5">

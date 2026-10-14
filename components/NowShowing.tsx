@@ -84,7 +84,7 @@ export default function NowShowing({ movies }: { movies: NowShowingMovie[] }) {
             {selected.review ? (
               <>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="bg-gold text-white text-xs font-bold px-2 py-1 rounded">
+                  <span className="bg-gold text-black text-xs font-bold px-2 py-1 rounded">
                     {selected.review.rating} / 5
                   </span>
                   <span className="text-star text-xs">★★★★★</span>

@@ -28,7 +28,7 @@ export default function TerritoryTabs({ india, usa }: { india: MovieAnalytics | 
     <div>
       <div className="flex items-center gap-2 mb-4">
         <Sparkles size={16} className="text-gold" />
-        <h2 className="hdisplay text-lg">Performance breakdown{m.territory === 'US' ? ` · ${USA_LABEL}` : ''}</h2>
+        <h2 className="hdisplay text-xl sm:text-2xl font-extrabold">Performance breakdown{m.territory === 'US' ? ` · ${USA_LABEL}` : ''}</h2>
       </div>
       <Card className="p-4 sm:p-5">
         <MovieBreakdownExplorer key={m.territory ?? 'IN'} m={m} />
@@ -42,8 +42,8 @@ export default function TerritoryTabs({ india, usa }: { india: MovieAnalytics | 
       key={t}
       type="button"
       onClick={() => pick(t)}
-      className={`whitespace-nowrap text-sm font-semibold px-4 py-2 rounded-full border transition ${
-        tab === t ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim hover:text-text hover:border-gold/30'
+      className={`whitespace-nowrap text-sm font-semibold px-4 py-2 rounded-lg border transition-colors ${
+        tab === t ? 'bg-white border-white text-black' : 'border-border bg-surface text-textDim hover:text-white hover:border-borderStrong'
       }`}
     >
       {label[t]}
@@ -93,8 +93,8 @@ function Column({ m, title, subtitle }: { m: MovieAnalytics; title: string; subt
   const latest = m.latestDay;
   return (
     <Card className="p-5">
-      <div className="mdtype-overline text-gold">{title}</div>
-      <div className="text-textFaint text-[11px] mb-4">{subtitle}</div>
+      <div className="mdtype-overline text-white">{title}</div>
+      <div className="font-mono text-textFaint text-xs mt-1 mb-4">{subtitle}</div>
       {has ? (
         <div className="space-y-3">
           {ROWS.map((r) => (

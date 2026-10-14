@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Search, Film, ListFilter } from 'lucide-react';
+import { ChartNoAxesColumnIncreasing, GitCompareArrows } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { getLiveMovies, getCompletedMovies, getMovieDetails, parseReleaseDate } from '@/lib/bfilmy/source';
-import { STATE_LABEL, STATE_BADGE } from '@/lib/boxoffice/stateStyle';
-import { Card, SectionHeading, EmptyState, Pill } from '@/components/ui';
+import { STATE_LABEL } from '@/lib/boxoffice/stateStyle';
+import type { TTListedMovie } from '@/lib/boxoffice/types';
+import { SectionHeading, ViewAll } from '@/components/ui';
 import MovieCard from '@/components/MovieCard';
+import Rail from '@/components/Rail';
 import ReviewCard from '@/components/ReviewCard';
 import HomeCompareSection from '@/components/compare/HomeCompareSection';
 
@@ -68,19 +70,90 @@ async function getData() {
   };
 }
 
+// Cinematic hero (reference: homepage "FEATURED FILM" hero) for the
+// day's top live movie: full-bleed backdrop under strong black gradients,
+// mono badge + amber headline figure, oversized title, mono meta line,
+// a Fyre box-office summary, and two real actions (box office, compare).
+function Hero({ movie }: { movie: TTListedMovie }) {
+  const year = movie.releaseText?.match(/(20\d{2})/)?.[1] ?? null;
+  const meta = [year, movie.genre, movie.dayLabel].filter(Boolean);
+  const summary = [
+    movie.gross ? `${movie.grossLabel ?? 'Tracked gross'} ${movie.gross}${movie.dayLabel ? ` after ${movie.dayLabel.replace(/^Day /, '')} days` : ''}.` : null,
+    movie.todayText ? `Today so far: ${movie.todayText}.` : null,
+    movie.releaseText ? `${movie.releaseText}.` : null,
+    'Day-wise collections, India and USA, state and city breakdowns, updated through the day.'
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return (
+    <section className="relative isolate overflow-hidden border-b border-surface2">
+      {movie.poster && (
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute inset-y-0 right-0 w-full lg:w-[72%]">
+            <Image src={movie.poster} alt="" fill unoptimized priority sizes="72vw" className="object-cover object-[50%_25%] opacity-75" />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 lg:via-black/60 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-black/50" />
+        </div>
+      )}
+      <div className="fx-container pt-16 pb-14 sm:pt-28 sm:pb-[72px] 2xl:pt-[170px] 2xl:pb-[72px] min-h-[420px] sm:min-h-[520px] 2xl:min-h-[609px] flex flex-col justify-end">
+        <div className="flex items-center gap-3 mb-5 sm:mb-6">
+          <span className={`inline-flex items-center gap-2 font-mono font-bold uppercase tracking-wider text-xs sm:text-[15px] leading-none px-3 py-2 rounded-md bg-zinc-800/80 border border-zinc-700/60 text-white`}>
+            {movie.state === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-red animate-pulse" />}
+            {movie.state === 'live' ? 'Now showing' : STATE_LABEL[movie.state] || 'Featured'}
+          </span>
+          {movie.gross && <span className="font-mono font-bold text-sm sm:text-lg text-gold">{movie.gross}</span>}
+        </div>
+        <h1 className="type-xl-headline text-5xl sm:text-6xl 2xl:text-[76px] text-white max-w-4xl">{movie.title}</h1>
+        {meta.length > 0 && <div className="font-mono text-sm sm:text-xl text-zinc-300 mt-4 sm:mt-6">{meta.join(' • ')}</div>}
+        <p className="text-base sm:text-xl leading-relaxed text-zinc-300 mt-4 sm:mt-5 max-w-[830px] line-clamp-3">{summary}</p>
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-7 sm:mt-10">
+          <Link
+            href={`/movie/${movie.slug}`}
+            className="inline-flex items-center gap-2.5 h-12 sm:h-14 px-6 sm:px-8 rounded-lg bg-white text-black text-base sm:text-xl font-bold hover:bg-zinc-200 transition-colors"
+          >
+            <ChartNoAxesColumnIncreasing className="w-5 h-5 sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
+            Box Office
+          </Link>
+          <Link
+            href={`/compare?movies=${encodeURIComponent(movie.slug)}`}
+            className="inline-flex items-center gap-2.5 h-12 sm:h-14 px-6 sm:px-7 rounded-lg bg-zinc-900/70 border border-zinc-700 text-white text-base sm:text-xl font-semibold hover:bg-zinc-800 transition-colors backdrop-blur"
+          >
+            <GitCompareArrows className="w-5 h-5 sm:w-[22px] sm:h-[22px]" strokeWidth={2} />
+            Compare
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MovieRail({ title, subtitle, movies, href }: { title: string; subtitle: string; movies: TTListedMovie[]; href: string }) {
+  // An empty rail adds nothing to discovery -- skip it (the nav still
+  // links every listing page).
+  if (movies.length === 0) return null;
+  return (
+    <section>
+      <SectionHeading title={title} count={movies.length} subtitle={subtitle} action={<ViewAll href={href} />} />
+      <Rail label={title}>
+        {movies.map((m) => (
+          <MovieCard key={m.slug} movie={m} />
+        ))}
+      </Rail>
+    </section>
+  );
+}
+
 export default async function HomePage() {
   const { news, reviews, nowShowing, upcoming, upcomingRow, completed } = await getData();
   // Already ordered by the latest day's gross (lib/bfilmy/source.ts).
-  const liveTable = nowShowing.slice(0, 8);
-  const boxOfficeRow = [...completed].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 8);
+  const boxOfficeRow = [...completed].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 18);
+  const featured = nowShowing[0] ?? upcomingRow[0] ?? boxOfficeRow[0] ?? null;
 
   // The exact same live+advance+upcoming+completed movie set
   // lib/compare/useMovieCatalog.ts's client-side hook would otherwise
-  // fetch (its own /api/movies/live + /api/movies/
-  // completed calls read these same two functions), reused here to seed
-  // the home page's compact comparison selectors without a second
-  // network round trip -- nowShowing/upcoming/completed are already
-  // fetched above for the rest of this page.
+  // fetch, reused to seed the home page's comparison selectors without a
+  // second network round trip.
   const seenSlugs = new Set<string>();
   const compareCatalog = [...nowShowing, ...upcoming, ...completed].filter((m) => {
     if (seenSlugs.has(m.slug)) return false;
@@ -89,62 +162,29 @@ export default async function HomePage() {
   });
 
   return (
-    <div className="px-5 md:px-8 py-8">
-      {/* Main column. Order follows how users actually want to browse: find/compare a movie first, then what's new
-          (News, Reviews) and what's coming (Upcoming), then what's
-          playing right now (Now Showing) and the full completed archive
-          (Box Office). */}
-      <div className="min-w-0">
-        <Card className="p-5 mb-6">
-          <h2 className="hdisplay text-lg text-text mb-4">Find a movie</h2>
-          <form action="/search" className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2.5 bg-surface2 border border-border rounded-xl h-[50px] px-4 flex-1 min-w-[220px]">
-              <Search size={18} className="text-textFaint flex-none" />
-              <input
-                type="text"
-                name="q"
-                placeholder="Movie title"
-                className="bg-transparent outline-none text-sm text-text placeholder:text-textFaint w-full"
-              />
-            </div>
-            <Pill href="/now-showing" variant="default" className="!h-[50px] !rounded-xl !px-5">
-              <Film size={16} /> Now showing
-            </Pill>
-            <Pill href="/upcoming" variant="default" className="!h-[50px] !rounded-xl !px-5">
-              <ListFilter size={16} /> Upcoming
-            </Pill>
-            <Pill type="submit" variant="primary" className="!h-[50px] !rounded-xl !px-8">
-              Search
-            </Pill>
-          </form>
-        </Card>
+    <div>
+      {featured && <Hero movie={featured} />}
 
-        {/* Movie Comparison — moved immediately below the "Find a movie"
-            tile per the homepage layout spec, so comparison is one of
-            the first things a visitor sees rather than buried below Box
-            office. Same component, same state and API integration as
-            before (components/compare/HomeCompareSection.tsx) -- only
-            its position on this page changed. */}
+      <div className="fx-container pt-10 sm:pt-14 space-y-12 sm:space-y-16">
+        <MovieRail title="Now Showing" subtitle="Live box office tracked today" movies={nowShowing} href="/now-showing" />
+        <MovieRail title="Upcoming" subtitle="Advance bookings and new releases" movies={upcomingRow} href="/upcoming" />
+
+        {/* Movie Comparison -- same component, state and API as before. */}
         <HomeCompareSection movies={compareCatalog} />
 
-        {/* Existing content, kept above the dashboard tables and restyled light. */}
+        <MovieRail title="Box Office" subtitle="Highest tracked grosses" movies={boxOfficeRow} href="/box-office" />
+
         {news.length > 0 && (
-          <section className="mb-10">
-            <SectionHeading title="Latest from the industry" action={<Link href="/news" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          <section>
+            <SectionHeading title="Latest from the Industry" count={news.length} subtitle="Box office news and updates" action={<ViewAll href="/news" />} />
+            <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-6">
               {news.map((n: any) => (
-                <Link key={n.id} href={`/news/${n.id}`} className="block group">
-                  <Card className="overflow-hidden hover:-translate-y-0.5 transition">
-                    {n.image_url && (
-                      <div className="relative h-20 sm:h-36 w-full">
-                        <Image src={n.image_url} alt="" fill className="object-cover object-top" />
-                      </div>
-                    )}
-                    <div className="p-2.5 sm:p-4">
-                      <h3 className="text-sm sm:text-base font-semibold mb-1 sm:mb-2 text-text group-hover:text-gold transition line-clamp-2">{n.title}</h3>
-                      <p className="hidden sm:block text-sm text-textDim line-clamp-2">{n.excerpt}</p>
-                    </div>
-                  </Card>
+                <Link key={n.id} href={`/news/${n.id}`} className="group block">
+                  <div className="relative aspect-video rounded-xl overflow-hidden bg-surface2 border border-border transition duration-300 group-hover:border-borderStrong">
+                    {n.image_url && <Image src={n.image_url} alt="" fill className="object-cover object-top transition duration-500 group-hover:scale-[1.03]" />}
+                  </div>
+                  <h3 className="mt-3 text-sm sm:text-base font-semibold tracking-tight text-text line-clamp-2 group-hover:text-white">{n.title}</h3>
+                  {n.excerpt && <p className="hidden sm:block font-mono text-xs text-textFaint mt-1.5 line-clamp-1">{n.excerpt}</p>}
                 </Link>
               ))}
             </div>
@@ -152,100 +192,15 @@ export default async function HomePage() {
         )}
 
         {reviews.length > 0 && (
-          <section className="mb-10">
-            <SectionHeading title="Fresh reviews" action={<Link href="/reviews" className="text-gold text-xs font-semibold hover:underline">See all →</Link>} />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <section>
+            <SectionHeading title="Fresh Reviews" count={reviews.length} subtitle="Latest critic verdicts" action={<ViewAll href="/reviews" />} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
               {reviews.map((r: any) => (
                 <ReviewCard key={r.id} review={r} />
               ))}
             </div>
           </section>
         )}
-
-        <Card className="p-5 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="hdisplay text-lg text-text">Upcoming</h2>
-            <Link href="/upcoming" className="text-xs font-semibold text-gold hover:underline">See all →</Link>
-          </div>
-          {upcomingRow.length === 0 ? (
-            <EmptyState>No upcoming releases yet.</EmptyState>
-          ) : (
-            <div className="flex items-start gap-4 overflow-x-auto -mx-1 px-1 pb-1">
-              {upcomingRow.map((m) => (
-                <MovieCard key={m.slug} movie={m} />
-              ))}
-            </div>
-          )}
-        </Card>
-
-        <Card className="p-5 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="hdisplay text-lg text-text">Now showing</h2>
-            <Link href="/now-showing" className="text-xs font-semibold text-gold hover:underline">See all →</Link>
-          </div>
-          {liveTable.length === 0 ? (
-            <EmptyState>Nothing currently in theaters.</EmptyState>
-          ) : (
-            <div className="overflow-x-auto -mx-1">
-              <table className="w-full text-sm border-collapse min-w-[600px]">
-                <thead>
-                  <tr className="mdtype-overline text-textFaint border-b border-border">
-                    <th className="text-left py-3 px-3 w-10">No.</th>
-                    <th className="text-left py-3 px-3">Movie</th>
-                    <th className="text-left py-3 px-3">Status</th>
-                    <th className="text-right py-3 px-3">Gross</th>
-                    <th className="text-right py-3 px-3"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {liveTable.map((m, i) => (
-                    <tr key={m.slug} className="border-b border-border last:border-0 hover:bg-white/[0.03] transition">
-                      <td className="py-3 px-3 text-textFaint font-semibold">{String(i + 1).padStart(2, '0')}</td>
-                      <td className="py-3 px-3">
-                        <Link href={`/movie/${m.slug}`} className="flex items-center gap-3 group">
-                          <div className="w-9 h-9 flex-none rounded-full overflow-hidden bg-surface2 border border-border relative">
-                            {m.poster && <Image src={m.poster} alt="" fill unoptimized className="object-cover object-top" />}
-                          </div>
-                          <span className="font-medium text-text group-hover:text-gold transition truncate max-w-[220px]">{m.title}</span>
-                        </Link>
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold uppercase px-2.5 py-1 rounded-full ${
-                          m.state === 'live' ? 'bg-red/10 text-red border border-red/20' : 'bg-white/[0.05] text-textFaint border border-white/[0.08]'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${m.state === 'live' ? 'bg-red' : 'bg-textFaint'}`} />
-                          {STATE_LABEL[m.state]}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-right font-stat font-bold text-base text-gold">{m.gross || '—'}</td>
-                      <td className="py-3 px-3 text-right">
-                        <Pill href={`/movie/${m.slug}`} variant="primary" className="!text-xs !px-4 !py-1.5">
-                          Details
-                        </Pill>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-
-        <Card className="p-5 mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="hdisplay text-lg text-text">Box office</h2>
-            <Link href="/box-office" className="text-xs font-semibold text-gold hover:underline">See all →</Link>
-          </div>
-          {boxOfficeRow.length === 0 ? (
-            <EmptyState>Nothing in the archive yet.</EmptyState>
-          ) : (
-            <div className="flex items-start gap-4 overflow-x-auto -mx-1 px-1 pb-1">
-              {boxOfficeRow.map((m, i) => (
-                <MovieCard key={m.slug} movie={m} rank={i + 1} />
-              ))}
-            </div>
-          )}
-        </Card>
       </div>
     </div>
   );

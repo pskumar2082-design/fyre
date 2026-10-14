@@ -20,7 +20,7 @@ export default async function NewsPage() {
   const news = data ?? [];
 
   return (
-    <div className="px-5 md:px-10 py-8">
+    <div className="fx-container py-8 sm:py-12">
       <SectionHeading title="Latest from the industry" />
 
       {news.length === 0 ? (

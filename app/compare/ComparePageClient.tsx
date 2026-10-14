@@ -112,7 +112,7 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
   }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dayOptions = basis === 'advance' ? data?.advanceDayOptions ?? [] : data?.dayOptions ?? [];
-  const select = 'text-sm bg-surface border border-border rounded-full h-10 px-4 text-text hover:border-gold/30 transition';
+  const select = 'text-sm bg-surface border border-border rounded-full h-10 px-4 text-text hover:border-borderStrong transition';
   const titles = data?.movies.map((m) => m.title) ?? [];
 
   return (
@@ -167,7 +167,7 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
                 key={t}
                 type="button"
                 onClick={() => switchTerritory(t)}
-                className={`text-sm font-semibold px-4 py-2 rounded-full border transition ${territory === t ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim hover:text-text'}`}
+                className={`text-sm font-semibold px-4 py-2 rounded-lg border transition-colors ${territory === t ? 'bg-white border-white text-black' : 'border-border bg-surface text-textDim hover:text-white hover:border-borderStrong'}`}
               >
                 {t === 'IN' ? 'India' : 'USA'}
               </button>
@@ -185,7 +185,7 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
                     setBasis(n === 1 ? 'day' : 'cumulative');
                     setDay(n);
                   }}
-                  className={`text-xs font-semibold px-3.5 py-2 rounded-full border transition ${on ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim hover:text-text'}`}
+                  className={`text-xs font-semibold px-3.5 py-2 rounded-lg border transition-colors ${on ? 'bg-white border-white text-black' : 'border-border bg-surface text-textDim hover:text-white hover:border-borderStrong'}`}
                 >
                   {n === 1 ? 'Day 1 vs Day 1' : `First ${n} days`}
                 </button>
@@ -194,7 +194,7 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
             <button
               type="button"
               onClick={() => setBasis('lifetime')}
-              className={`text-xs font-semibold px-3.5 py-2 rounded-full border transition ${basis === 'lifetime' ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim hover:text-text'}`}
+              className={`text-xs font-semibold px-3.5 py-2 rounded-lg border transition-colors ${basis === 'lifetime' ? 'bg-white border-white text-black' : 'border-border bg-surface text-textDim hover:text-white hover:border-borderStrong'}`}
             >
               Lifetime
             </button>
@@ -301,8 +301,8 @@ export default function ComparePageClient({ initialRequest, initial }: { initial
                     key={d.key}
                     type="button"
                     onClick={() => setDimension(d.key)}
-                    className={`whitespace-nowrap text-xs font-semibold px-3.5 py-2 rounded-full border transition ${
-                      dimension === d.key ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim hover:text-text hover:border-gold/30'
+                    className={`whitespace-nowrap text-xs font-semibold px-3.5 py-2 rounded-lg border transition-colors ${
+                      dimension === d.key ? 'bg-white border-white text-black' : 'border-border bg-surface text-textDim hover:text-white hover:border-borderStrong'
                     }`}
                   >
                     {d.label}
@@ -342,7 +342,7 @@ function BreakdownCompare({ data, metric, limit, setLimit }: { data: Comparison;
         <div className="overflow-x-auto -mx-1 rounded-xl border border-border">
           <table className="w-full text-xs border-collapse min-w-[480px]">
             <thead>
-              <tr className="bg-white/[0.03] border-b-2 border-gold">
+              <tr className="bg-surface2/60 border-b border-borderStrong">
                 <th className="text-left mdtype-overline py-2.5 px-3 text-textFaint">{data.dimensionLabel}</th>
                 {data.movies.map((m, i) => (
                   <th key={m.slug} className={`text-right py-2.5 px-3 font-bold ${movieTextClass(i)}`}>

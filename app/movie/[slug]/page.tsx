@@ -1,17 +1,16 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ChartNoAxesColumnIncreasing, GitCompareArrows, ImageDown, TrendingUp } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getMovieDetails, parseReleaseDate } from '@/lib/bfilmy/source';
 import { formatDate } from '@/lib/bfilmy/adapter';
 import type { TTMovieMetaItem } from '@/lib/boxoffice/types';
 import { loadMovieAnalytics } from '@/lib/analytics/load';
-import { formatGross, formatMoney } from '@/lib/analytics/format';
+import { formatGross, formatMetric, formatMoney, formatOccupancy } from '@/lib/analytics/format';
 import TerritoryTabs from '@/components/analytics/TerritoryTabs';
 import { loadUsaAnalytics } from '@/lib/analytics/usa';
-import { STATE_BADGE } from '@/lib/boxoffice/stateStyle';
-import { Card } from '@/components/ui';
+import { SectionHeading } from '@/components/ui';
 import { SITE_URL } from '@/lib/siteConfig';
 
 export const dynamic = 'force-dynamic';
@@ -111,9 +110,6 @@ export default async function MoviePage({ params }: { params: { slug: string } }
       : details.headlineLabel;
   const headlinePrefix = analytics ? (usa ? 'India · ' : '') : 'USA · Indian-language screenings · ';
   const state = analytics ? details.state : usa!.state;
-  const backHref = state === 'final' ? '/box-office' : state === 'live' ? '/now-showing' : '/upcoming';
-  const backLabel = state === 'final' ? 'Box office archive' : state === 'live' ? 'Now showing' : 'Upcoming releases';
-
   // Schema.org structured data -- what actually earns a movie a rich
   // result (poster, cast, release date) in Google rather than a plain
   // blue link, the thing TrackTollywood/MovieMint already have and this
@@ -141,70 +137,121 @@ export default async function MoviePage({ params }: { params: { slug: string } }
     datePublished: releaseDateIso || undefined
   };
 
+  // Detail-hero content (reference: movie detail page), all from Fyre's
+  // own data: metadata pills, languages/formats as genre-style chips, a
+  // box-office summary in place of a synopsis, and real actions only.
+  const year = (releaseDateIso ?? '').slice(0, 4) || null;
+  const chips = [metaValue(details.meta, /language/i), metaValue(details.meta, /format/i)]
+    .flatMap((v) => (v ? v.split(',') : []))
+    .map((v) => v.trim())
+    .filter(Boolean);
+  const infoItems = details.meta.filter((m) => !/language|format/i.test(m.label));
+  const summary = [
+    releaseDate ? `${/releasing/i.test(details.meta.find((m) => /^released$|releasing/i.test(m.label))?.label ?? '') ? 'Releasing' : 'Released'} ${releaseDate}.` : null,
+    analytics?.days.length
+      ? `${formatMoney(analytics.lifetime.gross, 'INR')} ${analytics.carriedOver ? 'tracked' : 'gross'} in India across ${analytics.lifetime.days} day${analytics.lifetime.days === 1 ? '' : 's'}: ${formatMetric('shows', analytics.lifetime.shows, 'INR')} shows, ${formatMetric('tickets', analytics.lifetime.tickets, 'INR')} tickets, ${formatOccupancy(analytics.lifetime.occupancy)} occupancy.`
+      : null,
+    usa?.days.length ? `USA (Indian-language screenings): ${formatMoney(usa.lifetime.gross, 'USD')} from ${formatMetric('shows', usa.lifetime.shows, 'USD')} shows.` : null,
+    !lead.days.length && latestAdvance ? `Advance bookings: ${formatMoney(latestAdvance.metrics.gross, cur)} (${latestAdvance.label}).` : null
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const pill = 'inline-flex items-center gap-1.5 h-7 sm:h-[30px] px-3 rounded-full border border-border bg-surface2/60 font-mono text-[13px] sm:text-[15px] text-zinc-300 leading-none';
+  const action = 'w-full inline-flex items-center justify-center gap-3 h-12 sm:h-14 2xl:h-[58px] rounded-xl text-base sm:text-lg 2xl:text-xl transition-colors';
+
   return (
-    <div className="px-5 md:px-10 py-8 max-w-5xl mx-auto">
+    <div className="relative isolate">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(movieJsonLd) }} />
-      <Link href={backHref} className="inline-flex items-center gap-1.5 text-gold text-sm font-semibold hover:text-goldBright transition mb-5">
-        <ArrowLeft size={15} /> {backLabel}
-      </Link>
-
-      {/* HERO — flat white card (matching the rest of the light theme,
-          no dark blurred-poster backdrop): sharp poster thumbnail + state
-          badge + headline gross. The badge itself still uses the on-photo
-          treatment since it sits right against the poster art. */}
-      <Card className="relative overflow-hidden mb-6">
-        <div className="relative flex gap-5 p-5 sm:p-7 flex-wrap sm:flex-nowrap">
-          <div className="relative w-[104px] sm:w-[130px] aspect-[2/3] flex-none rounded-xl overflow-hidden bg-surface2 border border-border shadow-card">
-            {details.poster ? (
-              <Image src={details.poster} alt={details.title} fill className="object-cover" unoptimized />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-textFaint text-xs">No poster</div>
-            )}
-          </div>
-          <div className="min-w-0 flex flex-col justify-center">
-            {lead.state !== 'unknown' && (
-              <span className={`inline-flex items-center gap-1.5 w-fit text-[11px] font-bold uppercase px-2.5 py-1 rounded-lg mb-2.5 ${STATE_BADGE[lead.state]}`}>
-                {lead.state === 'live' && (
-                  <span className="relative flex w-1.5 h-1.5">
-                    <span className="absolute inline-flex w-full h-full rounded-full bg-white/60 animate-ping" />
-                    <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-white" />
-                  </span>
-                )}
-                {badgeText}
-              </span>
-            )}
-            <h1 className="hdisplay text-2xl sm:text-3xl text-text">{details.title}</h1>
-            {headlineGross && (
-              <div className="mt-3">
-                <div className="text-gold font-stat font-bold text-5xl sm:text-6xl leading-none">{headlineGross}</div>
-                {headlineLabel && <div className="text-textFaint text-xs mt-1">{`${headlinePrefix}${headlineLabel}`}</div>}
-              </div>
-            )}
-          </div>
+      {details.poster && (
+        <div className="absolute inset-x-0 top-0 h-[760px] -z-10 overflow-hidden" aria-hidden>
+          <Image src={details.poster} alt="" fill unoptimized className="object-cover object-top opacity-[0.18] blur-3xl scale-110" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/70 to-black" />
         </div>
-      </Card>
-
-      {/* MOVIE INFO — Released/Releasing On, Cast, Director, Genre,
-          Languages, Formats -- from the stored box-office data
-          (lib/bfilmy/adapter.ts). Generic label/value list (see
-          TTMovieMetaItem) rather than fixed fields, so this keeps
-          working if a field is added or renamed.
-          `wide` items (Cast, Production -- usually long comma lists)
-          get two columns instead of one, same as the source site. */}
-      {details.meta.length > 0 && (
-        <Card className="p-5 mb-8">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5">
-            {details.meta.map((item, i) => (
-              <div key={i} className={item.wide ? 'col-span-2' : ''}>
-                <div className="mdtype-overline text-textFaint mb-1.5">{item.label}</div>
-                <div className="text-text font-semibold">{item.value}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
       )}
 
-      <TerritoryTabs india={analytics ?? null} usa={usa ?? null} />
+      <div className="fx-container-detail pt-8 sm:pt-12 2xl:pt-[58px]">
+        <div className="flex flex-col md:flex-row gap-8 lg:gap-12 2xl:gap-[60px]">
+          <div className="relative w-[190px] sm:w-[240px] md:w-[260px] lg:w-[320px] 2xl:w-[420px] aspect-[2/3] flex-none self-center md:self-start rounded-xl overflow-hidden border border-border bg-surface2 shadow-lift">
+            {details.poster ? (
+              <Image src={details.poster} alt={details.title} fill unoptimized priority className="object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center font-mono text-xs text-textFaint">No poster</div>
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1 max-w-[1320px]">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+              {lead.state !== 'unknown' && (
+                <span className={`${pill} !text-white font-bold uppercase tracking-wider`}>
+                  {lead.state === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-red animate-pulse" />}
+                  {badgeText}
+                </span>
+              )}
+              {year && <span className={pill}>{year}</span>}
+              {headlineGross && (
+                <span className={`${pill} !border-gold/30 !bg-gold/10 !text-gold font-bold`}>
+                  <TrendingUp className="w-4 h-4" strokeWidth={2.5} />
+                  {headlineGross}
+                </span>
+              )}
+              {usa && analytics && usa.days.length > 0 && <span className={pill}>USA {formatMoney(usa.lifetime.gross, 'USD')}</span>}
+            </div>
+
+            <h1 className="type-xl-headline text-[44px] sm:text-6xl 2xl:text-[76px] text-white mt-6 2xl:mt-8">{details.title}</h1>
+            {headlineLabel && <p className="font-serif italic text-lg sm:text-xl 2xl:text-[22px] text-zinc-400 mt-4">{`${headlinePrefix}${headlineLabel}`}</p>}
+
+            {chips.length > 0 && (
+              <div className="flex flex-wrap gap-2 sm:gap-2.5 mt-6">
+                {chips.map((c) => (
+                  <span key={c} className="inline-flex items-center h-8 sm:h-[33px] px-3 rounded-md border border-border bg-surface/80 text-sm sm:text-base text-zinc-200">
+                    {c}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {summary && <p className="text-base sm:text-lg 2xl:text-xl leading-relaxed text-zinc-300 mt-6 2xl:mt-8 max-w-[1130px]">{summary}</p>}
+
+            {infoItems.length > 0 && (
+              <dl className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 mt-6 max-w-[1130px]">
+                {infoItems.map((item, i) => (
+                  <div key={i} className={item.wide ? 'col-span-2' : ''}>
+                    <dt className="mdtype-overline text-textFaint">{item.label}</dt>
+                    <dd className="text-sm sm:text-base text-zinc-200 mt-1">{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+
+            <div className="flex flex-col gap-4 2xl:gap-5 mt-8 2xl:mt-10">
+              <a href="#box-office" className={`${action} bg-white text-black font-bold hover:bg-zinc-200`}>
+                <ChartNoAxesColumnIncreasing className="w-5 h-5 2xl:w-6 2xl:h-6" strokeWidth={2.5} />
+                View Box Office
+              </a>
+              <Link href={`/compare?movies=${encodeURIComponent(params.slug)}`} className={`${action} bg-surface2/80 border border-border text-white font-semibold hover:bg-surface2 hover:border-borderStrong`}>
+                <GitCompareArrows className="w-5 h-5 2xl:w-6 2xl:h-6" strokeWidth={2} />
+                Compare with Another Movie
+              </Link>
+              {lead.days.length > 0 && (
+                <a
+                  href={`/api/social-poster/x-compare?movies=${encodeURIComponent(params.slug)}&basis=lifetime${analytics ? '' : '&territory=us'}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`${action} bg-surface2/80 border border-border text-white font-semibold hover:bg-surface2 hover:border-borderStrong`}
+                >
+                  <ImageDown className="w-5 h-5 2xl:w-6 2xl:h-6" strokeWidth={2} />
+                  Box Office Poster
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <section id="box-office" className="scroll-mt-24 mt-16 sm:mt-24">
+          <SectionHeading title="Box Office" subtitle={`${analytics && usa ? 'India and USA' : analytics ? 'India' : 'USA'} collections, day-wise and breakdowns`} />
+          <TerritoryTabs india={analytics ?? null} usa={usa ?? null} />
+        </section>
+      </div>
     </div>
   );
 }

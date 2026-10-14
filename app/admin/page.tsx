@@ -310,7 +310,7 @@ function SignIn() {
           required
         />
         {error && <p className="text-red text-xs">{error}</p>}
-        <button type="submit" className="bg-gold text-white font-semibold rounded-lg py-2.5 text-sm">
+        <button type="submit" className="bg-white text-black hover:bg-zinc-200 font-semibold rounded-lg py-2.5 text-sm">
           Sign in
         </button>
       </form>
@@ -333,7 +333,7 @@ function AdminShell() {
   const active = SECTIONS.find((s) => s.key === activeKey) ?? null;
 
   return (
-    <div className={`px-5 md:px-10 py-8 ${activeKey === SOCIAL_POSTER_KEY ? 'max-w-7xl' : 'max-w-4xl'}`}>
+    <div className={`fx-container py-8 ${activeKey === SOCIAL_POSTER_KEY ? 'max-w-7xl' : 'max-w-4xl'}`}>
       <div className="flex justify-between items-center mb-6">
         <h1 className="hdisplay gtext text-2xl">fyre admin</h1>
         <button
@@ -794,7 +794,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
         )}
         <div className="flex justify-between items-center">
           {error && <span className="text-red text-xs">{error}</span>}
-          <button type="submit" className="bg-gold text-white font-semibold rounded-lg px-6 py-2.5 text-sm ml-auto">
+          <button type="submit" className="bg-white text-black hover:bg-zinc-200 font-semibold rounded-lg px-6 py-2.5 text-sm ml-auto">
             {editingId ? `Update ${section.label.toLowerCase()}` : `Add ${section.label.toLowerCase()}`}
           </button>
         </div>

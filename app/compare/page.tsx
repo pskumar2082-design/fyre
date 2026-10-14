@@ -55,7 +55,7 @@ export default async function ComparePage({ searchParams }: { searchParams: SP }
     }
   }
   return (
-    <div className="px-5 md:px-10 py-8 max-w-6xl mx-auto">
+    <div className="fx-container py-8 sm:py-12">
       <ComparePageClient initialRequest={req} initial={initial} />
     </div>
   );

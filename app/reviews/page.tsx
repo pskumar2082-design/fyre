@@ -19,7 +19,7 @@ export default async function ReviewsPage() {
   const reviews = data ?? [];
 
   return (
-    <div className="px-5 md:px-10 py-8">
+    <div className="fx-container py-8 sm:py-12">
       <SectionHeading title="Fresh reviews" />
 
       {reviews.length === 0 ? (

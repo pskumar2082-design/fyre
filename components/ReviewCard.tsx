@@ -48,7 +48,7 @@ export default function ReviewCard({ review, className = '' }: { review: ReviewC
       aria-label={`Read review: ${review.title}${hasRating ? `, rated ${badgeRating} out of 5` : ', not yet rated'}`}
       className={`group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 ${className}`}
     >
-      <Card className="relative w-full aspect-[16/10] overflow-hidden p-0 transition group-hover:border-gold/30">
+      <Card className="relative w-full aspect-[16/10] overflow-hidden p-0 transition group-hover:border-borderStrong">
         {review.image_url ? (
           <Image
             src={review.image_url}
@@ -73,7 +73,7 @@ export default function ReviewCard({ review, className = '' }: { review: ReviewC
         />
 
         {hasRating && (
-          <span className="absolute top-2.5 right-2.5 bg-gold text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-card">
+          <span className="absolute top-2.5 right-2.5 bg-black/80 text-gold font-mono text-xs font-bold px-2 py-1.5 rounded-md">
             {badgeRating} / 5
           </span>
         )}
