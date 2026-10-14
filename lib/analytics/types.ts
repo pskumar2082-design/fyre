@@ -75,6 +75,10 @@ export type DayPoint = {
   metrics: Metrics;
   sourceUpdated: string | null;
   provenance?: UsProvenance; // USA only
+  // India (MovieMint policy) only:
+  window?: 'tracked' | 'later'; // later = captured after the official tracking window; never in lifetime
+  occupancySource?: number | null; // the source's own published occupancy (kept apart from tickets / seats)
+  completedAsOf?: string | null; // live day: figures count shows completed up to this time
 };
 
 // USA: where a day's numbers came from and how they reconcile.
@@ -111,6 +115,21 @@ export type MovieAnalytics = {
   advance: DayPoint[]; // advance snapshots, date order
   lifetime: Metrics & { days: number; complete: boolean };
   lastUpdated: string | null;
+  // India (MovieMint policy) only. `days` / `lifetime` stay the official
+  // tracked window; days captured after it are listed here, never added.
+  laterDays?: DayPoint[];
+  window?: {
+    start: string | null;
+    end: string | null;
+    officialGross: number | null; // the source's own published window total
+    cumulativeGross: number | null; // the source's whole-window report
+    officialDate?: string | null; // the last date the published total covers (YYYY-MM-DD)
+    officialStamp?: string | null; // when Fyre saw that total, IST ("2026-10-15 03:02 IST")
+    cumulativeStamp?: string | null; // the report's source stamp ("2026-10-14 23:39 IST")
+    cumulativeVenues: number | null; // exact distinct venues over the window
+    cumulativeCities: number | null;
+    advanceDates: string[]; // open advance show dates
+  } | null;
 };
 
 export type BreakdownRow = {

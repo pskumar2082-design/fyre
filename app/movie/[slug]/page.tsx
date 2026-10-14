@@ -8,7 +8,8 @@ import { formatDate } from '@/lib/bfilmy/adapter';
 import type { TTMovieMetaItem } from '@/lib/boxoffice/types';
 import { loadMovieAnalytics } from '@/lib/analytics/load';
 import { formatGross, formatMetric, formatMoney, formatOccupancy } from '@/lib/analytics/format';
-import TerritoryTabs from '@/components/analytics/TerritoryTabs';
+import StatsDashboard from '@/components/stats/StatsDashboard';
+import { statsFrom } from '@/lib/analytics/stats';
 import { loadUsaAnalytics } from '@/lib/analytics/usa';
 import { SectionHeading } from '@/components/ui';
 import { SITE_URL } from '@/lib/siteConfig';
@@ -249,7 +250,12 @@ export default async function MoviePage({ params }: { params: { slug: string } }
 
         <section id="box-office" className="scroll-mt-24 mt-16 sm:mt-24">
           <SectionHeading title="Box Office" subtitle={`${analytics && usa ? 'India and USA' : analytics ? 'India' : 'USA'} collections, day-wise and breakdowns`} />
-          <TerritoryTabs india={analytics ?? null} usa={usa ?? null} />
+          <StatsDashboard
+            india={analytics ? statsFrom(analytics) : null}
+            usa={usa ? statsFrom(usa) : null}
+            releaseLabel={releaseDate ? `${/releasing/i.test(details.meta.find((m) => /^released$|releasing/i.test(m.label))?.label ?? '') ? 'Releasing' : 'Released'} ${releaseDate}` : lead.dayOne ? `Day 1 · ${formatDate(lead.dayOne)}` : null}
+            languages={analytics?.languages ?? []}
+          />
         </section>
       </div>
     </div>

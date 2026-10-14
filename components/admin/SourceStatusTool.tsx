@@ -114,7 +114,30 @@ export default function SourceStatusTool() {
           {run?.stoppedBy ? ` · stopped by ${run.stoppedBy}` : ''}
         </div>
         <div className="text-textDim">Last successful sync {when(data.sync.lastSuccess?.finishedAt)} · catalog list {when(data.sync.lastCatalog?.fetchedAt)}</div>
-        <div className="text-textDim">Breakdown backlog (90-day window): {data.missing.breakdownBacklog} movie-days</div>
+        <div className="text-textDim">Final-report backlog (tracking windows since {data.completeness?.archiveStart ?? '2026-06-01'}): {data.missing.breakdownBacklog} movie-days</div>
+        {data.completeness && (
+          <div className="text-textDim">
+            Completeness: {data.completeness.cumulativeReports} cumulative reports · {data.completeness.laterDays} later days across {data.completeness.moviesWithLaterDays} movies (kept apart from official totals) ·{' '}
+            {data.completeness.advanceDates} open advance dates · {data.completeness.snapshots} refresh snapshots · {data.completeness.onAdvance} on the advance list · {data.completeness.sitemapOnly} sitemap-only
+          </div>
+        )}
+        {(data.missing.unreconciled ?? []).length > 0 && (
+          <div className="text-xs text-red">
+            Window totals that do not reconcile: {data.missing.unreconciled.map((u: any) => `${u.title} (sum ${cr(u.sum)} vs report ${cr(u.cumulative)} / list ${cr(u.official)})`).join(', ')}
+          </div>
+        )}
+        {(data.completeness?.unknownFields ?? []).length > 0 && (
+          <details className="pt-1">
+            <summary className="cursor-pointer text-amber hover:text-white">New source fields not imported yet ({data.completeness.unknownFields.length})</summary>
+            <ul className="mt-2 space-y-1 font-mono text-xs text-textFaint">
+              {data.completeness.unknownFields.map((f: any) => (
+                <li key={f.field}>
+                  {f.field} · first seen {when(f.firstSeen)} on {f.movie} · {f.count}×
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         {data.sync.failures.length > 0 && (
           <details className="pt-1">
             <summary className="cursor-pointer text-textDim hover:text-white">Import failures ({data.sync.failures.length})</summary>
@@ -214,7 +237,9 @@ export default function SourceStatusTool() {
                 <td className="py-3 px-4 text-right font-mono text-textDim">{cr(m.bfilmyIndiaGross)}</td>
                 <td className="py-3 px-4 text-right font-mono text-textDim">{m.usa ? m.usa.days : '—'}</td>
                 <td className="py-3 px-4 text-xs text-textFaint">
-                  {m.india ? `${m.india.missing} missing · ${m.india.breakdownDays}/${m.india.windowDays} final breakdowns` : ''}
+                  {m.india
+                    ? `${m.india.missing} missing · ${m.india.breakdownDays}/${m.india.windowDays} final breakdowns${m.india.laterDays ? ` · +${m.india.laterDays} later (${cr(m.india.laterGross)})` : ''}${m.india.cumulative ? '' : ' · no cumulative report yet'}${m.india.reconcile && !m.india.reconcile.ok ? ' · does not reconcile' : ''}`
+                    : ''}
                 </td>
               </tr>
             ))}

@@ -5,9 +5,11 @@
 //       --no-fetch, each movie's day-series page, paced) and reports what
 //       the MovieMint India policy would publish: links, new movies,
 //       BFILMY-only movies it would hide, India coverage per movie.
-//   npx tsx scripts/moviemint-india.ts run [--minutes M] [--pages-per-run N]
+//   npx tsx scripts/moviemint-india.ts run [--minutes M] [--pages-per-run N] [--only id,id] [--catalog]
 //       The scheduled import, repeated until nothing is pending or time is
-//       up (initial backfill). Needs supabase/migration_moviemint_india.sql.
+//       up (initial backfill). --only limits the pages to those MovieMint
+//       ids (the catalog lists and links are always refreshed). Needs
+//       supabase/migration_moviemint_india.sql and _2.sql.
 //   npx tsx scripts/moviemint-india.ts status
 //       The admin status counts (Supabase only).
 // Reads .env.local (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).
@@ -42,7 +44,7 @@ async function main() {
   if (mode === 'run') {
     const until = Date.now() + Number(opt('minutes', '30')) * 60_000;
     const perRun = Number(opt('pages-per-run', '25'));
-    for (let i = 1; Date.now() < until; i++) {
+    for (let i = 1; Date.now() + 15_000 < until; i++) {
       const lock = await sync.acquireMmiLock(10 * 60_000);
       if (!lock) {
         console.log('another MovieMint sync holds the lock; waiting 60 s');
@@ -50,10 +52,14 @@ async function main() {
         continue;
       }
       try {
-        const r = await sync.runMovieMintIndia({ deadline: Math.min(until, Date.now() + 5 * 60_000), maxPages: perRun, forceCatalog: i === 1 && flag('catalog') });
+        const only = opt('only')?.split(',').map((x) => x.trim()).filter(Boolean);
+        const r = await sync.runMovieMintIndia({ deadline: Math.min(until, Date.now() + 5 * 60_000), maxPages: perRun, forceCatalog: i === 1 && flag('catalog'), only });
         console.log(`run ${i}: ${r.pages.filter((p) => p.ok).length} ok, ${r.pages.filter((p) => !p.ok).length} failed, ${r.pending} pending, stopped by ${r.stoppedBy ?? 'nothing'}`);
         for (const e of r.errors.slice(0, 5)) console.log(`  ! ${e}`);
-        if (r.stoppedBy === 'refused' || r.stoppedBy === 'catalog' || r.pending === 0) break;
+        if (r.stoppedBy === 'refused' || r.stoppedBy === 'catalog') break;
+        // a first page reveals more work (its window dates), so stop only
+        // once a run has nothing left to fetch
+        if (r.pending === 0 && r.pages.length === 0) break;
       } finally {
         await sync.releaseMmiLock(lock);
       }

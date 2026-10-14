@@ -2,8 +2,8 @@
 // is contacted). Read by app/api/admin/source-status.
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { moviemintIndia, moviemintIndiaSyncEnabled, bfilmyIndiaSyncEnabled, sourcePolicy } from '@/lib/sourcePolicy';
-import { addDays } from './normalize';
-import { MMI_BREAKDOWN_DAYS } from './plan';
+import { addDays, reconcileWindow } from './normalize';
+import { MMI_ARCHIVE_START, MMI_BREAKDOWN_DAYS } from './plan';
 
 const db = supabaseAdmin as any;
 
@@ -30,7 +30,23 @@ export type StatusMovie = {
   title: string;
   link: string;
   onList: boolean;
-  india: { days: number; gross: number; first: string | null; last: string | null; missing: number; breakdownDays: number; windowDays: number } | null;
+  india: {
+    days: number;
+    gross: number; // official tracked window (sum of MovieMint's day series)
+    first: string | null;
+    last: string | null;
+    missing: number;
+    breakdownDays: number;
+    windowDays: number;
+    windowStart: string | null;
+    windowEnd: string | null;
+    laterDays: number; // captured after the window; never in `gross`
+    laterGross: number;
+    cumulative: boolean; // "Cumulative - All Days" report stored
+    reconcile: ReturnType<typeof reconcileWindow> | null; // series sum vs cumulative report vs /tracked total
+    advanceDates: string[];
+    snapshots: { live: number; advance: number };
+  } | null;
   usa: { sourceIds: number[]; days: number } | null;
   bfilmyIndiaGross: number | null; // BFILMY India total for the same Fyre movie (comparison only)
   slugChange: string | null; // public URL under the BFILMY policy, when different
@@ -40,7 +56,7 @@ export type StatusMovie = {
 
 export async function sourceStatus() {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  const windowStart = addDays(today, -MMI_BREAKDOWN_DAYS);
+  const windowStart = [MMI_ARCHIVE_START, addDays(today, -MMI_BREAKDOWN_DAYS)].sort().pop()!;
   let tablesReady = true;
   const safe = async <T>(p: Promise<T>, fallback: T): Promise<T> => {
     try {
@@ -50,10 +66,16 @@ export async function sourceStatus() {
       return fallback;
     }
   };
-  const [mm, links, mmiMovies, fyre, usMap, usDays, bfMovies, lastRun, lastOk, failures, lastCatalog, finalWindow] = await Promise.all([
-    all('mm_movie', 'moviemint_id,title,on_list,release_date,last_tracked_date'),
+  const [mm, links, mmiMovies, fyre, usMap, usDays, bfMovies, lastRun, lastOk, failures, lastCatalog, finalWindow, unknownFields, snapshots] = await Promise.all([
+    safe(all('mm_movie', 'moviemint_id,title,on_list,on_advance,on_sitemap,release_date,last_tracked_date'), [] as any[]).then(async (r) => (r.length ? r : all('mm_movie', 'moviemint_id,title,on_list,release_date,last_tracked_date'))),
     safe(all('mmi_catalog', 'moviemint_id,movie_id,slug,link_status,link_method,link_note,candidates'), [] as any[]),
-    safe(all('mmi_movie', 'slug,moviemint_id,days_tracked,total_gross,first_date,last_date,missing_dates,breakdown_days,advance_date'), [] as any[]),
+    safe(
+      all('mmi_movie', 'slug,moviemint_id,days_tracked,total_gross,first_date,last_date,missing_dates,breakdown_days,advance_date,window_start,window_end,later_days,later_gross,cum:cumulative->summary,official,advance_dates:meta->advanceDates').catch(() =>
+        // before migration 2
+        all('mmi_movie', 'slug,moviemint_id,days_tracked,total_gross,first_date,last_date,missing_dates,breakdown_days,advance_date')
+      ),
+      [] as any[]
+    ),
     all('fyre_tracked_movie', 'moviemint_id,bf_slug,title,origin,match_status,tracking_status'),
     all('us_movie_map', 'source_movie_id,source_title,movie_id,match_status,last_date'),
     all('us_movie_day', 'movie_id,kind', (q) => q.eq('kind', 'boxoffice')),
@@ -62,7 +84,14 @@ export async function sourceStatus() {
     state('last_mmi_success'),
     state('mmi_failures'),
     state('last_moviemint_sync'),
-    safe(all('mmi_movie_day', 'slug,date,breakdown_status', (q) => q.eq('kind', 'boxoffice').gte('date', windowStart).lt('date', today)), [] as any[])
+    safe(
+      all('mmi_movie_day', 'slug,date,breakdown_status,day_window', (q) => q.eq('kind', 'boxoffice').gte('date', windowStart).lt('date', today)).catch(() =>
+        all('mmi_movie_day', 'slug,date,breakdown_status', (q) => q.eq('kind', 'boxoffice').gte('date', windowStart).lt('date', today))
+      ),
+      [] as any[]
+    ),
+    state('mmi_unknown_fields'),
+    safe(all('mmi_snapshot', 'slug,kind'), [] as any[])
   ]);
 
   const fyreBy = new Map(fyre.map((f: any) => [f.moviemint_id, f]));
@@ -75,10 +104,19 @@ export async function sourceStatus() {
   for (const d of usDays) usDayCount.set(d.movie_id, (usDayCount.get(d.movie_id) ?? 0) + 1);
   const windowDays = new Map<string, { all: number; final: number }>();
   for (const d of finalWindow) {
+    if (d.day_window === 'later') continue;
     const w = windowDays.get(d.slug) ?? { all: 0, final: 0 };
     w.all++;
     if (d.breakdown_status === 'final') w.final++;
     windowDays.set(d.slug, w);
+  }
+
+  const snapCount = new Map<string, { live: number; advance: number }>();
+  for (const s of snapshots) {
+    const c = snapCount.get(s.slug) ?? { live: 0, advance: 0 };
+    if (s.kind === 'advance') c.advance++;
+    else c.live++;
+    snapCount.set(s.slug, c);
   }
 
   const movies: StatusMovie[] = mm.map((m: any) => {
@@ -103,7 +141,15 @@ export async function sourceStatus() {
             last: india.last_date,
             missing: (india.missing_dates ?? []).length,
             breakdownDays: w?.final ?? 0,
-            windowDays: w?.all ?? 0
+            windowDays: w?.all ?? 0,
+            windowStart: india.window_start ?? null,
+            windowEnd: india.window_end ?? null,
+            laterDays: Number(india.later_days) || 0,
+            laterGross: Number(india.later_gross) || 0,
+            cumulative: !!india.cum,
+            reconcile: india.cum || india.official ? reconcileWindow([Number(india.total_gross) || 0], india.cum?.gross ?? null, india.official?.gross ?? null) : null,
+            advanceDates: Array.isArray(india.advance_dates) ? india.advance_dates : [],
+            snapshots: snapCount.get(l.slug) ?? { live: 0, advance: 0 }
           }
         : null,
       usa: usIds.length ? { sourceIds: usIds, days: usDayCount.get(l.movie_id) ?? 0 } : null,
@@ -149,10 +195,24 @@ export async function sourceStatus() {
       usaOutsideCatalog: usaOutsideCatalog.length
     },
     sync: { lastRun, lastSuccess: lastOk, lastCatalog, failures: (failures?.list ?? []).slice(0, 30) },
+    completeness: {
+      archiveStart: MMI_ARCHIVE_START,
+      onAdvance: mm.filter((m: any) => m.on_advance).length,
+      sitemapOnly: mm.filter((m: any) => m.on_sitemap && !m.on_list && !m.on_advance).length,
+      laterDays: linked.reduce((a, m) => a + (m.india?.laterDays ?? 0), 0),
+      moviesWithLaterDays: linked.filter((m) => (m.india?.laterDays ?? 0) > 0).length,
+      advanceDates: linked.reduce((a, m) => a + (m.india?.advanceDates.length ?? 0), 0),
+      snapshots: snapshots.length,
+      cumulativeReports: linked.filter((m) => m.india?.cumulative).length,
+      // Fields MovieMint added that the importer does not read yet
+      unknownFields: Object.entries((unknownFields?.fields ?? {}) as Record<string, any>).map(([field, v]) => ({ field, ...v }))
+    },
     missing: {
       noIndiaData: linked.filter((m) => !m.india || m.india.days === 0).map((m) => m.title),
       gaps: linked.filter((m) => m.india && m.india.missing > 0).map((m) => ({ title: m.title, missing: m.india!.missing })),
       breakdownBacklog: linked.reduce((a, m) => a + (m.india ? Math.max(0, m.india.windowDays - m.india.breakdownDays) : 0), 0),
+      noCumulative: linked.filter((m) => m.india && m.india.days > 0 && !m.india.cumulative).length,
+      unreconciled: linked.filter((m) => m.india?.reconcile && !m.india.reconcile.ok).map((m) => ({ title: m.title, ...m.india!.reconcile! })),
       // Never provided by MovieMint (shown as unavailable on the site)
       neverProvided: ['Chain-wise', 'Venue / theater', 'PIC (PVR · INOX · Cinepolis)', 'Show-start hour / time slot', 'Ticket-price band', 'Language × State / City', 'Seats by language and format']
     },

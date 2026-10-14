@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { moviePage } from './fixtures';
 
 // In-memory stand-in for the Supabase admin client: records every write.
-const writes: { table: string; op: string; rows?: unknown }[] = [];
+const writes: { table: string; op: string; rows?: any; patch?: any }[] = [];
 const stateRows = new Map<string, unknown>();
+const missingTables = new Set<string>();
 function builder(table: string) {
   const q: any = {
     select: () => q,
@@ -12,15 +14,16 @@ function builder(table: string) {
     lt: () => q,
     not: () => q,
     order: () => q,
+    limit: async () => (missingTables.has(table) ? { data: null, error: { message: `relation "${table}" does not exist` } } : { data: [], error: null }),
     range: async () => ({ data: [], error: null }),
-    maybeSingle: async () => ({ data: table === 'bf_sync_state' ? null : null, error: null }),
+    maybeSingle: async () => ({ data: null, error: null }),
     upsert: async (rows: any) => {
       writes.push({ table, op: 'upsert', rows });
       if (table === 'bf_sync_state') stateRows.set(rows.key, rows.value);
       return { data: null, error: null };
     },
-    update: () => {
-      writes.push({ table, op: 'update' });
+    update: (patch: any) => {
+      writes.push({ table, op: 'update', patch });
       return q;
     },
     insert: async (rows: any) => {
@@ -36,19 +39,17 @@ function builder(table: string) {
   return q;
 }
 vi.mock('@/lib/supabaseAdmin', () => ({ supabaseAdmin: { from: (t: string) => builder(t), rpc: async () => ({ data: null, error: null }) } }));
-vi.mock('../../sync', () => ({
-  syncMovieMintCatalog: vi.fn(async () => {
-    throw new Error('MovieMint /tracked answered HTTP 503');
-  })
-}));
+// MovieMint down: every request answers 503.
+vi.mock('axios', () => ({ default: { get: vi.fn(async () => ({ status: 503, data: '' })) } }));
+
+beforeEach(() => {
+  writes.length = 0;
+  stateRows.clear();
+  missingTables.clear();
+});
+afterEach(() => vi.clearAllMocks());
 
 describe('MovieMint sync failure', () => {
-  beforeEach(() => {
-    writes.length = 0;
-    stateRows.clear();
-  });
-  afterEach(() => vi.clearAllMocks());
-
   it('stops at the catalog, keeps every stored catalog/data row, records the failure', async () => {
     const { runMovieMintIndia } = await import('../sync');
     const r = await runMovieMintIndia({ deadline: Date.now() + 10_000, forceCatalog: true });
@@ -60,6 +61,49 @@ describe('MovieMint sync failure', () => {
     expect(writes.some((w) => w.op === 'delete')).toBe(false);
     expect(stateRows.has('last_mmi_sync')).toBe(true);
     expect((stateRows.get('mmi_failures') as any).list[0]).toMatchObject({ page: 'catalog' });
+  });
+
+  it('refuses to run before migration 2 (no writes, clear instruction)', async () => {
+    missingTables.add('mmi_snapshot');
+    const { runMovieMintIndia } = await import('../sync');
+    await expect(runMovieMintIndia({ deadline: Date.now() + 10_000 })).rejects.toThrow(/migration_moviemint_india_2\.sql/);
+    expect(writes).toEqual([]);
+  });
+});
+
+describe('writing pages', () => {
+  const m = { moviemintId: 'test-movie', movieId: 'test-movie', slug: 'test-movie', title: 'Test Movie', poster: null, language: 'Telugu', releaseDate: '2026-09-24', onList: true, onAdvance: false, lastTrackedDate: '2026-10-14', stopped: false };
+  const summary = { totalGross: 500, totalShows: 3, totalTicketsSold: 5, totalSeats: 50, totalLocations: 2, avgOccupancy: 10, totalFastFilling: 0, totalHouseFull: 0 };
+  const series = [
+    { date: '20261013', gross: 1000, ticketsSold: 10, shows: 4, avgOccupancy: 20, lastUpdated: '2026-10-13 23:40 IST', totalSeats: 50 },
+    { date: '20261014', gross: 500, ticketsSold: 5, shows: 3, avgOccupancy: 10, lastUpdated: '2026-10-14 20:40 IST' }
+  ];
+
+  it('live view: window rows (tracked) + one intraday snapshot', async () => {
+    const { parseMoviePage } = await import('../parse');
+    const { writePage } = await import('../sync');
+    const page = parseMoviePage(moviePage({ movieId: 'test-movie', series, day: { date: '20261014', lastUpdated: '2026-10-14 20:40 IST', summary }, completedAsOf: '20:40 IST' }), 'test-movie', 'boxoffice');
+    const w = await writePage(page, m, '2026-10-14');
+    const dayRows = writes.filter((x) => x.table === 'mmi_movie_day' && x.op === 'upsert').flatMap((x) => x.rows);
+    expect(dayRows.map((r: any) => [r.date, r.day_window])).toEqual([
+      ['2026-10-13', 'tracked'],
+      ['2026-10-14', 'tracked']
+    ]);
+    expect(dayRows[1]).toMatchObject({ breakdown_status: 'live', totals: { completedAsOf: '20:40 IST' } });
+    const snap = writes.find((x) => x.table === 'mmi_snapshot');
+    expect(snap?.rows).toMatchObject({ show_date: '2026-10-14', completed_as_of: '20:40 IST', kind: 'boxoffice' });
+    expect(w.meta).toMatchObject({ latestSnapshot: '2026-10-14', windowDates: 2, backdrop: 'https://image.tmdb.org/t/p/w1280/b.jpg' });
+    expect(writes.some((x) => x.op === 'delete')).toBe(false);
+  });
+
+  it('cumulative report: stored on the movie, never as a day', async () => {
+    const { parseMoviePage } = await import('../parse');
+    const { writePage } = await import('../sync');
+    const page = parseMoviePage(moviePage({ movieId: 'test-movie', series, day: { date: 'cumulative', lastUpdated: '2026-10-14 20:40 IST', summary: { ...summary, totalGross: 1500 } } }), 'test-movie', 'boxoffice', 'cumulative');
+    await writePage(page, m, '2026-10-14');
+    expect(writes.filter((x) => x.table === 'mmi_movie_day')).toEqual([]);
+    const u = writes.find((x) => x.table === 'mmi_movie' && x.op === 'update');
+    expect(u?.patch).toMatchObject({ cumulative: { summary: { gross: 1500 } }, cumulative_updated: '2026-10-14 20:40 IST' });
   });
 });
 

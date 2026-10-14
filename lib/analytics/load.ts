@@ -3,7 +3,7 @@
 import { supabase } from '@/lib/supabaseClient';
 import { indiaTables, moviemintIndia } from '@/lib/sourcePolicy';
 import { applyCatalogHistory, publicTrackedSlugs } from '@/lib/tracking';
-import { dayNumber, dayOneDate, formatDate, movieState, type BfMovieRow } from '@/lib/bfilmy/adapter';
+import { dayNumber, dayOneDate, formatDate, latestSourceStamp, movieState, type BfMovieRow } from '@/lib/bfilmy/adapter';
 import { hourOrder, NO_SALES_BAND, PRICE_BANDS, TIME_SLOTS } from '@/lib/bfilmy/detail';
 import { makeMetrics, metricsFromTuple, sumMetrics } from './metrics';
 import { breakdownTotal } from './totals';
@@ -107,12 +107,14 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
     // of is shown like a carried-over one (no Day numbers, tracked period).
     const [row] = await applyCatalogHistory([rowData as BfMovieRow]);
 
-    const [dayRows, detailRows] = await Promise.all([
+    const mmDays = (cols: string) => selectAll<any>((f, t) => (supabase as any).from(IN.day).select(cols).eq('slug', safe).eq('in_source', true).order('date').range(f, t), IN.day);
+    const [dayRows, detailRows, extra] = await Promise.all([
       mm
-        ? selectAll<any>(
-            (f, t) => (supabase as any).from(IN.day).select('kind,date,totals,source_updated,breakdown_pruned,breakdown_status').eq('slug', safe).eq('in_source', true).order('date').range(f, t),
-            IN.day
-          )
+        ? mmDays('kind,date,totals,source_updated,breakdown_pruned,breakdown_status,day_window').catch((err) => {
+            // before migration 2 (no day_window yet): every stored day is a window day
+            if (!/day_window/.test(String(err?.message))) throw err;
+            return mmDays('kind,date,totals,source_updated,breakdown_pruned,breakdown_status');
+          })
         : selectAll<any>((f, t) => supabase.from('bf_movie_day').select('kind,date,totals,source_updated,breakdown_pruned').eq('slug', safe).order('date').range(f, t), 'bf_movie_day'),
       // MovieMint publishes no show-level file
       mm
@@ -120,7 +122,15 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
         : selectAll<any>(
             (f, t) => supabase.from('bf_movie_day_detail').select('kind,date,shows,seats,sold,gross,ff,hf,venues,cities,states,pic,source_updated').eq('slug', safe).order('date').range(f, t),
             'bf_movie_day_detail'
-          )
+          ),
+      mm
+        ? (supabase as any)
+            .from(IN.movie)
+            .select('window_start,window_end,official,cum:cumulative->summary,cumulative_updated,advance_dates:meta->advanceDates')
+            .eq('slug', safe)
+            .maybeSingle()
+            .then((r: any) => (r.error ? null : r.data))
+        : Promise.resolve(null)
     ]);
     const detailBy = new Map(detailRows.map((d) => [`${d.kind}:${d.date}`, d]));
     const dayOne = releaseDayOne(row);
@@ -139,6 +149,7 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
         detail: !!d,
         breakdowns: !r.breakdown_pruned && (!mm || (r.breakdown_status ?? 'none') !== 'none'),
         sourceUpdated: r.source_updated ?? d?.source_updated ?? null,
+        ...(mm ? { window: r.day_window === 'later' ? ('later' as const) : ('tracked' as const), occupancySource: t.occupancySource ?? null, completedAsOf: t.completedAsOf ?? null } : {}),
         // Day totals always come from BFILMY's summary file -- the same
         // figures every listing, card and bf_movie total uses. The
         // show-level file adds venues, states and PIC (for a finished day
@@ -161,7 +172,9 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
       };
     };
 
-    const days = dayRows.filter((r) => r.kind === 'boxoffice').map(toPoint);
+    // Official tracked window only; later days stay apart (never in lifetime).
+    const days = dayRows.filter((r) => r.kind === 'boxoffice' && r.day_window !== 'later').map(toPoint);
+    const laterDays = mm ? dayRows.filter((r) => r.kind === 'boxoffice' && r.day_window === 'later').map(toPoint) : [];
     const advance = dayRows.filter((r) => r.kind === 'advance').map(toPoint);
 
     const lifetime = sumMetrics(days.map((d) => d.metrics));
@@ -187,7 +200,24 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
       days,
       advance,
       lifetime: { ...lifetime, days: days.length, complete },
-      lastUpdated: row.source_updated ?? null
+      lastUpdated: latestSourceStamp(dayRows) ?? row.source_updated ?? null,
+      ...(mm
+        ? {
+            laterDays,
+            window: {
+              start: extra?.window_start ?? days[0]?.date ?? null,
+              end: extra?.window_end ?? days[days.length - 1]?.date ?? null,
+              officialGross: extra?.official?.gross == null ? null : n(extra.official.gross),
+              cumulativeGross: extra?.cum?.gross == null ? null : n(extra.cum.gross),
+              officialDate: /^\d{8}$/.test(String(extra?.official?.sourceDate ?? '')) ? `${String(extra.official.sourceDate).slice(0, 4)}-${String(extra.official.sourceDate).slice(4, 6)}-${String(extra.official.sourceDate).slice(6)}` : null,
+              cumulativeStamp: extra?.cumulative_updated ?? null,
+              officialStamp: extra?.official?.seenAt ? `${new Date(extra.official.seenAt).toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' }).slice(0, 16)} IST` : null,
+              cumulativeVenues: extra?.cum?.venues == null ? null : n(extra.cum.venues),
+              cumulativeCities: extra?.cum?.cities == null ? null : n(extra.cum.cities),
+              advanceDates: Array.isArray(extra?.advance_dates) ? extra.advance_dates : []
+            }
+          }
+        : {})
     };
   });
 }
@@ -243,7 +273,7 @@ export function resolveSelection(m: MovieAnalytics, s: Selection): Resolved {
 export async function selectionSummary(m: MovieAnalytics, r: Resolved): Promise<Metrics | null> {
   if (r.points.length === 0) return null;
   if (r.points.length === 1) return r.points[0].metrics;
-  if (r.kind === 'boxoffice' && r.points.length === m.days.length && m.lifetime.days === r.points.length) {
+  if (r.kind === 'boxoffice' && r.points.length === m.days.length && m.lifetime.days === r.points.length && r.points.every((p, i) => p.date === m.days[i].date)) {
     const { days: _d, complete: _c, ...rest } = m.lifetime;
     return rest;
   }
@@ -288,7 +318,12 @@ function hourLabel(h: number): string {
 }
 
 export async function loadBreakdown(m: MovieAnalytics, sel: Selection, dimension: Dimension): Promise<Breakdown> {
-  const r = resolveSelection(m, sel);
+  return breakdownForResolved(m, resolveSelection(m, sel), dimension);
+}
+
+// Any set of stored days (a selection, or a date range picked on the
+// movie page, later days included).
+export async function breakdownForResolved(m: MovieAnalytics, r: Resolved, dimension: Dimension): Promise<Breakdown> {
   const dates = r.points.map((p) => p.date);
   const base = { dimension, label: DIMENSION_LABELS[dimension], dates };
   if (US_ONLY_DIMENSIONS.includes(dimension)) return { ...base, available: false, reason: 'Only available for the USA.', source: null, total: 0, rows: [] };
@@ -302,7 +337,7 @@ export async function loadBreakdown(m: MovieAnalytics, sel: Selection, dimension
       ...base,
       available: false,
       reason: mm
-        ? 'State, city, language and format breakdowns are available for the most recent 90 days; this selection includes a date without one yet. Totals for every day are always shown.'
+        ? 'This selection includes a date without a state / city / language / format report yet. Totals for every day are always shown.'
         : 'Breakdowns are kept for the most recent 90 days. Totals for every day are kept permanently.',
       source: null,
       total: 0,

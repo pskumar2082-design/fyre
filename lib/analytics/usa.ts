@@ -225,7 +225,10 @@ function rowFor(dimension: Dimension, key: string[], metrics: Metrics): Breakdow
 }
 
 export async function loadUsaBreakdown(m: MovieAnalytics, sel: Selection, dimension: Dimension): Promise<Breakdown> {
-  const r = resolveSelection(m, sel);
+  return usaBreakdownForResolved(m, resolveSelection(m, sel), dimension);
+}
+
+export async function usaBreakdownForResolved(m: MovieAnalytics, r: Resolved, dimension: Dimension): Promise<Breakdown> {
   const dates = r.points.map((p) => p.date);
   const base = { dimension, label: DIMENSION_LABELS[dimension], dates, currency: 'USD' as const };
   const no = (reason: string | null): Breakdown => ({ ...base, available: false, reason, source: null, total: 0, rows: [], totalRow: null });
