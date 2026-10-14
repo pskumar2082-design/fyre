@@ -10,6 +10,7 @@
 // occupancy = tickets / seats (the source's unweighted figure is kept too);
 // theatres / cities / states = distinct counts. FF/HF and PIC don't exist
 // for the USA: null (shown as N/A), never zero.
+import { indiaTables, moviemintIndia } from '@/lib/sourcePolicy';
 import { supabase } from '@/lib/supabaseClient';
 import { catalogHistory, publicTrackedSlugs } from '@/lib/tracking';
 import { catalogMovie } from '@/lib/catalog/public';
@@ -35,6 +36,13 @@ const numOrNull = (v: unknown) => (v == null ? null : Number.isFinite(Number(v))
 export async function usaMovieId(slug: string): Promise<string | null> {
   const safe = cleanSlug(slug);
   if (!safe || !(await publicTrackedSlugs()).has(safe)) return null;
+  // MovieMint India policy: the Fyre movie behind a public slug comes from
+  // the MovieMint catalog link.
+  if (moviemintIndia()) {
+    const { data, error } = await db.from('mmi_catalog').select('movie_id').eq('slug', safe).eq('link_status', 'linked').maybeSingle();
+    if (error) throw new Error(`mmi_catalog: ${error.message}`);
+    return data?.movie_id ?? null;
+  }
   const { data, error } = await db.from('fyre_tracked_movie').select('moviemint_id').eq('bf_slug', safe).eq('match_status', 'matched').maybeSingle();
   if (error) throw new Error(`fyre_tracked_movie: ${error.message}`);
   return data?.moviemint_id ?? null;
@@ -74,7 +82,7 @@ export async function loadUsaAnalytics(slug: string, now: Date = new Date()): Pr
     if (error) throw new Error(`us_movie_day: ${error.message}`);
     if (!rows || rows.length === 0) return null;
     const safe = cleanSlug(slug);
-    const { data: india } = await db.from('bf_movie').select('slug,title,poster').eq('slug', safe).maybeSingle();
+    const { data: india } = await db.from(indiaTables().movie).select('slug,title,poster').eq('slug', safe).maybeSingle();
     // A Fyre movie with USA data only: title and poster from Fyre's catalog.
     const canon = await catalogMovie(safe);
     const movie = india ? { ...india, poster: india.poster ?? canon?.poster ?? null } : canon ? { slug: safe, title: canon.title, poster: canon.poster } : null;

@@ -11,6 +11,7 @@ import DailyReportsTool from '@/components/admin/DailyReportsTool';
 import UsaMatchingTool from '@/components/admin/UsaMatchingTool';
 import ListingMatchingTool from '@/components/admin/ListingMatchingTool';
 import CatalogTool from '@/components/admin/CatalogTool';
+import SourceStatusTool from '@/components/admin/SourceStatusTool';
 import FyreRichTextEditor from '@/components/admin/FyreRichTextEditor';
 import ArticleBody from '@/components/ArticleBody';
 import { sanitizeArticleHtml } from '@/lib/richText/sanitize';
@@ -327,13 +328,14 @@ const DAILY_KEY = 'daily-reports';
 const USA_MAP_KEY = 'usa-matching';
 const INDIA_MAP_KEY = 'india-matching';
 const CATALOG_KEY = 'fyre-catalog';
+const SOURCES_KEY = 'sources';
 
 function AdminShell() {
   const [activeKey, setActiveKey] = useState<string>(SECTIONS[0].key);
   const active = SECTIONS.find((s) => s.key === activeKey) ?? null;
 
   return (
-    <div className={`fx-container py-8 ${activeKey === SOCIAL_POSTER_KEY ? 'max-w-7xl' : 'max-w-4xl'}`}>
+    <div className={`fx-container py-8 ${activeKey === SOCIAL_POSTER_KEY || activeKey === SOURCES_KEY ? 'max-w-7xl' : 'max-w-4xl'}`}>
       <div className="flex justify-between items-center mb-6">
         <h1 className="hdisplay gtext text-2xl">fyre admin</h1>
         <button
@@ -375,7 +377,8 @@ function AdminShell() {
           [DAILY_KEY, 'Daily reports'],
           [USA_MAP_KEY, 'USA matching'],
           [INDIA_MAP_KEY, 'India matching'],
-          [CATALOG_KEY, 'Fyre catalog']
+          [CATALOG_KEY, 'Fyre catalog'],
+          [SOURCES_KEY, 'Sources']
         ].map(([k, l]) => (
           <button
             key={k}
@@ -411,6 +414,8 @@ function AdminShell() {
         <ListingMatchingTool territory="india" />
       ) : activeKey === CATALOG_KEY ? (
         <CatalogTool />
+      ) : activeKey === SOURCES_KEY ? (
+        <SourceStatusTool />
       ) : (
         <SocialPosterSection />
       )}

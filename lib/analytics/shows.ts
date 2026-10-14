@@ -3,6 +3,7 @@
 // and open advance dates). A visitor never causes a BFILMY request.
 // Nothing here feeds any aggregate number.
 import { supabase } from '@/lib/supabaseClient';
+import { moviemintIndia } from '@/lib/sourcePolicy';
 import { publicTrackedSlugs } from '@/lib/tracking';
 import { hourOrder } from '@/lib/bfilmy/detail';
 import { cleanSlug, todayIST } from './load';
@@ -46,6 +47,9 @@ export async function loadShows(slug: string, date: string, kind: 'boxoffice' | 
   const base = { date, kind, rows: [] as ShowRow[] };
   if (!(await publicTrackedSlugs()).has(safe)) return { ...base, source: null, available: false, reason: 'Movie not tracked', sourceUpdated: null };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ...base, source: null, available: false, reason: 'Invalid date', sourceUpdated: null };
+  // MovieMint India policy: India figures come from MovieMint, which
+  // publishes no show-by-show rows (stored BFILMY rows are not shown).
+  if (moviemintIndia()) return { ...base, source: null, available: false, reason: 'Show-by-show rows aren’t available for India.', sourceUpdated: null };
 
   const stored: any[] = [];
   for (let from = 0; from < 50_000; from += 1000) {

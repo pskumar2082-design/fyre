@@ -1,6 +1,7 @@
 // Supabase reads for Fyre Analytics. Server-side only (uses the public
 // anon client; every table read here is public-read).
 import { supabase } from '@/lib/supabaseClient';
+import { indiaTables, moviemintIndia } from '@/lib/sourcePolicy';
 import { applyCatalogHistory, publicTrackedSlugs } from '@/lib/tracking';
 import { dayNumber, dayOneDate, formatDate, movieState, type BfMovieRow } from '@/lib/bfilmy/adapter';
 import { hourOrder, NO_SALES_BAND, PRICE_BANDS, TIME_SLOTS } from '@/lib/bfilmy/detail';
@@ -97,19 +98,29 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
   if (!(await publicTrackedSlugs()).has(safe)) return null;
   const today = todayIST(now);
   return remember(`movie:${safe}:${today}`, 60_000, async () => {
-    const { data: rowData, error } = await supabase.from('bf_movie').select(MOVIE_COLUMNS).eq('slug', safe).maybeSingle();
-    if (error) throw new Error(`bf_movie: ${error.message}`);
+    const IN = indiaTables();
+    const mm = IN.source === 'moviemint';
+    const { data: rowData, error } = await supabase.from(IN.movie as 'bf_movie').select(MOVIE_COLUMNS).eq('slug', safe).maybeSingle();
+    if (error) throw new Error(`${IN.movie}: ${error.message}`);
     if (!rowData) return null;
     // 90-day rule: a long-running movie Fyre imported only the recent part
     // of is shown like a carried-over one (no Day numbers, tracked period).
     const [row] = await applyCatalogHistory([rowData as BfMovieRow]);
 
     const [dayRows, detailRows] = await Promise.all([
-      selectAll<any>((f, t) => supabase.from('bf_movie_day').select('kind,date,totals,source_updated,breakdown_pruned').eq('slug', safe).order('date').range(f, t), 'bf_movie_day'),
-      selectAll<any>(
-        (f, t) => supabase.from('bf_movie_day_detail').select('kind,date,shows,seats,sold,gross,ff,hf,venues,cities,states,pic,source_updated').eq('slug', safe).order('date').range(f, t),
-        'bf_movie_day_detail'
-      )
+      mm
+        ? selectAll<any>(
+            (f, t) => (supabase as any).from(IN.day).select('kind,date,totals,source_updated,breakdown_pruned,breakdown_status').eq('slug', safe).eq('in_source', true).order('date').range(f, t),
+            IN.day
+          )
+        : selectAll<any>((f, t) => supabase.from('bf_movie_day').select('kind,date,totals,source_updated,breakdown_pruned').eq('slug', safe).order('date').range(f, t), 'bf_movie_day'),
+      // MovieMint publishes no show-level file
+      mm
+        ? Promise.resolve([] as any[])
+        : selectAll<any>(
+            (f, t) => supabase.from('bf_movie_day_detail').select('kind,date,shows,seats,sold,gross,ff,hf,venues,cities,states,pic,source_updated').eq('slug', safe).order('date').range(f, t),
+            'bf_movie_day_detail'
+          )
     ]);
     const detailBy = new Map(detailRows.map((d) => [`${d.kind}:${d.date}`, d]));
     const dayOne = releaseDayOne(row);
@@ -126,7 +137,7 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
         label: dayLabel(day, r.date, dayOne),
         final,
         detail: !!d,
-        breakdowns: !r.breakdown_pruned,
+        breakdowns: !r.breakdown_pruned && (!mm || (r.breakdown_status ?? 'none') !== 'none'),
         sourceUpdated: r.source_updated ?? d?.source_updated ?? null,
         // Day totals always come from BFILMY's summary file -- the same
         // figures every listing, card and bf_movie total uses. The
@@ -141,8 +152,9 @@ export async function loadMovieAnalytics(slug: string, now: Date = new Date()): 
           ff: t.fastfilling,
           hf: t.housefull,
           cities: d ? d.cities : t.cities,
-          venues: d ? d.venues : null,
-          states: d ? d.states : null,
+          // MovieMint's day totals carry venue and state counts themselves
+          venues: d ? d.venues : mm ? t.venues : null,
+          states: d ? d.states : mm ? t.states : null,
           picGross: d ? d.pic?.gross : null,
           picTickets: d ? d.pic?.sold : null
         })
@@ -264,7 +276,7 @@ function dimSum(slug: string, kind: string, dates: string[], dimension: string) 
   return rpc('bf_dim_sum', { p_slug: slug, p_kind: kind, p_dates: dates, p_dimension: dimension });
 }
 function summarySum(slug: string, kind: string, dates: string[], list: string) {
-  return rpc('bf_summary_dim_sum', { p_slug: slug, p_kind: kind, p_dates: dates, p_list: list });
+  return rpc(indiaTables().summarySum, { p_slug: slug, p_kind: kind, p_dates: dates, p_list: list });
 }
 
 const s = (v: unknown) => (v == null ? '' : String(v));
@@ -281,11 +293,17 @@ export async function loadBreakdown(m: MovieAnalytics, sel: Selection, dimension
   const base = { dimension, label: DIMENSION_LABELS[dimension], dates };
   if (US_ONLY_DIMENSIONS.includes(dimension)) return { ...base, available: false, reason: 'Only available for the USA.', source: null, total: 0, rows: [] };
   if (r.points.length === 0) return { ...base, available: false, reason: r.reason, source: null, total: 0, rows: [] };
+  const mm = moviemintIndia();
+  if (mm && (dimension === 'chain' || DETAIL_ONLY.includes(dimension))) {
+    return { ...base, available: false, reason: `${DIMENSION_LABELS[dimension]} figures aren’t available for India.`, source: null, total: 0, rows: [] };
+  }
   if (r.points.some((p) => !p.breakdowns)) {
     return {
       ...base,
       available: false,
-      reason: 'Breakdowns are kept for the most recent 90 days. Totals for every day are kept permanently.',
+      reason: mm
+        ? 'State, city, language and format breakdowns are available for the most recent 90 days; this selection includes a date without one yet. Totals for every day are always shown.'
+        : 'Breakdowns are kept for the most recent 90 days. Totals for every day are kept permanently.',
       source: null,
       total: 0,
       rows: []

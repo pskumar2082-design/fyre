@@ -8,7 +8,7 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 7
     steps:
       - name: Trigger fyre sync
         env:
@@ -17,6 +17,17 @@ jobs:
           curl -fsS --max-time 90 \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             "https://fyre.co.in/api/cron/bfilmy" | head -c 2000
+      - name: Trigger MovieMint catalog + India sync (no-op unless MOVIEMINT_INDIA_SYNC=1)
+        if: always()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # two paced runs (each at most ~18 pages, ~1.2 s apart); runs before
+          # the USA sync so USA matching sees the current MovieMint catalog
+          for i in 1 2; do
+            curl -sS --max-time 90               -H "Authorization: Bearer ${CRON_SECRET}"               "https://fyre.co.in/api/cron/moviemint" | head -c 1500 || true
+            echo
+          done
       - name: Trigger fyre USA sync (no-op unless USA_SYNC_ENABLED=1)
         if: always()
         env:

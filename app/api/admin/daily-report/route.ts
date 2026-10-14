@@ -5,6 +5,7 @@ import { makeMetrics, sumMetrics } from '@/lib/analytics/metrics';
 import { dayFor, releaseDayOne } from '@/lib/analytics/load';
 import type { Metrics } from '@/lib/analytics/types';
 import { etStamp } from '@/lib/analytics/usa';
+import { indiaTables, moviemintIndia } from '@/lib/sourcePolicy';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -23,7 +24,17 @@ const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 type Row = { slug: string; title: string; day: number | null; metrics: Metrics; lastUpdated: string | null; extra?: Record<string, unknown> };
 
-async function trackedMovies(movie: string | null) {
+async function trackedMovies(movie: string | null): Promise<{ moviemint_id: string; bf_slug: string; title: string | null }[]> {
+  // MovieMint India policy: the MovieMint catalog (public slug -> Fyre id).
+  if (moviemintIndia()) {
+    let q = db.from('mmi_catalog').select('moviemint_id,movie_id,slug').eq('link_status', 'linked').not('slug', 'is', null);
+    if (movie) q = q.eq('slug', movie);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    const { data: mm } = await db.from('mm_movie').select('moviemint_id,title');
+    const title = new Map((mm ?? []).map((m: any) => [m.moviemint_id, m.title]));
+    return (data ?? []).map((l: any) => ({ moviemint_id: l.movie_id, bf_slug: l.slug, title: (title.get(l.moviemint_id) as string | undefined) ?? null }));
+  }
   let q = db.from('fyre_tracked_movie').select('moviemint_id,bf_slug,title').eq('match_status', 'matched').not('bf_slug', 'is', null);
   if (movie) q = q.eq('bf_slug', movie);
   const { data, error } = await q;
@@ -37,10 +48,14 @@ async function india(date: string, kind: string, movie: string | null) {
   const rows: Row[] = [];
   for (let i = 0; i < slugs.length; i += 100) {
     const part = slugs.slice(i, i + 100);
+    const IN = indiaTables();
+    const mmPolicy = IN.source === 'moviemint';
+    const dayQ = db.from(IN.day).select('slug,title,totals,source_updated').eq('kind', kind).eq('date', date).in('slug', part);
     const [days, details, movies] = await Promise.all([
-      db.from('bf_movie_day').select('slug,title,totals,source_updated').eq('kind', kind).eq('date', date).in('slug', part),
-      db.from('bf_movie_day_detail').select('slug,venues,cities,states,pic,source_updated').eq('kind', kind).eq('date', date).in('slug', part),
-      db.from('bf_movie').select('slug,title,release_date,first_date,carried_over,premiere_date').in('slug', part)
+      mmPolicy ? dayQ.eq('in_source', true) : dayQ,
+      // MovieMint publishes no show-level file
+      mmPolicy ? Promise.resolve({ data: [], error: null }) : db.from('bf_movie_day_detail').select('slug,venues,cities,states,pic,source_updated').eq('kind', kind).eq('date', date).in('slug', part),
+      db.from(IN.movie).select('slug,title,release_date,first_date,carried_over,premiere_date').in('slug', part)
     ]);
     for (const x of [days, details, movies]) if (x.error) throw new Error(x.error.message);
     const det = new Map((details.data ?? []).map((d: any) => [d.slug, d]));
@@ -62,8 +77,8 @@ async function india(date: string, kind: string, movie: string | null) {
           ff: t.fastfilling,
           hf: t.housefull,
           cities: d ? d.cities : t.cities,
-          venues: d ? d.venues : null,
-          states: d ? d.states : null,
+          venues: d ? d.venues : mmPolicy ? t.venues : null,
+          states: d ? d.states : mmPolicy ? t.states : null,
           picGross: d ? d.pic?.gross : null,
           picTickets: d ? d.pic?.sold : null
         })
@@ -90,7 +105,7 @@ async function usa(date: string, kind: string, movie: string | null) {
     const part = ids.slice(i, i + 100);
     const [{ data, error }, { data: titles }, { data: th }] = await Promise.all([
       db.from('us_movie_day').select('movie_id,release_day,gross,tickets,seats,shows,shows_source,zero_seat_shows,occupancy,occupancy_source,theatres,cities,states,source_seen_at,synced_at,recon').eq('kind', kind).eq('report_date', date).in('movie_id', part),
-      db.from('bf_movie').select('slug,title').in('slug', part.map((p) => bySlug.get(p))),
+      db.from(indiaTables().movie).select('slug,title').in('slug', part.map((p) => bySlug.get(p))),
       db.from('us_movie_breakdown').select('movie_id,rows').eq('kind', kind).eq('report_date', date).eq('dimension', 'theater').in('movie_id', part)
     ]);
     if (error) throw new Error(error.message);

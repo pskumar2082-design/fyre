@@ -10,6 +10,8 @@ import { discoveryAction, findRelated, historyComplete, NOTE, windowStart } from
 import { bootstrapRunning } from '@/lib/catalog/bootstrapState';
 import { createCatalogMovie } from '@/lib/catalog/create';
 import { usDayOne, usFinal, usReleaseDay, usToday } from './days';
+import { moviemintIndia } from '@/lib/sourcePolicy';
+import { loadPolicyTrackedMovies } from '@/lib/moviemint/india/usaCatalog';
 
 const db = supabaseAdmin as any;
 
@@ -39,6 +41,8 @@ async function must<T>(p: PromiseLike<{ data: T; error: { message: string } | nu
 //   dayOne:      the same, else the first date the creating listing had
 //                shows (matching window only)
 export async function loadTrackedMovies(): Promise<(TrackedMovie & { active: boolean; indiaDayOne: string | null; origin: string; title: string | null; hasIndia: boolean; languages: string[] })[]> {
+  // MovieMint India policy: BFILMY USA is matched to MovieMint's catalog only.
+  if (moviemintIndia()) return loadPolicyTrackedMovies();
   let tracked: any[];
   try {
     tracked = await must<any[]>(
@@ -474,9 +478,13 @@ export async function recordUsHistory(movieId: string, range: { start: string; c
 // the catalog bootstrap is importing the same dates.
 export async function processUsBackfills(deadline: number): Promise<{ sourceMovieId: number; status: string; next?: string }[]> {
   if (await bootstrapRunning()) return [];
-  const rows = await must<any[]>(db.from('us_movie_map').select('source_movie_id,movie_id,first_date,last_date,backfill_next').eq('backfill_status', 'requested').eq('match_status', 'matched'), 'us_movie_map backfills');
-  if (!rows.length) return [];
+  const requested = await must<any[]>(db.from('us_movie_map').select('source_movie_id,movie_id,first_date,last_date,backfill_next').eq('backfill_status', 'requested').eq('match_status', 'matched'), 'us_movie_map backfills');
+  if (!requested.length) return [];
   const movies = await loadTrackedMovies();
+  // MovieMint India policy: only USA ids of MovieMint catalog movies.
+  const eligible = new Set(movies.map((m) => m.movieId));
+  const rows = moviemintIndia() ? requested.filter((r) => eligible.has(r.movie_id)) : requested;
+  if (!rows.length) return [];
   const today = usToday();
   const floor = windowStart(today);
   const from = (r: any): string => {
