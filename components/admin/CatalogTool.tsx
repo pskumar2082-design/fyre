@@ -58,7 +58,7 @@ export default function CatalogTool() {
             key={k}
             type="button"
             onClick={() => setScope(k)}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${scope === k ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim'}`}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${scope === k ? 'bg-white border-white text-black' : 'border-border text-textDim'}`}
           >
             {label}
           </button>
@@ -66,7 +66,7 @@ export default function CatalogTool() {
         <button
           type="button"
           onClick={() => setOnlyIncomplete((v) => !v)}
-          className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${onlyIncomplete ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim'}`}
+          className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${onlyIncomplete ? 'bg-white border-white text-black' : 'border-border text-textDim'}`}
         >
           Metadata incomplete
         </button>

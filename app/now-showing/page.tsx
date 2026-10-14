@@ -39,7 +39,7 @@ export default async function NowShowingPage({ searchParams }: { searchParams: {
       : [...running].sort((a, b) => (sort === 'az' ? a.title.localeCompare(b.title) : (b.grossCr ?? 0) - (a.grossCr ?? 0)));
 
   return (
-    <div className="px-5 md:px-10 py-8">
+    <div className="fx-container py-8 sm:py-12">
       <SectionHeading
         title="Now showing"
         action={<Link href="/box-office" className="text-gold text-sm font-semibold hover:underline">Full box office archive →</Link>}
@@ -66,9 +66,9 @@ export default async function NowShowingPage({ searchParams }: { searchParams: {
       ) : nowShowing.length === 0 ? (
         <EmptyState>Nothing currently in theaters.</EmptyState>
       ) : (
-        <div className="flex flex-wrap gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-x-4 sm:gap-x-6 gap-y-8 sm:gap-y-10">
           {nowShowing.map((m, i) => (
-            <MovieCard key={m.slug} movie={m} rank={i + 1} />
+            <MovieCard key={m.slug} movie={m} rank={i + 1} className="w-full" />
           ))}
         </div>
       )}

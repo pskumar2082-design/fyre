@@ -2,6 +2,7 @@
 // from BFILMY India / USA discovery (lib/catalog). MovieMint is never needed.
 // Only catalog movies are imported from BFILMY and shown anywhere on Fyre.
 import { supabase } from '@/lib/supabaseClient';
+import { moviemintIndia } from '@/lib/sourcePolicy';
 
 type Client = typeof supabase;
 
@@ -16,6 +17,18 @@ let publicMemo: { at: number; value: Promise<Set<string>> } | null = null;
 export function publicTrackedSlugs(): Promise<Set<string>> {
   if (publicMemo && Date.now() - publicMemo.at < 5 * 60_000) return publicMemo.value;
   const value = (async () => {
+    // MovieMint India policy: the public catalog is MovieMint's (every
+    // MovieMint movie linked to its Fyre movie; lib/moviemint/india).
+    if (moviemintIndia()) {
+      const out = new Set<string>();
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await (supabase as any).from('mmi_catalog').select('slug').eq('link_status', 'linked').not('slug', 'is', null).range(from, from + 999);
+        if (error) throw new Error(`mmi_catalog: ${error.message}`);
+        for (const r of data ?? []) out.add(r.slug as string);
+        if (!data || data.length < 1000) break;
+      }
+      return out;
+    }
     const { data, error } = await supabase
       .from('fyre_tracked_movie')
       .select('bf_slug')
@@ -72,6 +85,7 @@ export function catalogHistory(): Promise<Map<string, CatalogHistory>> {
   if (historyMemo && Date.now() - historyMemo.at < 5 * 60_000) return historyMemo.value;
   const value = (async () => {
     const out = new Map<string, CatalogHistory>();
+    if (moviemintIndia()) return policyHistory(out);
     const { data, error } = await (supabase as any)
       .from('fyre_tracked_movie')
       .select('bf_slug,history_complete,history_start_date,us_history_complete,us_history_start_date')
@@ -86,6 +100,35 @@ export function catalogHistory(): Promise<Map<string, CatalogHistory>> {
   historyMemo = { at: Date.now(), value };
   value.catch(() => (historyMemo = null));
   return value;
+}
+
+// MovieMint India policy: India history is MovieMint's whole run unless
+// MovieMint began tracking after the release (mmi_movie.carried_over); USA
+// completeness as recorded on the Fyre movie.
+async function policyHistory(out: Map<string, CatalogHistory>): Promise<Map<string, CatalogHistory>> {
+  const db = supabase as any;
+  const [{ data: links }, { data: india }] = await Promise.all([
+    db.from('mmi_catalog').select('slug,movie_id').eq('link_status', 'linked'),
+    db.from('mmi_movie').select('slug,first_date').eq('carried_over', true)
+  ]);
+  const ids = (links ?? []).map((l: any) => l.movie_id).filter(Boolean);
+  const usa = new Map<string, any>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data } = await db.from('fyre_tracked_movie').select('moviemint_id,us_history_complete,us_history_start_date').in('moviemint_id', ids.slice(i, i + 200)).eq('us_history_complete', false);
+    for (const r of data ?? []) usa.set(r.moviemint_id, r);
+  }
+  const carried = new Map((india ?? []).map((r: any) => [r.slug, r.first_date]));
+  for (const l of links ?? []) {
+    const u = usa.get(l.movie_id);
+    if (!carried.has(l.slug) && !u) continue;
+    out.set(l.slug, {
+      india: carried.has(l.slug) ? false : null,
+      indiaStart: (carried.get(l.slug) as string | undefined) ?? null,
+      usa: u ? false : null,
+      usaStart: u?.us_history_start_date ?? null
+    });
+  }
+  return out;
 }
 
 // Marks bf_movie rows whose India history is only the recent part:

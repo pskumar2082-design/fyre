@@ -5,12 +5,13 @@ import { supabase } from '@/lib/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 import { Card } from '@/components/ui';
 import TableBuilder from '@/components/admin/TableBuilder';
-import SocialPosterTool from '@/components/admin/SocialPosterTool';
+import SocialPosterSection from '@/components/admin/SocialPosterSection';
 import TrackedMoviesTool from '@/components/admin/TrackedMoviesTool';
 import DailyReportsTool from '@/components/admin/DailyReportsTool';
 import UsaMatchingTool from '@/components/admin/UsaMatchingTool';
 import ListingMatchingTool from '@/components/admin/ListingMatchingTool';
 import CatalogTool from '@/components/admin/CatalogTool';
+import SourceStatusTool from '@/components/admin/SourceStatusTool';
 import FyreRichTextEditor from '@/components/admin/FyreRichTextEditor';
 import ArticleBody from '@/components/ArticleBody';
 import { sanitizeArticleHtml } from '@/lib/richText/sanitize';
@@ -310,7 +311,7 @@ function SignIn() {
           required
         />
         {error && <p className="text-red text-xs">{error}</p>}
-        <button type="submit" className="bg-gold text-white font-semibold rounded-lg py-2.5 text-sm">
+        <button type="submit" className="bg-white text-black hover:bg-zinc-200 font-semibold rounded-lg py-2.5 text-sm">
           Sign in
         </button>
       </form>
@@ -327,13 +328,14 @@ const DAILY_KEY = 'daily-reports';
 const USA_MAP_KEY = 'usa-matching';
 const INDIA_MAP_KEY = 'india-matching';
 const CATALOG_KEY = 'fyre-catalog';
+const SOURCES_KEY = 'sources';
 
 function AdminShell() {
   const [activeKey, setActiveKey] = useState<string>(SECTIONS[0].key);
   const active = SECTIONS.find((s) => s.key === activeKey) ?? null;
 
   return (
-    <div className="px-5 md:px-10 py-8 max-w-4xl">
+    <div className={`fx-container py-8 ${activeKey === SOCIAL_POSTER_KEY || activeKey === SOURCES_KEY ? 'max-w-7xl' : 'max-w-4xl'}`}>
       <div className="flex justify-between items-center mb-6">
         <h1 className="hdisplay gtext text-2xl">fyre admin</h1>
         <button
@@ -375,7 +377,8 @@ function AdminShell() {
           [DAILY_KEY, 'Daily reports'],
           [USA_MAP_KEY, 'USA matching'],
           [INDIA_MAP_KEY, 'India matching'],
-          [CATALOG_KEY, 'Fyre catalog']
+          [CATALOG_KEY, 'Fyre catalog'],
+          [SOURCES_KEY, 'Sources']
         ].map(([k, l]) => (
           <button
             key={k}
@@ -411,8 +414,10 @@ function AdminShell() {
         <ListingMatchingTool territory="india" />
       ) : activeKey === CATALOG_KEY ? (
         <CatalogTool />
+      ) : activeKey === SOURCES_KEY ? (
+        <SourceStatusTool />
       ) : (
-        <SocialPosterTool />
+        <SocialPosterSection />
       )}
     </div>
   );
@@ -794,7 +799,7 @@ function Dashboard({ section }: { section: SectionConfig }) {
         )}
         <div className="flex justify-between items-center">
           {error && <span className="text-red text-xs">{error}</span>}
-          <button type="submit" className="bg-gold text-white font-semibold rounded-lg px-6 py-2.5 text-sm ml-auto">
+          <button type="submit" className="bg-white text-black hover:bg-zinc-200 font-semibold rounded-lg px-6 py-2.5 text-sm ml-auto">
             {editingId ? `Update ${section.label.toLowerCase()}` : `Add ${section.label.toLowerCase()}`}
           </button>
         </div>

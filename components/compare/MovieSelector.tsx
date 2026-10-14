@@ -64,7 +64,7 @@ export default function MovieSelector({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="w-full flex items-center justify-between gap-2.5 text-sm bg-surface border border-border rounded-xl h-[54px] pl-2.5 pr-3.5 transition hover:border-gold/30"
+        className="w-full flex items-center justify-between gap-2.5 text-sm bg-surface border border-border rounded-xl h-[54px] pl-2.5 pr-3.5 transition hover:border-borderStrong"
       >
         <span className="flex items-center gap-2.5 min-w-0">
           {selected ? (

@@ -4,6 +4,7 @@
 // TrackTollywood scraper did (see ./adapter.ts), with the same function
 // names, so switching a page over is a one-line import change.
 import { supabase } from '@/lib/supabaseClient';
+import { indiaTables, moviemintIndia } from '@/lib/sourcePolicy';
 import { applyCatalogHistory, publicTrackedSlugs } from '@/lib/tracking';
 import { catalogMovie, createdMovies, type CatalogMovie } from '@/lib/catalog/public';
 import { formatUsd } from '@/lib/analytics/format';
@@ -58,8 +59,9 @@ async function selectMovies(apply: (q: any) => any): Promise<BfMovieRow[]> {
 async function selectAllMovies(apply: (q: any) => any): Promise<BfMovieRow[]> {
   const out: BfMovieRow[] = [];
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await apply(supabase.from('bf_movie').select(MOVIE_COLUMNS)).range(from, from + 999);
-    if (error) throw new Error(`bf_movie: ${error.message}`);
+    const t = indiaTables().movie;
+    const { data, error } = await apply(supabase.from(t as 'bf_movie').select(MOVIE_COLUMNS)).range(from, from + 999);
+    if (error) throw new Error(`${t}: ${error.message}`);
     out.push(...((data ?? []) as BfMovieRow[]));
     if (!data || data.length < 1000) break;
   }
@@ -118,6 +120,16 @@ function cleanSlug(slug: string): string {
   return String(slug).toLowerCase().replace(/[^a-z0-9-]/g, '');
 }
 
+// India day rows for the active source policy (bf_movie_day / mmi_movie_day).
+function dayTable(): string {
+  return indiaTables().day;
+}
+// MovieMint rows a later MovieMint series no longer lists are kept but
+// never shown.
+function inSource(q: any): any {
+  return moviemintIndia() ? q.eq('in_source', true) : q;
+}
+
 function trimBreakdown(b: any): BfStoredDay['breakdown'] {
   if (!b || typeof b !== 'object') return {};
   return {
@@ -130,8 +142,9 @@ function trimBreakdown(b: any): BfStoredDay['breakdown'] {
 }
 
 async function loadMovieRow(slug: string): Promise<BfMovieRow | null> {
-  const { data: row, error } = await supabase.from('bf_movie').select(MOVIE_COLUMNS).eq('slug', slug).maybeSingle();
-  if (error) throw new Error(`bf_movie: ${error.message}`);
+  const t = indiaTables().movie;
+  const { data: row, error } = await supabase.from(t as 'bf_movie').select(MOVIE_COLUMNS).eq('slug', slug).maybeSingle();
+  if (error) throw new Error(`${t}: ${error.message}`);
   return row ? (await applyCatalogHistory([row as BfMovieRow]))[0] : null;
 }
 
@@ -142,13 +155,13 @@ async function loadMovieRow(slug: string): Promise<BfMovieRow | null> {
 async function loadPageDays(slug: string, row: BfMovieRow): Promise<BfStoredDay[]> {
   const days: BfStoredDay[] = [];
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase
-      .from('bf_movie_day')
+    const { data, error } = await inSource(supabase
+      .from(dayTable() as 'bf_movie_day')
       .select('kind,date,totals,source_updated')
-      .eq('slug', slug)
+      .eq('slug', slug))
       .order('date', { ascending: true })
       .range(from, from + 999);
-    if (error) throw new Error(`bf_movie_day: ${error.message}`);
+    if (error) throw new Error(`${dayTable()}: ${error.message}`);
     for (const d of data ?? []) days.push({ ...(d as any), breakdown: null });
     if (!data || data.length < 1000) break;
   }
@@ -161,14 +174,14 @@ async function loadPageDays(slug: string, row: BfMovieRow): Promise<BfStoredDay[
 
   const [recentRes, advanceRes] = await Promise.all([
     recent.length
-      ? supabase.from('bf_movie_day').select('kind,date,breakdown').eq('slug', slug).eq('kind', 'boxoffice').in('date', recent)
+      ? inSource(supabase.from(dayTable() as 'bf_movie_day').select('kind,date,breakdown').eq('slug', slug).eq('kind', 'boxoffice').in('date', recent))
       : Promise.resolve({ data: [], error: null }),
     hasAdvance
-      ? supabase.from('bf_movie_day').select('kind,date,breakdown').eq('slug', slug).eq('kind', 'advance')
+      ? inSource(supabase.from(dayTable() as 'bf_movie_day').select('kind,date,breakdown').eq('slug', slug).eq('kind', 'advance'))
       : Promise.resolve({ data: [], error: null })
   ]);
-  if (recentRes.error) throw new Error(`bf_movie_day: ${recentRes.error.message}`);
-  if (advanceRes.error) throw new Error(`bf_movie_day: ${advanceRes.error.message}`);
+  if (recentRes.error) throw new Error(`${dayTable()}: ${recentRes.error.message}`);
+  if (advanceRes.error) throw new Error(`${dayTable()}: ${advanceRes.error.message}`);
 
   const loaded = new Map<string, BfStoredDay['breakdown']>();
   for (const d of [...(recentRes.data ?? []), ...(advanceRes.data ?? [])] as any[]) {
@@ -205,15 +218,15 @@ export async function getMovieDetails(slug: string, detail: MovieDetailLevel = '
     const [days, cumRes] = await Promise.all([
       detail === 'page'
         ? loadPageDays(safeSlug, row)
-        : supabase.rpc('bf_movie_days', { p_slug: safeSlug, p_city_limit: CITY_LIMIT, p_chain_limit: CHAIN_LIMIT }).then((r) => {
-            if (r.error) throw new Error(`bf_movie_days: ${r.error.message}`);
+        : supabase.rpc(indiaTables().days as 'bf_movie_days', { p_slug: safeSlug, p_city_limit: CITY_LIMIT, p_chain_limit: CHAIN_LIMIT }).then((r) => {
+            if (r.error) throw new Error(`${indiaTables().days}: ${r.error.message}`);
             return (r.data ?? []) as BfStoredDay[];
           }),
       row.first_date
-        ? supabase.rpc('bf_movie_cumulative', { p_slug: safeSlug, p_city_limit: 100, p_chain_limit: 50 })
+        ? supabase.rpc(indiaTables().cumulative as 'bf_movie_cumulative', { p_slug: safeSlug, p_city_limit: 100, p_chain_limit: 50 })
         : Promise.resolve({ data: null, error: null })
     ]);
-    if (cumRes.error) throw new Error(`bf_movie_cumulative: ${cumRes.error.message}`);
+    if (cumRes.error) throw new Error(`${indiaTables().cumulative}: ${cumRes.error.message}`);
 
     return detailsFromData(row, days, (cumRes.data ?? null) as BfCumulative | null, today);
   });
@@ -251,7 +264,7 @@ async function usaOnlyListed(): Promise<TTListedMovie[]> {
   return remember(`usa-only:${usToday()}`, 60_000, async () => {
     const created = await createdMovies();
     if (!created.length) return [];
-    const { data: india } = await supabase.from('bf_movie').select('slug').in('slug', created.map((c) => c.slug));
+    const { data: india } = await supabase.from(indiaTables().movie as 'bf_movie').select('slug').gt('days_tracked', 0).in('slug', created.map((c) => c.slug));
     const hasIndia = new Set((india ?? []).map((r: any) => r.slug));
     const movies = created.filter((c) => !hasIndia.has(c.slug));
     if (!movies.length) return [];
@@ -296,7 +309,7 @@ async function usaOnlyListed(): Promise<TTListedMovie[]> {
 
 // When the sync job last ran, and what it saw -- for an "Updated" note.
 export async function getLastSync(): Promise<{ finishedAt: string; errors: string[] } | null> {
-  const { data, error } = await supabase.from('bf_sync_state').select('value').eq('key', 'last_sync').maybeSingle();
+  const { data, error } = await supabase.from('bf_sync_state').select('value').eq('key', moviemintIndia() ? 'last_mmi_sync' : 'last_sync').maybeSingle();
   if (error || !data) return null;
   const v = (data as { value: any }).value;
   return v ? { finishedAt: String(v.finishedAt ?? ''), errors: Array.isArray(v.errors) ? v.errors : [] } : null;

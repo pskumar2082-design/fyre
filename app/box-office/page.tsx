@@ -31,7 +31,7 @@ export default async function BoxOfficePage({ searchParams }: { searchParams: { 
   );
 
   return (
-    <div className="px-5 md:px-10 py-8">
+    <div className="fx-container py-8 sm:py-12">
       <SectionHeading
         title="Box office archive"
         action={<Link href="/now-showing" className="text-gold text-sm font-semibold hover:underline">See what&rsquo;s in theaters now →</Link>}

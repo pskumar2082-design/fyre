@@ -6,6 +6,7 @@ import {
   detailsFromData,
   formatDate,
   formatMoney,
+  latestSourceStamp,
   listedFromRow,
   movieState,
   parseAmountToCr,
@@ -257,5 +258,34 @@ describe('on-demand day loading', () => {
     expect(dayHeading(r, '2026-09-25')).toBe('Day 0');
     expect(dayHeading(r, '2026-09-20')).toBeNull();
     expect(dayHeading(row({ carried_over: true }), '2026-09-27')).toBeNull();
+  });
+});
+
+describe('"Last updated" stamp', () => {
+  // Drishyam: The Conclusion, 14 Oct 2026: the newest box-office file is
+  // 16:52 IST, but an unchanged far-off advance file (18 Oct, stamped
+  // 13 Oct 17:17) was re-synced last, and the summary showed its stamp.
+  const stamped = (kind: 'boxoffice' | 'advance', date: string, stamp: string | null): BfStoredDay => ({ ...day(kind, date, 1_000_000), source_updated: stamp });
+  const days = [
+    stamped('boxoffice', '2026-10-13', '2026-10-13 23:26 IST'),
+    stamped('boxoffice', '2026-10-14', '2026-10-14 16:52 IST'),
+    stamped('advance', '2026-10-15', '2026-10-14 14:50 IST'),
+    stamped('advance', '2026-10-18', '2026-10-13 17:17 IST') // synced last
+  ];
+
+  it('is the newest box-office stamp, not the last-synced row', () => {
+    expect(latestSourceStamp(days)).toBe('2026-10-14 16:52 IST');
+  });
+
+  it('falls back to advance stamps before release, ignores missing / malformed ones', () => {
+    expect(latestSourceStamp([stamped('advance', '2026-10-15', '2026-10-14 14:50 IST'), stamped('advance', '2026-10-16', null), stamped('advance', '2026-10-17', 'unknown')])).toBe('2026-10-14 14:50 IST');
+    expect(latestSourceStamp([])).toBeNull();
+  });
+
+  it('the movie page shows it; collection figures are unchanged', () => {
+    const r = row({ source_updated: '2026-10-13 17:17 IST' });
+    const d = detailsFromData(r, days, null, '2026-10-14', '2026-10-14T12:00:00Z');
+    expect(d.metaUpdatedText).toBe('Last updated 2026-10-14 16:52 IST');
+    expect(d.headlineGross).toBe(detailsFromData({ ...r, source_updated: '2026-10-14 16:52 IST' }, days, null, '2026-10-14', '2026-10-14T12:00:00Z').headlineGross);
   });
 });

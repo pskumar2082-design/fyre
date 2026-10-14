@@ -45,21 +45,21 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
   const total = results.news.length + results.reviews.length + results.movies.length;
 
   return (
-    <div className="px-5 md:px-10 py-8 max-w-2xl">
+    <div className="fx-container py-8 sm:py-12 max-w-2xl">
       <SectionHeading title="Search" />
 
       <form action="/search" className="mb-8">
-        <div className="flex items-center gap-2 bg-bg rounded-full h-[50px] px-5">
-          <SearchIcon size={17} className="text-textFaint flex-none" />
+        <div className="flex items-center gap-3 max-w-3xl h-12 sm:h-14 pl-4 pr-2 rounded-xl bg-surface border border-border focus-within:border-zinc-500 transition-colors">
+          <SearchIcon size={18} className="text-textFaint flex-none" />
           <input
             type="text"
             name="q"
             defaultValue={q}
             placeholder="Search movies, news, reviews…"
             autoFocus
-            className="flex-1 bg-transparent outline-none text-sm text-text placeholder:text-textFaint"
+            className="flex-1 min-w-0 bg-transparent outline-none focus-visible:outline-none text-base text-text placeholder:text-textFaint"
           />
-          <button type="submit" className="bg-gold text-white font-semibold rounded-full px-5 py-2 text-sm flex-none">
+          <button type="submit" className="h-9 sm:h-10 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 font-semibold text-sm flex-none transition-colors">
             Search
           </button>
         </div>

@@ -11,7 +11,7 @@ export default function ArticleTable({ table }: { table: ParsedTable }) {
     <div className="overflow-x-auto my-6 -mx-1 rounded-xl border border-border">
       <table className="w-full text-xs border-collapse min-w-[420px]">
         <thead>
-          <tr className="bg-white/[0.03] border-b-2 border-gold">
+          <tr className="bg-surface2/60 border-b border-borderStrong">
             {table.headers.map((h, i) => (
               <th
                 key={i}

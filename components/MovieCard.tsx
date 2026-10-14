@@ -3,54 +3,48 @@ import Image from 'next/image';
 import type { TTListedMovie } from '@/lib/boxoffice/types';
 import { STATE_LABEL, STATE_BADGE } from '@/lib/boxoffice/stateStyle';
 
-// The poster card used for a TrackTollywood movie everywhere one appears --
-// the homepage's featured carousel, /now-showing, and /upcoming -- so all
-// three stay visually identical and only need to change in one place.
-// Links to /movie/[slug], the shared detail page every one of
-// those sections points at.
-export default function MovieCard({ movie, rank }: { movie: TTListedMovie; rank?: number }) {
-  const badgeLabel = movie.dayLabel ? `${STATE_LABEL[movie.state]} · ${movie.dayLabel}` : STATE_LABEL[movie.state];
+// Portrait poster card (reference: "Trending Now" cards) -- 2:3 poster,
+// 12px radius, 1px zinc-800 border, monospace badges on a black scrim:
+// state top-left (a rank, when given, leads the title), the amber headline figure top-right. Title
+// and mono meta line below. Used on every movie rail and grid.
+export const CARD_WIDTH = 'w-[clamp(140px,13.77vw,300px)]';
+
+export default function MovieCard({ movie, rank, className = CARD_WIDTH }: { movie: TTListedMovie; rank?: number; className?: string }) {
+  const state = STATE_LABEL[movie.state];
+  const meta = [movie.dayLabel, movie.grossLabel].filter(Boolean).join(' · ') || movie.releaseText || movie.genre;
   return (
-    <Link href={`/movie/${movie.slug}`} className="flex-none w-40 group">
-      <div className="w-40 h-56 rounded-2xl bg-surface2 border border-border shadow-card relative overflow-hidden flex items-end p-2.5 transition group-hover:border-gold/30">
+    <Link href={`/movie/${movie.slug}`} role="listitem" className={`group flex-none snap-start ${className}`}>
+      <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-surface2 border border-border transition duration-300 group-hover:border-borderStrong group-hover:-translate-y-1 group-hover:shadow-lift">
         {movie.poster ? (
-          <Image
-            src={movie.poster}
-            alt=""
-            fill
-            unoptimized
-            className="object-cover object-top transition duration-300 group-hover:scale-105"
-          />
+          <Image src={movie.poster} alt="" fill unoptimized sizes="300px" className="object-cover transition duration-500 group-hover:scale-[1.04]" />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-textFaint text-[11px]">No poster</div>
+          <div className="absolute inset-0 flex items-center justify-center font-mono text-[11px] text-textFaint">No poster</div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-        {rank != null && (
-          <span className="absolute top-2.5 left-2.5 text-[11px] font-bold bg-black/70 backdrop-blur border border-white/10 text-white px-2 py-1 rounded-lg">
-            #{rank}
-          </span>
-        )}
-        {badgeLabel && (
-          <span
-            className={`relative inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-1 rounded-lg ${STATE_BADGE[movie.state]}`}
-          >
-            {movie.state === 'live' && (
-              <span className="relative flex w-1.5 h-1.5">
-                <span className="absolute inline-flex w-full h-full rounded-full bg-white/60 animate-ping" />
-                <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-white" />
-              </span>
-            )}
-            {badgeLabel}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/40" />
+        <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 flex items-center gap-1.5">
+          {state && (
+            <span className={`inline-flex items-center gap-1.5 font-mono font-bold uppercase tracking-wider text-[10px] sm:text-[11px] 2xl:text-[13px] leading-none px-1.5 sm:px-2 py-1.5 rounded-md ${STATE_BADGE[movie.state]}`}>
+              {movie.state === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+              {state}
+            </span>
+          )}
+        </span>
+        {movie.gross && (
+          // Amber figure badge only where the card is wide enough to hold both
+          // badges side by side (>=176px cards from xl); below that the same
+          // figure is already in the mono meta line under the title.
+          <span className="hidden xl:inline-block absolute top-2.5 right-2.5 2xl:top-3 2xl:right-3 font-mono font-bold text-[11px] 2xl:text-[13px] leading-none text-gold bg-black/80 px-2 py-1.5 rounded-md">
+            {movie.gross}
           </span>
         )}
       </div>
-      <div className="text-sm font-medium mt-2.5 truncate text-text group-hover:text-gold transition">{movie.title}</div>
-      {movie.gross && (
-        <div className="mt-0.5">
-          <div className="text-sm font-stat font-bold text-gold leading-tight">{movie.gross}</div>
-          {movie.grossLabel && <div className="text-[10px] text-textFaint uppercase tracking-wide">{movie.grossLabel}</div>}
+      <div className="mt-3 px-0.5">
+        <div className="text-[15px] sm:text-base font-semibold tracking-tight text-text truncate">
+          {rank != null && <span className="font-mono font-bold text-textFaint mr-1.5">{rank}</span>}
+          {movie.title}
         </div>
-      )}
+        {meta && <div className="font-mono text-[11px] sm:text-xs text-textFaint mt-1 truncate">{meta}</div>}
+      </div>
     </Link>
   );
 }

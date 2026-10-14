@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { acquireUsLock, defaultUsTargets, loadTrackedMovies, processUsBackfills, releaseUsLock, runUsRetention, syncUsFile, type UsFileResult } from '@/lib/usa/sync';
 import { usSourceLog } from '@/lib/usa/fetch';
 import { usToday } from '@/lib/usa/days';
+import { moviemintIndia } from '@/lib/sourcePolicy';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -34,7 +35,9 @@ export async function GET(req: NextRequest) {
   try {
     const movies = await loadTrackedMovies();
     // Discovery budget for this run (new Fyre movies from new USA listings).
-    const discover = process.env.CATALOG_AUTO_CREATE === '0' ? null : { left: Number(process.env.CATALOG_AUTO_CREATE_MAX ?? 25) };
+    // MovieMint India policy: MovieMint alone decides which movies exist --
+    // a USA listing never creates a Fyre movie.
+    const discover = process.env.CATALOG_AUTO_CREATE === '0' || moviemintIndia() ? null : { left: Number(process.env.CATALOG_AUTO_CREATE_MAX ?? 25) };
     for (const t of defaultUsTargets()) {
       if (Date.now() > deadline) break;
       const r = await syncUsFile(t.kind, t.date, { movies, discover });

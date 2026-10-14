@@ -322,6 +322,21 @@ export function dayHeading(
 
 // The breakdown tables for one box-office day, labelled exactly as
 // detailsFromData labels them (so they group under the same heading).
+// "Last updated" for a movie: the newest source stamp of its box-office
+// days ("2026-10-14 16:52 IST" sorts as text), falling back to advance
+// days. Never the stamp of whichever row happened to sync last -- an
+// unchanged advance file re-synced later carries an older stamp.
+const STAMP = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/;
+export function latestSourceStamp(days: { kind: string; source_updated?: string | null }[]): string | null {
+  const newest = (list: typeof days) =>
+    list
+      .map((d) => d.source_updated ?? null)
+      .filter((x): x is string => !!x && STAMP.test(x))
+      .sort()
+      .pop() ?? null;
+  return newest(days.filter((d) => d.kind === 'boxoffice')) ?? newest(days);
+}
+
 export function dayBreakdownTables(row: BfMovieRow, day: BfStoredDay): TTTable[] {
   const heading = dayHeading(row, day.date);
   if (!heading || !day.breakdown) return [];
@@ -428,7 +443,10 @@ export function detailsFromData(
     headlineLabel,
     stats,
     meta,
-    metaUpdatedText: row.source_updated ? `Last updated ${row.source_updated}` : null,
+    metaUpdatedText: (() => {
+      const stamp = latestSourceStamp(days) ?? row.source_updated;
+      return stamp ? `Last updated ${stamp}` : null;
+    })(),
     tables,
     ...(lazyDays.length ? { lazyDays } : {}),
     fetchedAt

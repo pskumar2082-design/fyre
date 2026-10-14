@@ -150,7 +150,7 @@ export default function TableBuilder({
             <button
               type="button"
               onClick={handleInsert}
-              className="bg-gold text-white font-semibold rounded-lg px-6 py-2.5 text-sm"
+              className="bg-white text-black hover:bg-zinc-200 font-semibold rounded-lg px-6 py-2.5 text-sm"
             >
               Insert table
             </button>

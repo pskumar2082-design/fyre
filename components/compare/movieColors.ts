@@ -11,10 +11,10 @@
 // feature never supports more than 4 movies at once (see lib/compare/
 // types.ts). Index wraps via `% 4` purely as a defensive fallback --
 // callers should never actually pass an index >= movies.length <= 4.
-const HEX = ['#2F6FED', '#22C55E', '#F59E0B', '#6C7BF0'] as const; // gold, goldDim, amber, indigo
-const DOT_CLASS = ['bg-gold', 'bg-goldDim', 'bg-amber', 'bg-indigo'] as const;
-const TEXT_CLASS = ['text-gold', 'text-goldDim', 'text-amber', 'text-indigo'] as const;
-const BORDER_CLASS = ['border-gold', 'border-goldDim', 'border-amber', 'border-indigo'] as const;
+const HEX = ['#38BDF8', '#22C55E', '#FBBF24', '#A78BFA'] as const; // sky, green, amber, violet
+const DOT_CLASS = ['bg-sky', 'bg-goldDim', 'bg-gold', 'bg-violet'] as const;
+const TEXT_CLASS = ['text-sky', 'text-goldDim', 'text-gold', 'text-violet'] as const;
+const BORDER_CLASS = ['border-sky', 'border-goldDim', 'border-gold', 'border-violet'] as const;
 
 export function movieColorHex(index: number): string {
   return HEX[index % HEX.length];

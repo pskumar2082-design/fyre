@@ -82,7 +82,7 @@ export default function DailyReportsTool() {
     return [...new Map(all.map((r) => [r.slug, r.title])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [data]);
 
-  const pill = (on: boolean) => `text-xs font-semibold px-3 py-1.5 rounded-full border ${on ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim'}`;
+  const pill = (on: boolean) => `text-xs font-semibold px-3 py-1.5 rounded-full border ${on ? 'bg-white border-white text-black' : 'border-border text-textDim'}`;
   const filter = (r: Report | null) => (r ? { ...r, rows: movie ? r.rows.filter((x) => x.slug === movie) : r.rows } : null);
   const india = filter(data?.india ?? null);
   const usa = filter(data?.usa ?? null);
@@ -181,7 +181,7 @@ function ReportTable({
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-xs border-collapse min-w-[760px]">
             <thead>
-              <tr className="bg-white/[0.03] border-b-2 border-gold">
+              <tr className="bg-surface2/60 border-b border-borderStrong">
                 <th className="text-left mdtype-overline py-2 px-3 text-textFaint">Movie</th>
                 <th className="text-left mdtype-overline py-2 px-3 text-textFaint">Day</th>
                 {shown.map((c) => (

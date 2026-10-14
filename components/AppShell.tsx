@@ -2,180 +2,170 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
-import {
-  Home,
-  Newspaper,
-  Film,
-  TrendingUp,
-  GitCompareArrows,
-  Star,
-  CalendarRange,
-  Search,
-  Menu,
-  X
-} from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { House, Film, ChartNoAxesColumnIncreasing, CalendarDays, Newspaper, Star, Search, GitCompareArrows, Menu, X } from 'lucide-react';
 
-// Light app shell, matching the "Car Rent" dashboard reference: a dark
-// navy sidebar (the one part of the page that stays dark) with icon nav +
-// a solid blue active pill, a white header with a page title / search
-// pill, and a white content well. Wraps every public route via
-// app/layout.tsx. /admin is reachable directly by URL but intentionally
-// left off the public nav -- it's not a section a visitor should be
-// browsing to.
-
-// "Compare" sits immediately above Reviews (task spec: placed right
-// after Box office, before Reviews) -- it's a box-office-adjacent view
-// (built entirely on the same TrackTollywood data as Box office/Now
-// showing), so it reads naturally between the two collection-focused
-// entries and the editorial ones (Reviews/Upcoming) that follow.
+// App shell -- compact horizontal header measured from the frameXTV
+// reference: black bar, Fyre logo, white active pill (black text), zinc
+// inactive items, bordered utility pills on the right (Search with a "/"
+// key hint, Compare). Below lg the nav collapses into a left drawer with
+// the same pill treatment. Lucide icons throughout, stroke 2.
 const NAV = [
-  { href: '/', label: 'Home', icon: Home, exact: true },
-  { href: '/news', label: 'Movie news', icon: Newspaper },
+  { href: '/', label: 'Home', icon: House, exact: true },
   { href: '/now-showing', label: 'Now showing', icon: Film },
-  { href: '/box-office', label: 'Box office', icon: TrendingUp },
-  { href: '/compare', label: 'Compare', icon: GitCompareArrows },
-  { href: '/reviews', label: 'Reviews', icon: Star },
-  { href: '/upcoming', label: 'Upcoming', icon: CalendarRange }
+  { href: '/box-office', label: 'Box office', icon: ChartNoAxesColumnIncreasing },
+  { href: '/upcoming', label: 'Upcoming', icon: CalendarDays },
+  { href: '/news', label: 'News', icon: Newspaper },
+  { href: '/reviews', label: 'Reviews', icon: Star }
 ];
 
-function isActive(pathname: string, item: (typeof NAV)[number]) {
-  if (item.exact) return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(item.href + '/');
+function isActive(pathname: string, href: string, exact?: boolean) {
+  if (exact) return pathname === href;
+  return pathname === href || pathname.startsWith(href + '/');
 }
 
-function SidebarLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-  return (
-    <nav className="flex-1 py-2 px-4">
-      {NAV.map((item) => {
-        const active = isActive(pathname, item);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={`relative flex items-center gap-3 h-[52px] px-4 mb-1 rounded-xl text-[15px] font-medium transition ${
-              active ? 'bg-gold text-white' : 'text-white/60 hover:bg-navyAlt hover:text-white'
-            }`}
-          >
-            {active && <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-1 h-[22px] rounded-full bg-white" />}
-            <Icon size={20} strokeWidth={2} className={active ? 'ml-2.5' : ''} />
-            <span>{item.label}</span>
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
+// Header item sizes: h-9 / 15px up to 1535px, the reference's measured
+// h-10 / 17px at 2xl. Icons appear from xl so the row fits at 1024-1279.
+const ITEM = 'inline-flex items-center gap-2 2xl:gap-2.5 h-9 2xl:h-10 px-3 2xl:px-[18px] rounded-lg text-[15px] 2xl:text-[17px] font-semibold whitespace-nowrap transition-colors';
+const ICON = 'hidden xl:block w-4 h-4 2xl:w-[18px] 2xl:h-[18px] flex-none';
+const UTILITY = `${ITEM} bg-surface border border-border text-text hover:border-borderStrong hover:bg-surface2`;
 
-// The real fyre wordmark -- a white flame + "fyre" PNG, designed to sit
-// on a dark surface (public/logo.png), which is exactly what the
-// permanent navy sidebar still is in this theme.
-function Logo({ height = 34, className = 'px-8 h-[100px]' }: { height?: number; className?: string }) {
+function Logo({ className = '' }: { className?: string }) {
   return (
-    <Link href="/" aria-label="fyre home" className={`flex items-center flex-none flex-shrink-0 ${className}`}>
-      <Image src="/logo.png" alt="fyre" width={height * 2.43} height={height} className="flex-none" priority />
+    <Link href="/" aria-label="fyre home" className={`flex items-center flex-none ${className}`}>
+      <Image src="/logo.png" alt="fyre" width={73} height={30} className="h-[26px] w-auto 2xl:h-[30px]" priority />
     </Link>
   );
 }
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '/';
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const current = NAV.find((item) => isActive(pathname, item));
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  // "/" jumps to search (reference: the Search pill's key hint).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      e.preventDefault();
+      router.push('/search');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [router]);
+
+  useEffect(() => setOpen(false), [pathname]);
 
   return (
-    <div className="min-h-screen flex bg-bg">
-      {/* Desktop sidebar -- stays dark navy regardless of theme */}
-      <aside className="hidden md:flex md:flex-col w-[250px] flex-none bg-navy sticky top-0 h-screen overflow-y-auto">
-        <Logo />
-        <SidebarLinks pathname={pathname} />
-        <div className="px-8 py-6 text-[11px] text-white/40 border-t border-white/10 mt-auto">
-          © {new Date().getFullYear()} fyre
-        </div>
-      </aside>
-
-      {/* Mobile sidebar drawer */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-50">
+    <div className="min-h-screen flex flex-col bg-bg">
+      <header className="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-surface2">
+        <div className="fx-container h-16 2xl:h-[76px] flex items-center gap-3">
           <button
             type="button"
-            aria-label="Close menu"
-            onClick={() => setMobileOpen(false)}
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-          />
-          <aside className="absolute left-0 top-0 h-full w-[250px] bg-navy flex flex-col shadow-card">
-            <div className="flex items-center justify-between px-6 h-[100px] flex-none border-b border-white/10">
-              <Link href="/" className="flex items-center">
-                <Image src="/logo.png" alt="fyre" width={78} height={32} />
-              </Link>
+            aria-label="Open menu"
+            onClick={() => setOpen(true)}
+            className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg bg-surface border border-border text-text"
+          >
+            <Menu className="w-[18px] h-[18px]" />
+          </button>
+          <Logo className="mr-2 2xl:mr-4" />
+
+          <nav className="hidden lg:flex items-center gap-1 min-w-0" aria-label="Main">
+            {NAV.map((item) => {
+              const active = isActive(pathname, item.href, item.exact);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`${ITEM} ${active ? 'bg-white text-black' : 'text-textDim hover:text-white hover:bg-surface2/70'}`}
+                >
+                  <Icon className={ICON} strokeWidth={2} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-2 2xl:gap-3">
+            <Link href="/search" className={`${UTILITY} hidden sm:inline-flex`} aria-label="Search (press /)">
+              <Search className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px] flex-none text-textDim" strokeWidth={2} />
+              <span>Search</span>
+              <kbd className="ml-1 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-md border border-borderStrong font-mono text-xs text-textDim">/</kbd>
+            </Link>
+            <Link href="/search" aria-label="Search" className="sm:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg bg-surface border border-border text-text">
+              <Search className="w-[18px] h-[18px]" />
+            </Link>
+            <Link
+              href="/compare"
+              aria-current={isActive(pathname, '/compare') ? 'page' : undefined}
+              className={`${UTILITY} hidden md:inline-flex ${isActive(pathname, '/compare') ? '!bg-white !text-black !border-white' : ''}`}
+            >
+              <GitCompareArrows className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px] flex-none" strokeWidth={2} />
+              Compare
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {open && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <button type="button" aria-label="Close menu" onClick={() => setOpen(false)} className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <aside className="absolute left-0 top-0 h-full w-[280px] max-w-[85vw] bg-black border-r border-border flex flex-col">
+            <div className="flex items-center justify-between px-4 h-16 border-b border-surface2">
+              <Logo />
               <button
                 type="button"
                 aria-label="Close menu"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-navyAlt text-white/70 border border-white/10"
+                onClick={() => setOpen(false)}
+                className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-surface border border-border text-textDim"
               >
-                <X size={18} />
+                <X className="w-[18px] h-[18px]" />
               </button>
             </div>
-            <SidebarLinks pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+            <nav className="p-3 flex flex-col gap-1" aria-label="Main">
+              {[...NAV, { href: '/compare', label: 'Compare', icon: GitCompareArrows, exact: false }].map((item) => {
+                const active = isActive(pathname, item.href, item.exact);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 h-11 px-3.5 rounded-lg text-[15px] font-semibold transition-colors ${
+                      active ? 'bg-white text-black' : 'text-textDim hover:text-white hover:bg-surface2'
+                    }`}
+                  >
+                    <Icon className="w-[18px] h-[18px]" strokeWidth={2} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
           </aside>
         </div>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header -- white, matching the main content behind it */}
-        <header className="sticky top-0 z-30 h-[100px] flex-none bg-bg/95 backdrop-blur border-b border-border flex items-center justify-between gap-4 px-5 md:px-10">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              aria-label="Open menu"
-              onClick={() => setMobileOpen(true)}
-              className="md:hidden flex items-center justify-center w-9 h-9 rounded-full bg-surface2 text-textDim border border-border flex-none"
-            >
-              <Menu size={18} />
-            </button>
-            <Logo height={20} className="md:hidden h-9 px-3 rounded-full bg-navy" />
-            <h1 className="hdisplay text-xl md:text-[28px] truncate text-text">{current?.label ?? 'fyre'}</h1>
+      <main className="flex-1">{children}</main>
+
+      <footer className="border-t border-surface2 mt-16">
+        <div className="fx-container py-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Image src="/logo.png" alt="fyre" width={58} height={24} className="h-6 w-auto opacity-90" />
+            <span className="font-mono text-xs text-textFaint">© {new Date().getFullYear()} fyre</span>
           </div>
-
-          <div className="flex items-center gap-3 flex-none">
-            <form action="/search" className="hidden lg:block">
-              <div className="flex items-center gap-2 bg-surface2 border border-border rounded-full h-[50px] w-[280px] px-5 focus-within:border-gold/50 transition">
-                <Search size={17} className="text-textFaint flex-none" />
-                <input
-                  type="text"
-                  name="q"
-                  placeholder="Search here"
-                  className="bg-transparent outline-none text-sm text-text placeholder:text-textFaint w-full"
-                />
-              </div>
-            </form>
-            <Link
-              href="/search"
-              aria-label="Search"
-              className="lg:hidden flex items-center justify-center w-10 h-10 rounded-full bg-surface2 text-textDim border border-border"
-            >
-              <Search size={18} />
-            </Link>
-          </div>
-        </header>
-
-        <main className="flex-1 bg-bg">{children}</main>
-
-        <footer className="bg-bg border-t border-border px-5 md:px-10 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-          <span className="text-xs text-textFaint">&copy; {new Date().getFullYear()} fyre. All rights reserved.</span>
-          <nav className="flex items-center flex-wrap justify-center gap-x-4 gap-y-1">
-            {NAV.map((item) => (
-              <Link key={item.href} href={item.href} className="text-xs text-textFaint hover:text-text transition">
+          <nav className="flex items-center flex-wrap justify-center gap-x-5 gap-y-2" aria-label="Footer">
+            {[...NAV, { href: '/compare', label: 'Compare' }].map((item) => (
+              <Link key={item.href} href={item.href} className="text-sm text-textFaint hover:text-white transition-colors">
                 {item.label}
               </Link>
             ))}
           </nav>
-        </footer>
-      </div>
+        </div>
+      </footer>
     </div>
   );
 }

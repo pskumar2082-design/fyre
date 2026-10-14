@@ -107,7 +107,7 @@ export default function ListingMatchingTool({ territory }: { territory: 'usa' | 
   }
 
   const title = (movieId: string | null) => movies.find((m) => m.movieId === movieId)?.title ?? movieId ?? '—';
-  const pill = (on: boolean) => `text-xs font-semibold px-3 py-1.5 rounded-full border ${on ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim'}`;
+  const pill = (on: boolean) => `text-xs font-semibold px-3 py-1.5 rounded-full border ${on ? 'bg-white border-white text-black' : 'border-border text-textDim'}`;
   const where = territory === 'usa' ? 'USA · Indian-language screenings' : 'India';
   const dateWord = territory === 'usa' ? 'first US date' : 'first India date';
 
@@ -166,7 +166,7 @@ export default function ListingMatchingTool({ territory }: { territory: 'usa' | 
                     <button
                       type="button"
                       disabled={busy === r.id || !(choice[r.id] ?? r.candidates[0]?.movieId)}
-                      className="text-xs font-semibold bg-gold text-white rounded-full px-3 py-1.5 disabled:opacity-40"
+                      className="text-xs font-semibold bg-white text-black hover:bg-zinc-200 rounded-full px-3 py-1.5 disabled:opacity-40"
                       onClick={() => act(r.id, 'match', choice[r.id] ?? r.candidates[0]?.movieId)}
                     >
                       Match
@@ -215,7 +215,7 @@ export default function ListingMatchingTool({ territory }: { territory: 'usa' | 
                   <button
                     type="button"
                     disabled={busy === r.id || (!!preview.p.blocker && !(preview.p.needsConfirmation && preview.ack))}
-                    className="text-xs font-semibold bg-gold text-white rounded-full px-4 py-1.5 disabled:opacity-40"
+                    className="text-xs font-semibold bg-white text-black hover:bg-zinc-200 rounded-full px-4 py-1.5 disabled:opacity-40"
                     onClick={confirmCreate}
                   >
                     Create Fyre movie

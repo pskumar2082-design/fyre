@@ -64,7 +64,7 @@ export default function MetricsTable({
     <div className="overflow-x-auto -mx-1 rounded-xl border border-border">
       <table className="w-full text-xs border-collapse min-w-[560px]">
         <thead>
-          <tr className="bg-white/[0.03] border-b-2 border-gold">
+          <tr className="bg-surface2/60 border-b border-borderStrong">
             <th className="text-left mdtype-overline py-2.5 px-3 whitespace-nowrap text-textFaint">{nameHeader}</th>
             {showSub && <th className="text-left mdtype-overline py-2.5 px-3 whitespace-nowrap text-textFaint">{subHeader}</th>}
             {cols.map((c) => (

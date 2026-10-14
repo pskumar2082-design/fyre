@@ -10,6 +10,7 @@ import { processBackfills } from '@/lib/moviemint/backfill';
 import { runCatalogBootstrap } from '@/lib/catalog/bootstrap';
 import { pruneCandidates } from '@/lib/catalog/candidates';
 import { runRetention } from '@/lib/retention';
+import { bfilmyIndiaSyncEnabled } from '@/lib/sourcePolicy';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -47,6 +48,11 @@ export async function GET(req: NextRequest) {
   if (!secret || (bearer !== `Bearer ${secret}` && token !== secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  // MovieMint India policy, step 2 (after the MovieMint importer is
+  // validated): BFILMY India ingestion off. Stored BFILMY India history is
+  // kept untouched (no sync, no retention pruning).
+  if (!bfilmyIndiaSyncEnabled()) return NextResponse.json({ skipped: 'BFILMY_INDIA_SYNC=0: BFILMY India ingestion is off; stored history kept' });
 
   const started = Date.now();
   const deadline = started + 50_000;

@@ -128,7 +128,7 @@ export default function SocialPosterTool() {
 
   const select = 'text-sm bg-surface border border-border rounded-full h-10 px-4 text-text';
   const opts = basis === 'advance' ? advanceOptions : dayOptions.filter((d) => basis !== 'cumulative' || d >= 1);
-  const pill = (on: boolean) => `text-xs font-semibold px-3 py-1.5 rounded-full border ${on ? 'bg-gold/[0.12] border-gold/40 text-gold' : 'border-border text-textDim'}`;
+  const pill = (on: boolean) => `text-xs font-semibold px-3 py-1.5 rounded-full border ${on ? 'bg-white border-white text-black' : 'border-border text-textDim'}`;
 
   return (
     <div className="grid lg:grid-cols-[360px_1fr] gap-5">
@@ -249,7 +249,7 @@ export default function SocialPosterTool() {
             <input type="checkbox" checked={watermark} onChange={(e) => setWatermark(e.target.checked)} /> Watermark
           </label>
         </div>
-        <button type="button" disabled={!url} onClick={download} className="inline-flex items-center justify-center gap-2 bg-gold text-white font-semibold rounded-full h-10 text-sm disabled:opacity-40">
+        <button type="button" disabled={!url} onClick={download} className="inline-flex items-center justify-center gap-2 bg-white text-black hover:bg-zinc-200 font-semibold rounded-full h-10 text-sm disabled:opacity-40">
           <Download size={16} /> Download PNG
         </button>
       </Card>
