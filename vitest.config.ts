@@ -18,7 +18,8 @@ export default defineConfig({
     environment: 'node',
     env: {
       NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key'
+      SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key'
     }
   }
 });

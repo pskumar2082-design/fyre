@@ -13,6 +13,8 @@ import ListingMatchingTool from '@/components/admin/ListingMatchingTool';
 import CatalogTool from '@/components/admin/CatalogTool';
 import SourceStatusTool from '@/components/admin/SourceStatusTool';
 import FyreRichTextEditor from '@/components/admin/FyreRichTextEditor';
+import NewsroomTool from '@/components/admin/newsroom/NewsroomTool';
+import MoviesV2Tool from '@/components/admin/movies/MoviesV2Tool';
 import ArticleBody from '@/components/ArticleBody';
 import { sanitizeArticleHtml } from '@/lib/richText/sanitize';
 import { legacyContentToHtml } from '@/lib/richText/legacyToHtml';
@@ -274,6 +276,9 @@ export default function AdminPage() {
   }, []);
 
   if (loading) return <div className="max-w-md mx-auto px-5 py-16 text-textFaint">Loading…</div>;
+  // Local screenshots only: `next dev` with NEXT_PUBLIC_ADMIN_DEV_PREVIEW=1.
+  // A production build sets NODE_ENV=production, so this branch is removed.
+  if (!session && process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_ADMIN_DEV_PREVIEW === '1') return <AdminShell />;
   if (!session) return <SignIn />;
   return <AdminShell />;
 }
@@ -329,13 +334,17 @@ const USA_MAP_KEY = 'usa-matching';
 const INDIA_MAP_KEY = 'india-matching';
 const CATALOG_KEY = 'fyre-catalog';
 const SOURCES_KEY = 'sources';
+const NEWSROOM_KEY = 'newsroom';
+const MOVIES_V2_KEY = 'movies-v2';
+// Fyre v2 tabs appear only when the v2 switch is on (NEXT_PUBLIC_FYRE_V2=1).
+const V2 = process.env.NEXT_PUBLIC_FYRE_V2 === '1';
 
 function AdminShell() {
-  const [activeKey, setActiveKey] = useState<string>(SECTIONS[0].key);
+  const [activeKey, setActiveKey] = useState<string>(V2 ? NEWSROOM_KEY : SECTIONS[0].key);
   const active = SECTIONS.find((s) => s.key === activeKey) ?? null;
 
   return (
-    <div className={`fx-container py-8 ${activeKey === SOCIAL_POSTER_KEY || activeKey === SOURCES_KEY ? 'max-w-7xl' : 'max-w-4xl'}`}>
+    <div className={`fx-container py-8 ${activeKey === SOCIAL_POSTER_KEY || activeKey === SOURCES_KEY || activeKey === NEWSROOM_KEY || activeKey === MOVIES_V2_KEY ? 'max-w-7xl' : 'max-w-4xl'}`}>
       <div className="flex justify-between items-center mb-6">
         <h1 className="hdisplay gtext text-2xl">fyre admin</h1>
         <button
@@ -347,6 +356,19 @@ function AdminShell() {
       </div>
 
       <div className="flex gap-6 flex-wrap mb-6 border-b border-border overflow-x-auto">
+        {V2 &&
+          [
+            [NEWSROOM_KEY, 'Newsroom'],
+            [MOVIES_V2_KEY, 'Movies (v2)']
+          ].map(([k, l]) => (
+            <button
+              key={k}
+              onClick={() => setActiveKey(k)}
+              className={`text-sm font-medium pb-3 border-b-[3px] -mb-px transition whitespace-nowrap ${activeKey === k ? 'text-gold border-gold' : 'text-textFaint border-transparent hover:text-gold'}`}
+            >
+              {l}
+            </button>
+          ))}
         {SECTIONS.map((s) => (
           <button
             key={s.key}
@@ -402,7 +424,11 @@ function AdminShell() {
 
       {/* key={active.key} remounts the Dashboard on tab switch, which resets
           all its form/list state for free instead of a manual reset effect. */}
-      {active ? (
+      {activeKey === NEWSROOM_KEY ? (
+        <NewsroomTool />
+      ) : activeKey === MOVIES_V2_KEY ? (
+        <MoviesV2Tool />
+      ) : active ? (
         <Dashboard key={active.key} section={active} />
       ) : activeKey === TRACKED_KEY ? (
         <TrackedMoviesTool />

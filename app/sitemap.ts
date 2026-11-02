@@ -2,6 +2,9 @@ import type { MetadataRoute } from 'next';
 import { supabase } from '@/lib/supabaseClient';
 import { getLiveMovies, getCompletedMovies } from '@/lib/bfilmy/source';
 import { SITE_URL } from '@/lib/siteConfig';
+import { newsroomEnabled, sportsEnabled, moviesV2Enabled } from '@/lib/v2/flags';
+import { publicArticles, categories } from '@/lib/newsroom/public';
+import { articlePath } from '@/lib/newsroom/categories';
 
 // This is what actually gets every movie/news/review page in front of
 // Google, not just the homepage -- the gap that mattered most, since
@@ -52,5 +55,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6
   }));
 
-  return [...staticRoutes, ...movieRoutes, ...newsRoutes, ...reviewRoutes];
+  // Fyre v2 sections, each only once its switch is on. Sample articles
+  // (local test content) are never listed.
+  const v2Routes: MetadataRoute.Sitemap = [];
+  if (sportsEnabled()) for (const p of ['/sports', '/live-scores', '/sports/cricket']) v2Routes.push({ url: `${SITE_URL}${p}`, changeFrequency: 'hourly', priority: 0.8 });
+  if (moviesV2Enabled()) v2Routes.push({ url: `${SITE_URL}/movies`, changeFrequency: 'hourly', priority: 0.9 });
+  if (newsroomEnabled()) {
+    v2Routes.push({ url: `${SITE_URL}/politics`, changeFrequency: 'hourly', priority: 0.8 }, { url: `${SITE_URL}/editorial-policy`, changeFrequency: 'yearly', priority: 0.2 });
+    for (const c of await categories()) v2Routes.push({ url: `${SITE_URL}/${c.section}/${c.slug}`, changeFrequency: 'hourly', priority: 0.6 });
+    for (const a of await publicArticles({ limit: 500 })) if (!a.isSample) v2Routes.push({ url: `${SITE_URL}${articlePath(a)}`, lastModified: new Date(a.updatedAt), changeFrequency: 'weekly', priority: 0.7 });
+  }
+
+  return [...staticRoutes, ...v2Routes, ...movieRoutes, ...newsRoutes, ...reviewRoutes];
 }

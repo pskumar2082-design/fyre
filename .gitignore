@@ -4,3 +4,7 @@ node_modules
 .vercel
 tsconfig.tsbuildinfo
 brand/
+
+# Fyre v2 local development data (never committed)
+.data/
+public/dev-uploads/

@@ -8,22 +8,30 @@ import { SITE_URL } from '@/lib/siteConfig';
 import { stripTables } from '@/lib/articleTable';
 import ArticleBody from '@/components/ArticleBody';
 
+import { newsroomEnabled } from '@/lib/v2/flags';
+import { SectionIndex, sectionMetadata, pageParam } from '@/components/newsroom/SectionPages';
+
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
+
+// /news/<uuid> is a news article from the original admin (kept working
+// forever). Anything else is a newsroom category, e.g. /news/telangana.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Per-article <title>/description/Open Graph card -- without this, every
 // shared news link fell back to the site-wide homepage title/description
 // (and, before the root layout got a fallback image, no image at all),
 // so a link pasted into X/WhatsApp/etc. couldn't tell one article's card
 // apart from another's or from the homepage's.
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const { data: n, error } = await supabase.from('news').select('*').eq('id', params.id).single();
+export async function generateMetadata({ params }: { params: { key: string } }): Promise<Metadata> {
+  if (!UUID_RE.test(params.key)) return newsroomEnabled() ? sectionMetadata('news', params.key) : {};
+  const { data: n, error } = await supabase.from('news').select('*').eq('id', params.key).single();
   if (!n) {
-    if (error) console.error('generateMetadata(news): failed to fetch article from Supabase', params.id, error);
+    if (error) console.error('generateMetadata(news): failed to fetch article from Supabase', params.key, error);
     return {};
   }
 
   const description = (n.excerpt || stripTables(n.content || '')).slice(0, 200);
-  const url = `${SITE_URL}/news/${params.id}`;
+  const url = `${SITE_URL}/news/${params.key}`;
 
   return {
     title: n.title,
@@ -45,10 +53,14 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default async function NewsDetailPage({ params }: { params: { id: string } }) {
-  const { data: n, error } = await supabase.from('news').select('*').eq('id', params.id).single();
+export default async function NewsDetailPage({ params, searchParams }: { params: { key: string }; searchParams?: { page?: string } }) {
+  if (!UUID_RE.test(params.key)) {
+    if (!newsroomEnabled()) return notFound();
+    return <SectionIndex section="news" categorySlug={params.key} page={pageParam(searchParams?.page)} />;
+  }
+  const { data: n, error } = await supabase.from('news').select('*').eq('id', params.key).single();
   if (!n) {
-    if (error) console.error('NewsDetailPage: failed to fetch article from Supabase', params.id, error);
+    if (error) console.error('NewsDetailPage: failed to fetch article from Supabase', params.key, error);
     return notFound();
   }
 

@@ -5,16 +5,25 @@ import { supabase } from '@/lib/supabaseClient';
 import type { Metadata } from 'next';
 import { SITE_URL } from '@/lib/siteConfig';
 
-export const metadata: Metadata = {
+const metadata: Metadata = {
   title: 'Telugu Cinema News',
   description: 'Latest Telugu film industry news, updates and announcements.',
   alternates: { canonical: `${SITE_URL}/news` }
 };
 import { Card, SectionHeading, EmptyState } from '@/components/ui';
 
+import { newsroomEnabled } from '@/lib/v2/flags';
+import { SectionIndex, sectionMetadata, pageParam } from '@/components/newsroom/SectionPages';
+
 export const revalidate = 30; // re-fetch from Supabase at most every 30s
 
-export default async function NewsPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  return newsroomEnabled() ? sectionMetadata('news') : metadata;
+}
+
+export default async function NewsPage({ searchParams }: { searchParams?: { page?: string } }) {
+  // Fyre newsroom (NEWSROOM_ENABLED=1). Off: the existing news list below.
+  if (newsroomEnabled()) return <SectionIndex section="news" page={pageParam(searchParams?.page)} />;
   const { data, error } = await supabase.from('news').select('*').order('created_at', { ascending: false }).limit(200);
   if (error) console.error('NewsPage: failed to fetch news list from Supabase', error);
   const news = data ?? [];

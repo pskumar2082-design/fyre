@@ -4,14 +4,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { House, Film, ChartNoAxesColumnIncreasing, CalendarDays, Newspaper, Star, Search, GitCompareArrows, Menu, X } from 'lucide-react';
+import { House, Film, ChartNoAxesColumnIncreasing, CalendarDays, Newspaper, Star, Search, GitCompareArrows, Menu, X, Trophy, Landmark, Radio } from 'lucide-react';
 
 // App shell -- compact horizontal header measured from the frameXTV
 // reference: black bar, Fyre logo, white active pill (black text), zinc
 // inactive items, bordered utility pills on the right (Search with a "/"
 // key hint, Compare). Below lg the nav collapses into a left drawer with
 // the same pill treatment. Lucide icons throughout, stroke 2.
-const NAV = [
+const NAV_V1 = [
   { href: '/', label: 'Home', icon: House, exact: true },
   { href: '/now-showing', label: 'Now showing', icon: Film },
   { href: '/box-office', label: 'Box office', icon: ChartNoAxesColumnIncreasing },
@@ -20,8 +20,20 @@ const NAV = [
   { href: '/reviews', label: 'Reviews', icon: Star }
 ];
 
+// Fyre v2 (NEXT_PUBLIC_FYRE_V2=1): four sections, Home on the logo. The
+// Movies hub links on to Box Office, Upcoming and Reviews.
+const V2 = process.env.NEXT_PUBLIC_FYRE_V2 === '1';
+const NAV_V2 = [
+  { href: '/movies', label: 'Movies', icon: Film, exact: false },
+  { href: '/sports', label: 'Sports', icon: Trophy, exact: false },
+  { href: '/news', label: 'Latest News', icon: Newspaper, exact: false },
+  { href: '/politics', label: 'Politics', icon: Landmark, exact: false }
+];
+const NAV = V2 ? NAV_V2 : NAV_V1;
+
 function isActive(pathname: string, href: string, exact?: boolean) {
   if (exact) return pathname === href;
+  if (V2 && href === '/sports' && pathname.startsWith('/live-scores')) return true;
   return pathname === href || pathname.startsWith(href + '/');
 }
 
@@ -100,14 +112,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/search" aria-label="Search" className="sm:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg bg-surface border border-border text-text">
               <Search className="w-[18px] h-[18px]" />
             </Link>
-            <Link
-              href="/compare"
-              aria-current={isActive(pathname, '/compare') ? 'page' : undefined}
-              className={`${UTILITY} hidden md:inline-flex ${isActive(pathname, '/compare') ? '!bg-white !text-black !border-white' : ''}`}
-            >
-              <GitCompareArrows className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px] flex-none" strokeWidth={2} />
-              Compare
-            </Link>
+            {V2 ? (
+              <Link href="/live-scores" aria-current={isActive(pathname, '/live-scores') ? 'page' : undefined} className={`${UTILITY} hidden md:inline-flex`}>
+                <span className="w-2 h-2 rounded-full bg-red animate-pulse flex-none" />
+                Live scores
+              </Link>
+            ) : (
+              <Link
+                href="/compare"
+                aria-current={isActive(pathname, '/compare') ? 'page' : undefined}
+                className={`${UTILITY} hidden md:inline-flex ${isActive(pathname, '/compare') ? '!bg-white !text-black !border-white' : ''}`}
+              >
+                <GitCompareArrows className="w-4 h-4 2xl:w-[18px] 2xl:h-[18px] flex-none" strokeWidth={2} />
+                Compare
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -128,7 +147,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </button>
             </div>
             <nav className="p-3 flex flex-col gap-1" aria-label="Main">
-              {[...NAV, { href: '/compare', label: 'Compare', icon: GitCompareArrows, exact: false }].map((item) => {
+              {(V2 ? [{ href: '/', label: 'Home', icon: House, exact: true }, ...NAV, { href: '/live-scores', label: 'Live scores', icon: Radio, exact: false }] : [...NAV, { href: '/compare', label: 'Compare', icon: GitCompareArrows, exact: false }]).map((item) => {
                 const active = isActive(pathname, item.href, item.exact);
                 const Icon = item.icon;
                 return (
@@ -158,7 +177,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span className="font-mono text-xs text-textFaint">© {new Date().getFullYear()} fyre</span>
           </div>
           <nav className="flex items-center flex-wrap justify-center gap-x-5 gap-y-2" aria-label="Footer">
-            {[...NAV, { href: '/compare', label: 'Compare' }].map((item) => (
+            {(V2 ? [...NAV, { href: '/live-scores', label: 'Live scores' }, { href: '/editorial-policy', label: 'Editorial policy' }] : [...NAV, { href: '/compare', label: 'Compare' }]).map((item) => (
               <Link key={item.href} href={item.href} className="text-sm text-textFaint hover:text-white transition-colors">
                 {item.label}
               </Link>

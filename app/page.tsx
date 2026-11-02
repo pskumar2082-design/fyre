@@ -10,6 +10,8 @@ import MovieCard from '@/components/MovieCard';
 import Rail from '@/components/Rail';
 import ReviewCard from '@/components/ReviewCard';
 import HomeCompareSection from '@/components/compare/HomeCompareSection';
+import HomeV2 from '@/components/home/HomeV2';
+import { fyreV2 } from '@/lib/v2/flags';
 
 export const dynamic = 'force-dynamic';
 // Belt-and-braces alongside force-dynamic above: without this, supabase-js's own
@@ -145,6 +147,8 @@ function MovieRail({ title, subtitle, movies, href }: { title: string; subtitle:
 }
 
 export default async function HomePage() {
+  // Fyre v2 homepage (NEXT_PUBLIC_FYRE_V2=1). Off: today's homepage below.
+  if (fyreV2()) return <HomeV2 />;
   const { news, reviews, nowShowing, upcoming, upcomingRow, completed } = await getData();
   // Already ordered by the latest day's gross (lib/bfilmy/source.ts).
   const boxOfficeRow = [...completed].sort((a, b) => (b.grossCr ?? 0) - (a.grossCr ?? 0)).slice(0, 18);
