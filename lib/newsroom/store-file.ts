@@ -26,29 +26,42 @@ function file(): string {
   return process.env.NEWSROOM_FILE ?? path.join(process.cwd(), '.data', 'newsroom.json');
 }
 
+// Preview sandbox (NEWSROOM_STORE=memory): the same sample newsroom, held in
+// this server instance's memory instead of a file. Nothing is written to
+// disk or to any database; edits disappear when the instance restarts.
+const memoryMode = () => process.env.NEWSROOM_STORE === 'memory';
+const g = globalThis as unknown as { __fyreNewsroomMemory?: Db };
+
+function seed(now: Date): Db {
+  return {
+    categories: DEFAULT_CATEGORIES,
+    articles: sampleArticles(now),
+    revisions: [],
+    banners: [
+      {
+        id: newId(),
+        text: 'Sample banner: breaking-news text set by an editor, with an end time',
+        link: '/news/breaking',
+        startsAt: new Date(now.getTime() - 3_600_000).toISOString(),
+        endsAt: new Date(now.getTime() + 30 * 86_400_000).toISOString(),
+        active: true,
+        createdBy: 'sample',
+        updatedAt: now.toISOString()
+      }
+    ],
+    home: DEFAULT_HOME_SECTIONS,
+    views: {}
+  };
+}
+
 function load(): Db {
+  if (memoryMode()) {
+    if (!g.__fyreNewsroomMemory) g.__fyreNewsroomMemory = seed(new Date());
+    return g.__fyreNewsroomMemory;
+  }
   const f = file();
   if (!fs.existsSync(f)) {
-    const now = new Date();
-    const db: Db = {
-      categories: DEFAULT_CATEGORIES,
-      articles: sampleArticles(now),
-      revisions: [],
-      banners: [
-        {
-          id: newId(),
-          text: 'Sample banner: breaking-news text set by an editor, with an end time',
-          link: '/news/breaking',
-          startsAt: new Date(now.getTime() - 3_600_000).toISOString(),
-          endsAt: new Date(now.getTime() + 30 * 86_400_000).toISOString(),
-          active: true,
-          createdBy: 'sample',
-          updatedAt: now.toISOString()
-        }
-      ],
-      home: DEFAULT_HOME_SECTIONS,
-      views: {}
-    };
+    const db = seed(new Date());
     save(db);
     return db;
   }
@@ -56,6 +69,10 @@ function load(): Db {
 }
 
 function save(db: Db) {
+  if (memoryMode()) {
+    g.__fyreNewsroomMemory = db;
+    return;
+  }
   const f = file();
   fs.mkdirSync(path.dirname(f), { recursive: true });
   const tmp = `${f}.${process.pid}.tmp`;
@@ -179,4 +196,8 @@ export function fileStore(): NewsroomStore {
       return Object.entries(db.views).map(([articleId, days]) => ({ articleId, views: Object.entries(days).filter(([d]) => d >= day).reduce((s, [, n]) => s + n, 0) }));
     }
   };
+}
+
+export function memoryStore(): NewsroomStore {
+  return { ...fileStore(), kind: 'memory' };
 }

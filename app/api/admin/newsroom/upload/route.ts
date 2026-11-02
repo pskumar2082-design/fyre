@@ -16,6 +16,10 @@ const MAX_BYTES = 2 * 1024 * 1024; // the editor resizes to ~500 KB before uploa
 // by git).
 export async function POST(req: NextRequest) {
   if (!(await v2Admin(req))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  // Preview sandbox: no storage writes at all.
+  if (process.env.NEWSROOM_STORE === 'memory') {
+    return NextResponse.json({ error: 'Image uploads are switched off on the Preview, so nothing is written to storage. They work once the newsroom uses Supabase.' }, { status: 403 });
+  }
   const form = await req.formData().catch(() => null);
   const file = form?.get('file');
   if (!(file instanceof Blob)) return NextResponse.json({ error: 'No file' }, { status: 400 });

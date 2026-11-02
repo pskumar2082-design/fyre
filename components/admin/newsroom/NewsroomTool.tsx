@@ -66,6 +66,7 @@ export default function NewsroomTool() {
           ))}
         </div>
         {storeKind === 'file' && <span className="font-mono text-[11px] text-amber">Local file store: changes stay on this computer</span>}
+        {storeKind === 'memory' && <span className="font-mono text-[11px] text-amber">Preview sandbox: test data, changes are not saved</span>}
       </div>
       {tab === 'articles' &&
         (editingId ? (
@@ -111,12 +112,12 @@ function ArticleList({ onOpen, onNew, categories }: { onOpen: (id: string) => vo
             {s ? s[0].toUpperCase() + s.slice(1) : 'All'}
           </button>
         ))}
-        <select value={section} onChange={(e) => setSection(e.target.value)} className={`${input} w-auto h-8 py-0`}>
+        <select value={section} onChange={(e) => setSection(e.target.value)} className={`${input} !w-auto h-9 py-1`}>
           <option value="">News and Politics</option>
           <option value="news">News</option>
           <option value="politics">Politics</option>
         </select>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search headlines" className={`${input} w-48 h-8 py-0`} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search headlines" className={`${input} !w-48 h-9 py-1`} />
         <button onClick={onNew} className={`${btnPrimary} ml-auto`}>
           <Plus className="w-4 h-4" /> New article
         </button>

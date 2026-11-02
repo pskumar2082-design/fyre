@@ -27,7 +27,12 @@ function flagsFile() {
   return process.env.MOVIES_FLAGS_FILE ?? path.join(process.cwd(), '.data', 'movies-flags.json');
 }
 
+// Preview sandbox: admin selections are kept in memory, never on disk.
+const mem = globalThis as unknown as { __fyreMovieFlags?: Record<string, Partial<MovieFlags>> };
+const inMemory = () => process.env.FYRE_PREVIEW_SANDBOX === '1' || !!process.env.VERCEL;
+
 export function readDemoFlags(): Record<string, Partial<MovieFlags>> {
+  if (inMemory()) return mem.__fyreMovieFlags ?? {};
   try {
     return JSON.parse(fs.readFileSync(flagsFile(), 'utf8'));
   } catch {
@@ -36,6 +41,10 @@ export function readDemoFlags(): Record<string, Partial<MovieFlags>> {
 }
 
 export function writeDemoFlags(all: Record<string, Partial<MovieFlags>>) {
+  if (inMemory()) {
+    mem.__fyreMovieFlags = all;
+    return;
+  }
   fs.mkdirSync(path.dirname(flagsFile()), { recursive: true });
   fs.writeFileSync(flagsFile(), JSON.stringify(all, null, 1));
 }

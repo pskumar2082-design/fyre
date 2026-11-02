@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { adminUser } from '@/lib/adminAuth';
-import { adminDevPreview } from './flags';
+import { adminDevPreview, previewSandbox } from './flags';
 
 // The signed-in admin's email for v2 admin routes, or null when the caller
 // is not signed in. Same Supabase session check as every other admin route.
@@ -9,6 +9,7 @@ import { adminDevPreview } from './flags';
 // production build.
 export async function v2Admin(req: NextRequest): Promise<string | null> {
   if (adminDevPreview()) return 'local-preview@fyre.test';
+  if (previewSandbox()) return 'preview-sandbox@fyre.test';
   const u = await adminUser(req);
   return u ? (u.email ?? u.id) : null;
 }

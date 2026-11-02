@@ -73,6 +73,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-bg">
+      {process.env.NEXT_PUBLIC_FYRE_PREVIEW_SANDBOX === '1' && (
+        <div className="bg-amber text-black text-center text-xs font-semibold py-1 px-3">
+          Fyre v2 Preview: test data only. Not the live site, nothing here is saved.
+        </div>
+      )}
       <header className="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-surface2">
         <div className="fx-container h-16 2xl:h-[76px] flex items-center gap-3">
           <button

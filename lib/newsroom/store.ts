@@ -14,7 +14,7 @@ export type ArticleQuery = {
 };
 
 export interface NewsroomStore {
-  kind: 'file' | 'supabase';
+  kind: 'file' | 'memory' | 'supabase';
   listCategories(): Promise<Category[]>;
   saveCategory(c: Category): Promise<Category>;
   listArticles(q: ArticleQuery): Promise<{ items: Article[]; total: number }>;
@@ -36,14 +36,22 @@ export interface NewsroomStore {
 
 export class NewsroomUnavailableError extends Error {}
 
-// NEWSROOM_STORE=supabase in deployed environments (cms_* tables), or
-// file for local development (a JSON file under .data/, never committed).
+// NEWSROOM_STORE=supabase in deployed environments (cms_* tables), file for
+// local development (a JSON file under .data/, never committed), or memory
+// for the Vercel Preview sandbox (test data, nothing saved).
 export async function getNewsroomStore(): Promise<NewsroomStore> {
   const kind = process.env.NEWSROOM_STORE ?? 'supabase';
   if (kind === 'file') {
     if (isVercelProduction() || process.env.VERCEL) throw new NewsroomUnavailableError('The local file store cannot run on Vercel');
     const { fileStore } = await import('./store-file');
     return fileStore();
+  }
+  if (kind === 'memory') {
+    // Preview sandbox: sample articles held in this server's memory. Edits
+    // last only as long as the server instance; nothing is written anywhere.
+    if (isVercelProduction()) throw new NewsroomUnavailableError('The in-memory test store cannot run in production');
+    const { memoryStore } = await import('./store-file');
+    return memoryStore();
   }
   if (kind === 'supabase') {
     const { supabaseStore } = await import('./store-supabase');

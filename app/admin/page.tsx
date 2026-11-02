@@ -279,6 +279,10 @@ export default function AdminPage() {
   // Local screenshots only: `next dev` with NEXT_PUBLIC_ADMIN_DEV_PREVIEW=1.
   // A production build sets NODE_ENV=production, so this branch is removed.
   if (!session && process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_ADMIN_DEV_PREVIEW === '1') return <AdminShell />;
+  // Vercel Preview sandbox (feature/fyre-v2* branches only, never Production):
+  // the Preview URL is behind Vercel Authentication and every v2 store is
+  // in-memory test data, so no Supabase sign-in is used here.
+  if (SANDBOX) return <AdminShell />;
   if (!session) return <SignIn />;
   return <AdminShell />;
 }
@@ -338,6 +342,9 @@ const NEWSROOM_KEY = 'newsroom';
 const MOVIES_V2_KEY = 'movies-v2';
 // Fyre v2 tabs appear only when the v2 switch is on (NEXT_PUBLIC_FYRE_V2=1).
 const V2 = process.env.NEXT_PUBLIC_FYRE_V2 === '1';
+// Preview sandbox: only the v2 tabs are shown, so nothing in the admin can
+// write to the production database from a Preview deployment.
+const SANDBOX = process.env.NEXT_PUBLIC_FYRE_PREVIEW_SANDBOX === '1';
 
 function AdminShell() {
   const [activeKey, setActiveKey] = useState<string>(V2 ? NEWSROOM_KEY : SECTIONS[0].key);
@@ -369,6 +376,7 @@ function AdminShell() {
               {l}
             </button>
           ))}
+        {!SANDBOX && (<>
         {SECTIONS.map((s) => (
           <button
             key={s.key}
@@ -420,6 +428,7 @@ function AdminShell() {
         >
           Social poster
         </button>
+        </>)}
       </div>
 
       {/* key={active.key} remounts the Dashboard on tab switch, which resets

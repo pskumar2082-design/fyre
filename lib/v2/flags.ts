@@ -43,3 +43,12 @@ export function isVercelProduction(): boolean {
 export function adminDevPreview(): boolean {
   return process.env.NODE_ENV === 'development' && process.env.ADMIN_DEV_PREVIEW === '1' && !process.env.VERCEL;
 }
+
+// The Vercel Preview sandbox for the feature/fyre-v2* branches (see
+// lib/v2/previewEnv.js): every source is in-memory test data, admin needs
+// no sign-in (the Preview URL itself is behind Vercel Authentication), and
+// middleware.ts blocks every route that could write to Supabase or call a
+// feed. Never true on Vercel Production.
+export function previewSandbox(): boolean {
+  return process.env.FYRE_PREVIEW_SANDBOX === '1' && process.env.VERCEL_ENV !== 'production';
+}

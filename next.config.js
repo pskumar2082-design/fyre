@@ -1,5 +1,10 @@
+const { previewSandboxEnv } = require('./lib/v2/previewEnv.js');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Fyre v2 Preview sandbox: only on Vercel Preview builds of feature/fyre-v2*
+  // branches, never on Production (see lib/v2/previewEnv.js). Empty otherwise.
+  env: previewSandboxEnv(process.env),
   // isomorphic-dompurify (lib/richText/sanitize.ts, used to sanitize
   // article HTML on every News/Review render) pulls in jsdom, which does
   // its own dynamic/conditional requires internally. Left to Next's
