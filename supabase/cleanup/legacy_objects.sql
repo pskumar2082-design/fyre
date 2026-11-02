@@ -1,0 +1,24 @@
+-- Fyre legacy clean-up: the exact list of objects in scope. Nov 2026.
+-- Read by 01_quarantine.sql, 01_quarantine_undo.sql and 02_drop.sql (each
+-- repeats this list verbatim so it can be run on its own in the SQL Editor).
+--
+-- 34 tables (old movie and box-office system):
+--   BFILMY India  bf_detail_file bf_listing bf_movie bf_movie_breakdown bf_movie_day
+--                 bf_movie_day_detail bf_show bf_sync_state bf_title_key bf_venue
+--   BFILMY USA    us_advance_snapshot us_movie_breakdown us_movie_day us_movie_map
+--                 us_show us_sync_file
+--   MovieMint     mmi_catalog mmi_fetch mmi_movie mmi_movie_day mmi_snapshot
+--                 mm_movie moviemint_match_review
+--   Fyre catalog  fyre_tracked_movie fyre_movie_alias
+--   Older sources tt_daily_snapshot source_snapshots box_office_breakdown
+--                 multiplex_breakdown live_box_office daily_collections
+--                 movie_versions now_showing upcoming
+-- 19 functions: bf_db_size bf_dim_sum bf_movie_cumulative bf_movie_days
+--   bf_prune_advance bf_prune_breakdowns bf_prune_shows bf_refresh_movies
+--   bf_summary_dim_sum bf_upsert_venues bf_venue_rollup mmi_city_format_sum
+--   mmi_movie_cumulative mmi_movie_days mmi_prune_breakdowns mmi_prune_snapshots
+--   mmi_snapshot_series mmi_summary_dim_sum us_prune
+--
+-- NOT in scope (kept): auth schema and the admin account, storage schema,
+-- news, reviews, gallery, social_import (pending your decision for the first
+-- three), and every new v2 table (sp_*, cms_*, mv_*, sk_*).
